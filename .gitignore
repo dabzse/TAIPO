@@ -1,5 +1,6 @@
 .env
 composer.lock
+kanban.sqlite
 vendor
 
 __OFFLINE
