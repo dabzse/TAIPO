@@ -1,4 +1,5 @@
 .env
+.vscode
 composer.lock
 kanban.sqlite
 vendor
