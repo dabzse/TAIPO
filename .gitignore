@@ -1,7 +1,8 @@
-.env
-.vscode
-composer.lock
-kanban.sqlite
-vendor
-
 __OFFLINE
+
+# Backend
+backend/.env
+backend/vendor/
+backend/composer.lock
+backend/kanban.sqlite
+

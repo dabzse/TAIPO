@@ -1,0 +1,12 @@
+{
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+
+    "[php]": {
+        "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
+    },
+
+    // CHANGE ${workspaceFolder} to your real path
+    "phpResolver.phpBeautifierCommand": "${workspaceFolder}/backend/vendor/bin/phpcbf",
+    "phpResolver.phpSnifferCommand": "${workspaceFolder}/backend/tools/phpcs.sh"
+}
