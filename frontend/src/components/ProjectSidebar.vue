@@ -60,11 +60,21 @@
 
                 <!-- Load Existing -->
                 <li class="menu-title">Load Existing</li>
+                <li v-if="loadingProjects" class="px-4 text-sm opacity-50">Loading projects...</li>
+                <li v-else-if="projectLoadError" class="px-4 text-sm text-error mb-2">{{ projectLoadError }}</li>
                 <li>
-                    <select class="select select-bordered w-full" v-model="selectedProject" @change="loadProject">
-                        <option disabled value="">Select a project</option>
+                    <select
+                        class="select select-bordered w-full"
+                        v-model="selectedProject"
+                        @change="loadProject"
+                        :disabled="loadingProjects || projects.length === 0"
+                    >
+                        <option disabled value="">
+                            {{ projects.length === 0 ? 'No projects found' : 'Select a project' }}
+                        </option>
                         <option v-for="proj in projects" :key="proj" :value="proj">{{ proj }}</option>
                     </select>
+                    <button v-if="projectLoadError" @click="fetchProjects" class="btn btn-xs btn-ghost mt-1 w-full">Retry</button>
                 </li>
 
                 <div class="divider"></div>
@@ -100,7 +110,9 @@ const projectName = ref('');
 const prompt = ref('');
 const selectedProject = ref('');
 const projects = ref([]);
-const loading = ref(false);
+const loading = ref(false); // For generation
+const loadingProjects = ref(false);
+const projectLoadError = ref(null);
 
 const DEFAULT_PROMPT = "Plan a project named {{PROJECT_NAME}}! Generate at least 10 tasks for the Kanban board covering basic development steps. Provide each task on a new line without any prefix (e.g. [SPRINT BACKLOG]:) so they all go into the **SPRINT BACKLOG** column. Do not include introductory text.";
 
@@ -135,6 +147,8 @@ const loadProject = () => {
 };
 
 const fetchProjects = async () => {
+    loadingProjects.value = true;
+    projectLoadError.value = null;
     try {
         const res = await api.getProjects();
         // Adjust based on actual API response structure
@@ -143,6 +157,8 @@ const fetchProjects = async () => {
             projects.value = res;
         } else if (res.projects) {
             projects.value = res.projects;
+        } else if (res.existingProjects) { // Handle explicit key return
+            projects.value = res.existingProjects;
         }
 
         // Auto-select first project or default
@@ -151,15 +167,17 @@ const fetchProjects = async () => {
                 selectedProject.value = projects.value[0];
                 loadProject();
             }
-        } else {
+        } else if (!selectedProject.value) {
             // No projects exist, default to "Project Name Goes Here" for prototype experience
             selectedProject.value = "Project Name Goes Here";
-            // We don't need to 'create' it via API, as addTask will use this name
-            // effectively creating it on the fly in the backend logic if not strictly validated (it isn't separate table)
             loadProject();
         }
     } catch (e) {
         console.error("Failed to load projects", e);
+        projectLoadError.value = "Failed to load projects. Backend may be offline.";
+        // On error, we might still want to allow creating a new one, so don't lock everything.
+    } finally {
+        loadingProjects.value = false;
     }
 };
 

@@ -8,42 +8,66 @@
                 <div class="badge badge-ghost">{{ tasks[title]?.length || 0 }}</div>
             </div>
 
-            <!-- Add Task Button (Only for Backlog) -->
+            <!-- Add Task Button (Top - Only for Backlog) -->
             <div v-if="title.includes('BACKLOG')" class="p-2">
-                <button class="btn btn-block btn-sm btn-ghost border-dashed border-2 border-base-300" @click="addTask">
-                    + Add Task
+                <button
+                    class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                    @click="openAddTaskModal"
+                >
+                    Add Task
                 </button>
             </div>
 
-            <!-- Task List -->
-            <div
+            <!-- Task List (Draggable) -->
+            <draggable
+                v-if="tasks[title]"
+                v-model="tasks[title]"
+                group="tasks"
+                @change="onDraggableChange($event, title)"
+                item-key="id"
                 class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]"
-                @dragover.prevent
-                @drop="onDrop($event, title)"
+                ghost-class="opacity-50"
             >
-                <TaskCard
-                    v-for="task in tasks[title]"
-                    :key="task.id"
-                    :task="task"
-                    @dragstart="onDragStart($event, task)"
-                    @delete="$emit('task-deleted', task.id)"
-                    @toggle-imp="$emit('task-updated')"
-                    @decompose="$emit('decompose', $event)"
-                    @generate-code="$emit('generate-code', $event)"
-                />
+                <template #item="{ element }">
+                    <TaskCard
+                        :task="element"
+                        @delete="$emit('task-deleted', element.id)"
+                        @toggle-imp="$emit('task-updated')"
+                        @decompose="$emit('decompose', element)"
+                        @generate-code="$emit('generate-code', element)"
+                    />
+                </template>
+            </draggable>
+            <!-- Fallback if tasks[title] is undefined/null to prevent draggable error -->
+            <div v-else class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px] flex items-center justify-center text-base-content/50 italic">
+                No tasks data
+            </div>
 
-                <div v-if="!tasks[title]?.length" class="text-center p-8 text-base-content/50 italic">
-                    No tasks here
-                </div>
+            <!-- Add Task Button (Bottom - Only for Backlog) -->
+            <div v-if="title.includes('BACKLOG')" class="p-2 mt-auto">
+                <button
+                    class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                    @click="openAddTaskModal"
+                >
+                    Add Task
+                </button>
             </div>
 
         </div>
+
+        <TaskModal
+            :is-open="isTaskModalOpen"
+            @close="isTaskModalOpen = false"
+            @save="handleAddTask"
+        />
     </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { ref, defineProps, defineEmits } from 'vue';
+import draggable from 'vuedraggable';
 import TaskCard from './TaskCard.vue';
+import TaskModal from './modals/TaskModal.vue';
 import { api } from '../services/api';
 
 const props = defineProps({
@@ -52,36 +76,44 @@ const props = defineProps({
     currentProject: String
 });
 
-const emit = defineEmits(['task-updated', 'task-deleted', 'task-added']);
+const emit = defineEmits(['task-updated', 'task-deleted', 'task-added', 'decompose', 'generate-code']);
+
+const isTaskModalOpen = ref(false);
 
 const getResultingColor = (style) => {
     // Mapping internal style names to DaisyUI/Tailwind colors if needed
-    // 'info', 'danger', 'warning', 'primary', 'success' map well to DaisyUI classes
     if (style === 'danger') return 'error';
     return style;
 };
 
-const onDragStart = (event, task) => {
-    event.dataTransfer.setData('taskId', task.id);
-    event.dataTransfer.setData('originCol', task.status);
-};
-
-const onDrop = async (event, newStatus) => {
-    const taskId = event.dataTransfer.getData('taskId');
-    if (!taskId) return;
-
-    try {
-        await api.updateStatus(taskId, newStatus, props.currentProject);
-        emit('task-updated');
-    } catch (e) {
-        alert(e.response?.data?.error || "Failed to move task");
+const onDraggableChange = async (event, newStatus) => {
+    if (event.added) {
+        const task = event.added.element;
+        try {
+            await api.updateStatus(task.id, newStatus, props.currentProject);
+            emit('task-updated');
+        } catch (e) {
+            console.error("Failed to update status", e);
+            alert(e.response?.data?.error || "Failed to move task");
+            emit('task-updated'); // Revert by refreshing from server
+        }
     }
 };
 
-const addTask = async () => {
-    const desc = prompt("New Task Description:");
-    if (!desc) return;
-    await api.addTask(props.currentProject, desc);
-    emit('task-added');
+const openAddTaskModal = () => {
+    isTaskModalOpen.value = true;
+};
+
+const handleAddTask = async (description) => {
+    // Close modal immediately
+    isTaskModalOpen.value = false;
+
+    if (!description) return;
+    try {
+        await api.addTask(props.currentProject, description);
+        emit('task-added');
+    } catch (e) {
+        alert("Failed to add task: " + e.message);
+    }
 };
 </script>
