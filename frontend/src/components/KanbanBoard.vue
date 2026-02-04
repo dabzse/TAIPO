@@ -33,6 +33,7 @@
                         :task="element"
                         @delete="$emit('task-deleted', element.id)"
                         @toggle-imp="$emit('task-updated')"
+                        @task-updated="$emit('task-updated')"
                         @decompose="$emit('decompose', element)"
                         @generate-code="$emit('generate-code', element)"
                     />

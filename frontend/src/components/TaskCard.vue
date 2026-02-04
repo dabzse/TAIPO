@@ -10,7 +10,7 @@
         }"
         draggable="true"
     >
-        <div class="card-body p-3">
+        <div class="card-body p-3" @dblclick="enableEdit">
             <div class="flex justify-between items-start mb-2">
 
                 <!-- Priority Stars -->
@@ -40,7 +40,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
                     </button>
                     <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                        <li><a @click="enableEdit">✏️ Edit</a></li>
+                        <li><button @click.prevent="enableEdit">✏️ Edit</button></li>
                         <li><a @click="$emit('decompose', task)">🔨 Decompose Story</a></li>
                         <li><a @click="$emit('generate-code', task)">💻 Generate Code</a></li>
                         <li><a @click="$emit('delete')" class="text-error">🗑️ Delete</a></li>
@@ -59,11 +59,11 @@
                     v-model="editDescription"
                     class="textarea textarea-bordered textarea-xs w-full"
                     @blur="saveEdit"
-                    @keydown.enter.prevent="saveEdit"
+                    @keydown.enter.exact.prevent="saveEdit"
                     ref="editInput"
                 ></textarea>
             </div>
-            <p v-else class="text-sm whitespace-pre-wrap" @dblclick="enableEdit">{{ task.description }}</p>
+            <p v-else class="text-sm whitespace-pre-wrap">{{ task.description }}</p>
 
             <!-- PO Feedback -->
             <div v-if="task.po_comments" class="mt-2 text-xs bg-base-300 p-2 rounded border border-base-content/10">
