@@ -1,0 +1,12 @@
+__OFFLINE
+.vscode
+
+# Backend
+backend/.env
+backend/vendor/
+backend/composer.lock
+backend/kanban.sqlite
+
+# Frontend
+frontend/node_modules/
+frontend/dist
