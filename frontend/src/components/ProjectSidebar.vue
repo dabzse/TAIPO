@@ -2,8 +2,8 @@
     <div class="drawer z-20">
         <input
             v-model="drawerOpen"
-            id="my-drawer"
             type="checkbox"
+            id="my-drawer"
             class="drawer-toggle"
         >
         <div class="drawer-content">
