@@ -119,14 +119,31 @@ const getResultingColor = (style) => {
 };
 
 const onDraggableChange = async (event, newStatus) => {
+    let task = null;
+    let needsUpdate = false;
+
+    // Handle 'added' (moved from another column)
     if (event.added) {
-        const task = event.added.element;
+        task = event.added.element;
+        needsUpdate = true;
+    }
+    // Handle 'moved' (reordered within same column)
+    else if (event.moved) {
+        task = event.moved.element;
+        needsUpdate = true;
+    }
+
+    if (needsUpdate && task) {
+        // Get the new order of IDs in this column
+        const newTaskIds = props.tasks[newStatus].map(t => t.id);
+
         try {
-            await api.updateStatus(task.id, newStatus, props.currentProject);
+            // We use reorderTasks for both cases because it updates status AND position
+            await api.reorderTasks(props.currentProject, newStatus, newTaskIds);
             emit("task-updated");
         } catch (e) {
-            console.error("Failed to update status", e);
-            alert(e.response?.data?.error || "Failed to move task");
+            console.error("Failed to update status/order", e);
+            alert(e.response?.data?.error || "Failed to move/reorder task");
             emit("task-updated"); // Revert by refreshing from server
         }
     }

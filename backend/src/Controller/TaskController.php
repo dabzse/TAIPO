@@ -188,4 +188,25 @@ class TaskController
             echo json_encode(['success' => false, 'error' => "Error: " . $e->getMessage()]);
         }
     }
+    public function handleReorderTasks()
+    {
+        $projectName = $_POST['project_name'] ?? '';
+        $status = $_POST['status'] ?? '';
+        $taskIds = $_POST['task_ids'] ?? [];
+
+        if (!empty($projectName) && !empty($status) && is_array($taskIds)) {
+            try {
+                $this->taskService->reorderTasks($projectName, $status, $taskIds);
+                header(Config::APP_JSON);
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                error_log("Error reordering tasks: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => "Server error during reorder."]);
+            }
+        } else {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => "Invalid parameters for reorder."]);
+        }
+    }
 }

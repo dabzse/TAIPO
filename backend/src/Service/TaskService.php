@@ -25,13 +25,40 @@ class TaskService
 
     public function getTasksByProject(string $projectName): array
     {
-        $stmt = $this->pdo->prepare("SELECT id, description, status, is_important, generated_code, is_subtask, po_comments FROM tasks WHERE project_name = :projectName ORDER BY id ASC");
+        $stmt = $this->pdo->prepare("SELECT id, description, status, is_important, generated_code, is_subtask, po_comments, position FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
         $stmt->execute([':projectName' => $projectName]);
         $tasks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $tasks[] = $row;
         }
         return $tasks;
+    }
+
+    public function reorderTasks(string $projectName, string $status, array $taskIds): void
+    {
+        try {
+            $this->pdo->beginTransaction();
+
+            $priority = 0;
+            foreach ($taskIds as $taskId) {
+                // Verify task belongs to project (security check)
+                $stmt = $this->pdo->prepare("UPDATE tasks SET status = :status, position = :position WHERE id = :id AND project_name = :project_name");
+                $stmt->execute([
+                    ':status' => $status,
+                    ':position' => $priority,
+                    ':id' => $taskId,
+                    ':project_name' => $projectName
+                ]);
+                $priority++;
+            }
+
+            $this->pdo->commit();
+        } catch (Exception $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public function addTask(string $projectName, string $description, int $isImportant = 0): int

@@ -95,6 +95,15 @@ export const api = {
         });
     },
 
+    async reorderTasks(projectName, status, taskIds) {
+        return client.post('/', {
+            action: 'reorder_tasks',
+            project_name: projectName,
+            status: status,
+            task_ids: taskIds
+        });
+    },
+
     async createProject(name) {
         return client.post('/', {
             action: 'create_project',

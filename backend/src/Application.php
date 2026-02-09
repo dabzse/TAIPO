@@ -78,6 +78,9 @@ class Application
                 case 'update_status':
                     $this->taskController->handleUpdateStatus();
                     exit;
+                case 'reorder_tasks':
+                    $this->taskController->handleReorderTasks();
+                    exit;
                 case 'edit_task':
                     $this->taskController->handleEditTask();
                     exit;

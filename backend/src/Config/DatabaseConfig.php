@@ -23,6 +23,7 @@ class DatabaseConfig
                     is_subtask INTEGER DEFAULT 0,
                     po_comments TEXT DEFAULT NULL,
                     generated_code TEXT DEFAULT NULL,
+                    position INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'projects' => "CREATE TABLE IF NOT EXISTS projects (
