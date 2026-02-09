@@ -24,6 +24,7 @@ For detailed API usage, please refer to the [Developer API Documentation](API_DO
 ### 2. Obtain API Keys
 
 * **Google Gemini API:** Visit [Google AI Studio](https://aistudio.google.com/) and click **"Get API Key"**.
+  * to see which models are available, visit [Gemini API Models](https://ai.google.dev/gemini-api/docs/models)
 * **GitHub Personal Access Token (PAT):** - Go to your GitHub **Settings** > **Developer Settings** > **Personal Access Tokens** > **Tokens (classic)**.
   * Generate a new token with the `repo` scope enabled.
 
@@ -33,6 +34,7 @@ Create a file named `.env` in the root folder and paste the following:
 
 ```env
 GEMINI_API_KEY=your_google_gemini_key_here
+GEMINI_MODEL="gemini-3-flash"
 GITHUB_USERNAME=your_github_username
 GITHUB_REPO=your_target_repository_name
 ```

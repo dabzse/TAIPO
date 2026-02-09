@@ -7,6 +7,8 @@ use App\Service\ProjectService;
 use App\Service\GitHubService;
 use App\Controller\TaskController;
 use App\Controller\ProjectController;
+use App\Controller\SettingsController;
+use App\Service\SettingsService;
 use App\Utils;
 use App\Config;
 use App\Core\View;
@@ -21,6 +23,7 @@ class Application
     private GitHubService $githubService;
     private TaskController $taskController;
     private ProjectController $projectController;
+    private SettingsController $settingsController;
 
     public function run()
     {
@@ -57,7 +60,7 @@ class Application
 
         // Router / Dispatcher Logic
 
-        $action = $_POST['action'] ?? null;
+        $action = $_POST['action'] ?? $_GET['action'] ?? null;
 
         // Existing actions delegating to TaskController
         if ($action) {
@@ -103,6 +106,15 @@ class Application
                     exit;
                 case 'delete_project':
                     $this->projectController->handleDelete();
+                    exit;
+
+                    // Settings Actions
+                case 'get_setting':
+                    $key = $_GET['key'] ?? '';
+                    $this->settingsController->handleGetSetting($key);
+                    exit;
+                case 'save_setting':
+                    $this->settingsController->handleSaveSetting();
                     exit;
                 default:
                     // Fallthrough to main page or 404 if API?
@@ -223,6 +235,7 @@ class Application
 
             $this->taskController = new TaskController($this->taskService);
             $this->projectController = new ProjectController($this->projectService);
+            $this->settingsController = new SettingsController(new SettingsService($pdo));
         } catch (Exception $e) {
             $error = $e->getMessage();
         }

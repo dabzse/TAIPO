@@ -2,8 +2,8 @@
     <div class="drawer z-20">
         <input
             v-model="drawerOpen"
-            id="my-drawer"
             type="checkbox"
+            id="my-drawer"
             class="drawer-toggle"
         >
         <div class="drawer-content">
@@ -371,6 +371,10 @@ const handleDelete = async () => {
 const loadProject = () => {
     if (selectedProject.value) {
         emit("project-selected", selectedProject.value.name);
+        // Persist selection
+        if (selectedProject.value.id) {
+            api.saveSetting('last_active_project', selectedProject.value.id).catch(e => console.error("Failed to save setting", e));
+        }
     }
 };
 
@@ -382,36 +386,53 @@ const selectProjectByName = (name) => {
     }
 }
 
+const parseProjectsResponse = (res) => {
+    let rawList = [];
+    if (Array.isArray(res)) {
+        rawList = res;
+    } else if (res.projects) {
+        rawList = res.projects;
+    } else if (res.existingProjects) {
+        rawList = res.existingProjects;
+    }
+
+    return rawList.map(p => {
+        if (typeof p === 'string') return { name: p, id: null };
+        return p;
+    });
+};
+
+const tryRestoreSavedProject = async () => {
+    try {
+        const settingRes = await api.getSetting('last_active_project');
+        if (settingRes.success && settingRes.value) {
+            const savedId = Number.parseInt(settingRes.value, 10);
+            const savedProj = projects.value.find(p => p.id === savedId);
+            if (savedProj) {
+                selectedProject.value = savedProj;
+                loadProject();
+            }
+        }
+    } catch (e) {
+        console.warn("Could not load saved project setting", e);
+    }
+};
+
 const fetchProjects = async () => {
     loadingProjects.value = true;
     projectLoadError.value = null;
     try {
         const res = await api.getProjects();
-        // Standardize to array of objects {id, name}
-        // res can be [string] or [object] mostly due to our changes
-        let rawList = [];
-        if (Array.isArray(res)) {
-            rawList = res;
-        } else if (res.projects) {
-            rawList = res.projects;
-        } else if (res.existingProjects) {
-            rawList = res.existingProjects;
-        }
+        projects.value = parseProjectsResponse(res);
 
-        projects.value = rawList.map(p => {
-            if (typeof p === 'string') return { name: p, id: null };
-            return p;
-        });
-
-        // Auto-select first project when available
+        // Auto-select logic
         if (projects.value.length > 0) {
             if (selectedProject.value) {
                  // Re-link selected object reference if needed
                 const found = projects.value.find(p => p.name === selectedProject.value.name);
                 if (found) selectedProject.value = found;
             } else {
-                selectedProject.value = projects.value[0];
-                loadProject();
+                await tryRestoreSavedProject();
             }
         }
     } catch (e) {
