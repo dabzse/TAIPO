@@ -29,6 +29,11 @@ class DatabaseConfig
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )",
+                'settings' => "CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )"
             ]
         ];

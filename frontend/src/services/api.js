@@ -115,5 +115,18 @@ export const api = {
             action: 'delete_project',
             id: id
         });
+    },
+
+    async getSetting(key) {
+        const response = await client.get(`/?action=get_setting&key=${key}`);
+        return response.data;
+    },
+
+    async saveSetting(key, value) {
+        return client.post('/', {
+            action: 'save_setting',
+            key: key,
+            value: value
+        });
     }
 };
