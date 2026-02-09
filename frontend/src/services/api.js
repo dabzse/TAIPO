@@ -61,7 +61,7 @@ export const api = {
     async getProjects() {
         // Backend returns existingProjects in the main view data
         const response = await client.get('/');
-        return response.data.existingProjects || [];
+        return response.data.projects || response.data.existingProjects || [];
     },
 
     async generateTasks(projectName, prompt) {
@@ -92,6 +92,28 @@ export const api = {
             action: 'decompose_task',
             task_id: taskId,
             description: description
+        });
+    },
+
+    async createProject(name) {
+        return client.post('/', {
+            action: 'create_project',
+            name: name
+        });
+    },
+
+    async renameProject(id, name) {
+        return client.post('/', {
+            action: 'update_project',
+            id: id,
+            name: name
+        });
+    },
+
+    async deleteProject(id) {
+        return client.post('/', {
+            action: 'delete_project',
+            id: id
         });
     }
 };

@@ -5,7 +5,6 @@ namespace App\Service;
 use PDO;
 use Exception;
 use App\Utils;
-use App\Exception\DatabaseConnectionException;
 use App\Exception\TaskNotFoundException;
 use App\Exception\WipLimitExceededException;
 
@@ -13,51 +12,9 @@ class TaskService
 {
     private PDO $pdo;
 
-    public function __construct(string $dbFile)
+    public function __construct(PDO $pdo)
     {
-        $this->connect($dbFile);
-        $this->ensureTablesExist();
-    }
-
-    private function connect(string $dbFile): void
-    {
-        try {
-            $this->pdo = new PDO('sqlite:' . $dbFile);
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (Exception $e) {
-            throw new DatabaseConnectionException("Error initializing database: " . $e->getMessage());
-        }
-    }
-
-    private function ensureTablesExist(): void
-    {
-        $this->pdo->exec("
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                status TEXT NOT NULL CHECK (status IN ('SPRINT BACKLOG','IMPLEMENTATION WIP:3', 'TESTING WIP:2', 'REVIEW WIP:2', 'DONE')),
-                is_important INTEGER DEFAULT 0,
-                is_subtask INTEGER DEFAULT 0,
-                po_comments TEXT DEFAULT NULL,
-                generated_code TEXT DEFAULT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-        ");
-
-        // Schema migration for existing tables
-        $columns = $this->pdo->query("PRAGMA table_info(tasks)")->fetchAll(PDO::FETCH_ASSOC);
-        $existingColumns = array_column($columns, 'name');
-
-        if (!in_array('is_subtask', $existingColumns)) {
-            $this->pdo->exec("ALTER TABLE tasks ADD COLUMN is_subtask INTEGER DEFAULT 0");
-        }
-        if (!in_array('po_comments', $existingColumns)) {
-            $this->pdo->exec("ALTER TABLE tasks ADD COLUMN po_comments TEXT DEFAULT NULL");
-        }
-        if (!in_array('generated_code', $existingColumns)) {
-            $this->pdo->exec("ALTER TABLE tasks ADD COLUMN generated_code TEXT DEFAULT NULL");
-        }
+        $this->pdo = $pdo;
     }
 
     public function getProjects(): array
@@ -190,7 +147,7 @@ class TaskService
 
         $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, description, status, is_subtask, po_comments) VALUES (?, ?, 'SPRINT BACKLOG', 1, ?)");
 
-        $poFeedback = "TAIPO PO: Based on original story: \"{$description}\"";
+        $poFeedback = "TAIPO: Based on original story: \"{$description}\"";
 
         foreach ($lines as $line) {
             if (trim($line)) {

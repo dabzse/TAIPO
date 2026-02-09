@@ -11,6 +11,7 @@ use App\Utils;
 use App\Config;
 use App\Core\View;
 use Exception;
+use App\Database;
 use Dotenv\Dotenv;
 
 class Application
@@ -143,6 +144,7 @@ class Application
         // We should switch to ProjectService completely for list of projects.
 
         $existingProjects = [];
+        $projectsData = [];
         try {
             $projectsData = $this->projectService->getAllProjects();
             $existingProjects = array_column($projectsData, 'name');
@@ -171,6 +173,7 @@ class Application
             echo json_encode([
                 'currentProjectName' => $currentProjectName,
                 'existingProjects' => $existingProjects,
+                'projects' => $projectsData,
                 'error' => $error,
                 'columns' => array_keys($columns),
                 'tasks' => $kanbanTasks
@@ -212,8 +215,11 @@ class Application
     {
         $error = null;
         try {
-            $this->taskService = new TaskService($dbFile);
-            $this->projectService = new ProjectService($dbFile);
+            $database = new Database($dbFile);
+            $pdo = $database->getPdo();
+
+            $this->taskService = new TaskService($pdo);
+            $this->projectService = new ProjectService($pdo);
 
             $this->taskController = new TaskController($this->taskService);
             $this->projectController = new ProjectController($this->projectService);

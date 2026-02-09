@@ -4,7 +4,6 @@ namespace App\Service;
 
 use PDO;
 use Exception;
-use App\Exception\DatabaseConnectionException;
 use App\Exception\ProjectNotFoundException;
 use App\Exception\ProjectAlreadyExistsException;
 
@@ -12,19 +11,9 @@ class ProjectService
 {
     private PDO $pdo;
 
-    public function __construct(string $dbFile)
+    public function __construct(PDO $pdo)
     {
-        $this->connect($dbFile);
-    }
-
-    private function connect(string $dbFile): void
-    {
-        try {
-            $this->pdo = new PDO('sqlite:' . $dbFile);
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (Exception $e) {
-            throw new DatabaseConnectionException("Error initializing database: " . $e->getMessage());
-        }
+        $this->pdo = $pdo;
     }
 
     public function getAllProjects(): array
