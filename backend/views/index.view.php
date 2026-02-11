@@ -22,7 +22,8 @@ use App\Utils;
 
         <div class="project-menu-dropdown" id="projectDropdown">
             <button type="button" class="menu-close-button" onclick="toggleMenu()" title="Close menu">x</button>
-            <form method="POST" action="<?php echo basename($_SERVER['SCRIPT_NAME']); ?>" id="projectForm" class="menu-form">
+            <form method="POST" action="<?php echo basename($_SERVER['SCRIPT_NAME']); ?>" id="projectForm"
+                class="menu-form">
                 <p class="menu-label">What project would you like to generate tasks for?</p>
 
                 <div class="input-group generate-group">
@@ -36,8 +37,7 @@ use App\Utils;
                 </div>
 
                 <p class="menu-label" style="margin-top: 15px;">AI Instruction (Prompt):
-                    <button type="button" class="help-button" onclick="loadDefaultPrompt()"
-                        title="Load default prompt">
+                    <button type="button" class="help-button" onclick="loadDefaultPrompt()" title="Load default prompt">
                         ❓
                     </button>
                 </p>
@@ -47,14 +47,14 @@ use App\Utils;
                 <textarea id="ai_prompt" name="ai_prompt" rows="5" class="prompt-textarea" required
                     placeholder="AI prompt..."
                     data-default-prompt="<?php echo htmlspecialchars($defaultPrompt); ?>"></textarea>
-                <?php if (!empty($existingProjects)) : ?>
+                <?php if (!empty($existingProjects)): ?>
                     <p class="menu-label" style="margin-top: 15px;">Or choose an existing project:
                     </p>
                     <select id="project_selector" onchange="loadProject(this.value)" class="project-select-dropdown">
 
                         <option value="" <?php echo empty($currentProjectName) ? 'selected' : ''; ?>>-- Load Project --
                         </option>
-                        <?php foreach ($existingProjects as $proj) : ?>
+                        <?php foreach ($existingProjects as $proj): ?>
                             <option value="<?php echo urlencode($proj); ?>" <?php echo ($proj === $currentProjectName) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($proj); ?>
                             </option>
@@ -86,26 +86,26 @@ use App\Utils;
 
 
     <div class="content-wrapper">
-        <?php if (isset($currentProjectName) && $currentProjectName) : ?>
+        <?php if (isset($currentProjectName) && $currentProjectName): ?>
             <div class="project-status-info">
                 Current Project: <strong><?php echo htmlspecialchars($currentProjectName); ?></strong>
             </div>
-        <?php else : ?>
+        <?php else: ?>
             <div class="project-status-info">
                 Generate a project in the menu!
             </div>
         <?php endif; ?>
 
         <div class="message-container">
-            <?php if (isset($error)) : ?>
+            <?php if (isset($error)): ?>
                 <div class="error-box">
                     ❌ Error:<?php echo htmlspecialchars($error); ?>
                 </div>
-            <?php elseif (isset($tasksAdded) && $tasksAdded < 5 && $tasksAdded > 0) : ?>
+            <?php elseif (isset($tasksAdded) && $tasksAdded < 5 && $tasksAdded > 0): ?>
                 <div class="warning-box">
                     ⚠️ Warning: Only <?php echo $tasksAdded; ?> tasks were generated.
                 </div>
-            <?php elseif (isset($currentProjectName) && $currentProjectName && empty($error) && (!isset($_POST['action']) || $_POST['action'] !== 'add_task')) : ?>
+            <?php elseif (isset($currentProjectName) && $currentProjectName && empty($error) && (!isset($_POST['action']) || $_POST['action'] !== 'add_task')): ?>
                 <div class="success-box" id="global-message-box">
                     ✅ Tasks successfully loaded for project "<?php echo htmlspecialchars($currentProjectName); ?>"!
                 </div>
@@ -113,19 +113,16 @@ use App\Utils;
         </div>
 
         <div class="kanban-board">
-            <?php foreach ($columns as $title => $style) : ?>
-                <div class="kanban-column"
-                    data-status="<?php echo htmlspecialchars($title); ?>"
-                    role="region"
+            <?php foreach ($columns as $title => $style): ?>
+                <div class="kanban-column" data-status="<?php echo htmlspecialchars($title); ?>" role="region"
                     aria-label="<?php echo htmlspecialchars($title); ?> column">
                     <div class="column-header header-<?php echo $style; ?>">
                         <?php echo htmlspecialchars($title); ?> (<span class="task-count"
                             id="count-<?php echo Utils::createSafeId($title); ?>"><?php echo count($kanbanTasks[$title] ?? []); ?></span>)
                     </div>
 
-                    <?php if (strpos(strtoupper($title), 'BACKLOG') !== false && isset($currentProjectName) && $currentProjectName) : ?>
-                        <button class="add-task-icon-only" id="addTaskToggle" onclick="toggleTaskInput()"
-                            title="Add new task">
+                    <?php if (strpos(strtoupper($title), 'BACKLOG') !== false && isset($currentProjectName) && $currentProjectName): ?>
+                        <button class="add-task-icon-only" id="addTaskToggle" onclick="toggleTaskInput()" title="Add new task">
                             ➕
                         </button>
                         <div class="add-task-input-form" id="addTaskInputForm" style="display: none;">
@@ -265,9 +262,9 @@ use App\Utils;
                 <div id="modalGithubStatus"
                     style="padding: 10px 0; font-size: 0.9em; color: #ffc107; font-style: italic;">
                     <?php
-                    if (!$isServerConfigured) : ?>
+                    if (!$isServerConfigured): ?>
                         ⚠️ **ERROR:** Server-side repo data (GITHUB_REPO) is missing from the .env file.
-                    <?php else : ?>
+                    <?php else: ?>
                         ✔️ Server-side repo settings are OK.
                     <?php endif; ?>
                 </div>
@@ -282,4 +279,5 @@ use App\Utils;
         <script src="assets/js/script.js"></script>
 
 </body>
+
 </html>

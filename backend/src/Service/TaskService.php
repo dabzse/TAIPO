@@ -187,7 +187,8 @@ class TaskService
 
     public function queryTask(int $taskId, string $query, string $apiKey): string
     {
-        $stmt = $this->pdo->prepare("SELECT description, po_comments FROM tasks WHERE id = :id");
+        // 1. Fetch current task details INCLUDING project_name
+        $stmt = $this->pdo->prepare("SELECT description, po_comments, project_name, status FROM tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -195,19 +196,46 @@ class TaskService
             throw new TaskNotFoundException("Task not found.");
         }
 
-        $context = "Task: " . $task['description'];
-        if (!empty($task['po_comments'])) {
-            $context .= "\nContext/Comments: " . $task['po_comments'];
+        $projectName = $task['project_name'];
+
+        // 2. Fetch all OTHER tasks in the same project to provide context
+        $stmtAll = $this->pdo->prepare("SELECT id, description, status FROM tasks WHERE project_name = :project_name ORDER BY status, id");
+        $stmtAll->execute([':project_name' => $projectName]);
+        $allTasks = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. Construct Project Context String
+        $projectContext = "Project Name: " . $projectName . "\n";
+        $projectContext .= "Other Tasks in Project:\n";
+        foreach ($allTasks as $t) {
+            // Mark the current task distinctly
+            $marker = ($t['id'] == $taskId) ? " (CURRENT TASK)" : "";
+            $projectContext .= "- [{$t['status']}] {$t['description']}{$marker}\n";
         }
 
-        $prompt = "You are TAIPO, an intelligent coding assistant. Refrain from lengthy intros.
-        Context:
-        {$context}
+        // 4. Construct Task Specific Context
+        $taskContext = "Current Task Description: " . $task['description'];
+        $taskContext .= "\nCurrent Task Status: " . $task['status'];
+        if (!empty($task['po_comments'])) {
+            $taskContext .= "\nProduct Owner Comments: " . $task['po_comments'];
+        }
+
+        // 5. Build Final Prompt
+        $prompt = "You are TAIPO, an intelligent coding assistant for the project '{$projectName}'.
+
+        Global Project Context:
+        {$projectContext}
+
+        Focus on this Specific Task:
+        {$taskContext}
 
         User Question:
         {$query}
 
-        Answer the user's question specifically related to this task. Provide code snippets if asked.";
+        Instructions:
+        - Answer the user's question specifically related to the current task.
+        - Use the global project context to understand dependencies or overall goals, but focus on the specific task.
+        - Refrain from lengthy intros.
+        - Provide code snippets if asked.";
 
         return Utils::callGeminiAPI($apiKey, $prompt);
     }
