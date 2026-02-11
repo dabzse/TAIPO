@@ -5,16 +5,19 @@ namespace App\Service;
 use PDO;
 use Exception;
 use App\Utils;
+use App\Service\GeminiService;
 use App\Exception\TaskNotFoundException;
 use App\Exception\WipLimitExceededException;
 
 class TaskService
 {
     private PDO $pdo;
+    private GeminiService $geminiService;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, GeminiService $geminiService)
     {
         $this->pdo = $pdo;
+        $this->geminiService = $geminiService;
     }
 
     public function getProjects(): array
@@ -163,12 +166,12 @@ class TaskService
         }
     }
 
-    public function decomposeTask(string $description, string $projectName, string $apiKey): int
+    public function decomposeTask(string $description, string $projectName): int
     {
         $prompt = "Decompose this user story into 3-5 concrete, executable technical tasks: '{$description}'.
                     Your response must ONLY be the list of tasks, with each task on a new line.";
 
-        $rawTasks = Utils::callGeminiAPI($apiKey, $prompt);
+        $rawTasks = $this->geminiService->askTaipo($prompt);
         $lines = explode("\n", $rawTasks);
         $count = 0;
 
@@ -185,7 +188,7 @@ class TaskService
         return $count;
     }
 
-    public function queryTask(int $taskId, string $query, string $apiKey): string
+    public function queryTask(int $taskId, string $query): string
     {
         $stmt = $this->pdo->prepare("SELECT description, po_comments FROM tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
@@ -209,6 +212,14 @@ class TaskService
 
         Answer the user's question specifically related to this task. Provide code snippets if asked.";
 
-        return Utils::callGeminiAPI($apiKey, $prompt);
+        return $this->geminiService->askTaipo($prompt);
+    }
+
+    public function generateJavaCode(string $description): string
+    {
+        $prompt = "Generate a **complete, but very concise** Java class or function to solve the task: '{$description}'. The code should be **functional**, but only include the necessary imports and logic. Do not generate long explanatory comments or introduction text! Use a single Markdown code block (```java ... ```).";
+
+        $rawText = $this->geminiService->askTaipo($prompt);
+        return Utils::formatCodeBlocks($rawText);
     }
 }

@@ -5,6 +5,7 @@ namespace App;
 use App\Service\TaskService;
 use App\Service\ProjectService;
 use App\Service\GitHubService;
+use App\Service\GeminiService;
 use App\Controller\TaskController;
 use App\Controller\ProjectController;
 use App\Controller\SettingsController;
@@ -21,6 +22,7 @@ class Application
     private TaskService $taskService;
     private ProjectService $projectService;
     private GitHubService $githubService;
+    private GeminiService $geminiService;
     private TaskController $taskController;
     private ProjectController $projectController;
     private SettingsController $settingsController;
@@ -47,7 +49,6 @@ class Application
 
         $this->initEnvAndInput();
 
-        $apiKey = $_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY');
         $dbFile = __DIR__ . '/../kanban.sqlite';
 
         $error = $this->initServices($dbFile);
@@ -87,17 +88,17 @@ class Application
                     // Should it be `generate_source_code`? Why just "java"?
                     // Give an option for few languages, like: python, php, rust, c, cpp, cs, java, typescript...
                 case 'generate_java_code':
-                    $this->taskController->handleGenerateJavaCode($apiKey);
+                    $this->taskController->handleGenerateJavaCode();
                     exit;
                 case 'decompose_task':
                     // We need project name here
-                    $this->taskController->handleDecomposeTask($apiKey);
+                    $this->taskController->handleDecomposeTask();
                     exit;
                 case 'commit_to_github':
                     $this->handleCommitToGithub();
                     exit;
                 case 'query_task':
-                    $this->taskController->handleQueryTask($apiKey);
+                    $this->taskController->handleQueryTask();
                     exit;
 
                     // Project Actions
@@ -133,7 +134,7 @@ class Application
         $projectName = trim($_POST['project_name'] ?? '');
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($projectName) && !isset($_POST['action'])) {
             // This is the "Generate Project" flow
-            $err = $this->handleProjectGeneration($projectName, $apiKey);
+            $err = $this->handleProjectGeneration($projectName);
             if ($err) {
                 $error = $err;
             }
@@ -236,7 +237,8 @@ class Application
             $database = new Database($dbFile);
             $pdo = $database->getPdo();
 
-            $this->taskService = new TaskService($pdo);
+            $this->geminiService = new GeminiService();
+            $this->taskService = new TaskService($pdo, $this->geminiService);
             $this->projectService = new ProjectService($pdo);
 
             $this->taskController = new TaskController($this->taskService);
@@ -301,7 +303,7 @@ class Application
         }
     }
 
-    private function handleProjectGeneration($projectName, $apiKey)
+    private function handleProjectGeneration($projectName)
     {
         // This logic is bound to 'Start Project' AI generation that creates multiple tasks.
         // It uses TaskService::replaceProjectTasks.
@@ -318,14 +320,12 @@ class Application
             // Logic from original handleProjectGeneration
             $rawPrompt = trim($_POST['ai_prompt'] ?? '');
 
-            if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
-                return "Error: Gemini API key is not set.";
-            } elseif (empty($rawPrompt)) {
+            if (empty($rawPrompt)) {
                 return "Error: The AI prompt field cannot be empty.";
             }
 
             $prompt = str_replace('{{PROJECT_NAME}}', $projectName, $rawPrompt);
-            $rawText = Utils::callGeminiAPI($apiKey, $prompt);
+            $rawText = $this->geminiService->askTaipo($prompt);
 
             $lines = explode("\n", $rawText);
             $newTasks = [];

@@ -137,15 +137,9 @@ class TaskController
         }
     }
 
-    public function handleGenerateJavaCode($apiKey)
+    public function handleGenerateJavaCode()
     {
         $description = trim($_POST['description'] ?? '');
-
-        if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => "Error: Gemini API key is not set."]);
-            return;
-        }
 
         if (empty($description)) {
             http_response_code(400);
@@ -153,12 +147,10 @@ class TaskController
             return;
         }
 
-        $prompt = "Generate a **complete, but very concise** Java class or function to solve the task: '{$description}'. The code should be **functional**, but only include the necessary imports and logic. Do not generate long explanatory comments or introduction text! Use a single Markdown code block (```java ... ```).";
-
         try {
-            $rawText = Utils::callGeminiAPI($apiKey, $prompt);
+            $formattedCode = $this->taskService->generateJavaCode($description);
             header(Config::APP_JSON);
-            echo json_encode(['success' => true, 'code' => Utils::formatCodeBlocks($rawText)]);
+            echo json_encode(['success' => true, 'code' => $formattedCode]);
         } catch (GeminiApiException $e) {
             $code = $e->getCode() ?: 500;
             http_response_code($code);
@@ -170,7 +162,7 @@ class TaskController
         }
     }
 
-    public function handleDecomposeTask($apiKey)
+    public function handleDecomposeTask()
     {
         // ProjectID isn't actually used by service decompose,
         // but the current implementation requires project name to decompose into.
@@ -185,7 +177,7 @@ class TaskController
         }
 
         try {
-            $count = $this->taskService->decomposeTask($desc, $currentProjectName, $apiKey);
+            $count = $this->taskService->decomposeTask($desc, $currentProjectName);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'count' => $count]);
         } catch (GeminiApiException $e) {
@@ -198,7 +190,7 @@ class TaskController
         }
     }
 
-    public function handleQueryTask($apiKey)
+    public function handleQueryTask()
     {
         $taskId = $_POST['task_id'] ?? null;
         $query = trim($_POST['query'] ?? '');
@@ -209,14 +201,8 @@ class TaskController
             return;
         }
 
-        if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => "Error: Gemini API key is not set."]);
-            return;
-        }
-
         try {
-            $answer = $this->taskService->queryTask($taskId, $query, $apiKey);
+            $answer = $this->taskService->queryTask($taskId, $query);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'answer' => $answer]);
         } catch (GeminiApiException $e) {

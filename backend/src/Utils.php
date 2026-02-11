@@ -111,7 +111,7 @@ class Utils
         // Use file_get_contents instead of curl
         $options = [
             'http' => [
-                'header'  => "Content-type: application/json\r\n",
+                'header'  => Config::APP_JSON . "\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => 60,

@@ -65,10 +65,11 @@ export const api = {
     },
 
     async generateTasks(projectName, prompt) {
-        return client.post('/', {
+        const response = await client.post('/', {
             project_name: projectName,
             ai_prompt: prompt
         });
+        return response.data;
     },
 
     async editTask(taskId, description) {
@@ -80,19 +81,21 @@ export const api = {
     },
 
     async generateCode(taskId, description) {
-        return client.post('/', {
+        const response = await client.post('/', {
             action: 'generate_java_code',
             task_id: taskId,
             description: description
         });
+        return response.data;
     },
 
     async decomposeTask(taskId, description) {
-        return client.post('/', {
+        const response = await client.post('/', {
             action: 'decompose_task',
             task_id: taskId,
             description: description
         });
+        return response.data;
     },
 
     async reorderTasks(projectName, status, taskIds) {
@@ -140,10 +143,11 @@ export const api = {
     },
 
     async queryTask(taskId, query) {
-        return client.post('/', {
+        const response = await client.post('/', {
             action: 'query_task',
             task_id: taskId,
             query: query
         });
+        return response.data;
     }
 };
