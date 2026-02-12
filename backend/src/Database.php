@@ -48,7 +48,10 @@ class Database
         }
 
         // 2. Run Migrations (Safe column additions)
-        $this->ensureColumnsExist('tasks', ['is_subtask', 'po_comments', 'generated_code', 'position']);
+        $this->ensureColumnsExist('tasks', ['is_subtask', 'po_comments', 'generated_code', 'position', 'title']);
+
+        // 3. Data Migration: Split Description into Title/Description if Title is NULL
+        $this->migrateTaskTitles();
 
         // Special case for projects migration if needed (from ProjectService)
         $stmt = $this->pdo->query("SELECT COUNT(*) FROM projects");
@@ -101,5 +104,43 @@ class Database
         ];
 
         return $definitions[$col] ?? ['type' => 'TEXT', 'default' => 'NULL'];
+    }
+
+    private function migrateTaskTitles(): void
+    {
+        // Check if there are any tasks with NULL title
+        $stmt = $this->pdo->query("SELECT count(*) FROM tasks WHERE title IS NULL");
+        if ($stmt->fetchColumn() == 0) {
+            return;
+        }
+
+        $tasks = $this->pdo->query("SELECT id, description FROM tasks WHERE title IS NULL")->fetchAll(PDO::FETCH_ASSOC);
+
+        $this->pdo->beginTransaction();
+        try {
+            $updateStmt = $this->pdo->prepare("UPDATE tasks SET title = :title, description = :description WHERE id = :id");
+
+            foreach ($tasks as $task) {
+                $fullDesc = $task['description'];
+                // Normalize newlines
+                $fullDesc = str_replace(["\r\n", "\r"], "\n", $fullDesc);
+                $lines = explode("\n", $fullDesc);
+                $title = trim($lines[0]);
+                // Remove title from description, keep the rest
+                $description = count($lines) > 1 ? trim(implode("\n", array_slice($lines, 1))) : '';
+
+                $updateStmt->execute([
+                    ':title' => $title,
+                    ':description' => $description,
+                    ':id' => $task['id']
+                ]);
+            }
+            $this->pdo->commit();
+        } catch (Exception $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            error_log("Migration failed: " . $e->getMessage());
+        }
     }
 }

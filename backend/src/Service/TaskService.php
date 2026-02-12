@@ -28,7 +28,7 @@ class TaskService
 
     public function getTasksByProject(string $projectName): array
     {
-        $stmt = $this->pdo->prepare("SELECT id, description, status, is_important, generated_code, is_subtask, po_comments, position FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
+        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
         $stmt->execute([':projectName' => $projectName]);
         $tasks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -64,11 +64,12 @@ class TaskService
         }
     }
 
-    public function addTask(string $projectName, string $description, int $isImportant = 0): int
+    public function addTask(string $projectName, string $title, string $description, int $isImportant = 0): int
     {
-        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, description, status, is_important) VALUES (:project_name, :description, 'SPRINT BACKLOG', :is_important)");
+        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, 'SPRINT BACKLOG', :is_important)");
         $stmt->execute([
             ':project_name' => $projectName,
+            ':title' => $title,
             ':description' => $description,
             ':is_important' => $isImportant
         ]);
@@ -101,10 +102,11 @@ class TaskService
         ]);
     }
 
-    public function updateDescription(int $taskId, string $description): void
+    public function updateTask(int $taskId, string $title, string $description): void
     {
-        $stmt = $this->pdo->prepare("UPDATE tasks SET description = :description WHERE id = :id");
+        $stmt = $this->pdo->prepare("UPDATE tasks SET title = :title, description = :description WHERE id = :id");
         $stmt->execute([
+            ':title' => $title,
             ':description' => $description,
             ':id' => $taskId
         ]);
@@ -143,14 +145,25 @@ class TaskService
             $stmt->execute([':projectName' => $projectName]);
 
             $insertStmt = $this->pdo->prepare(
-                "INSERT INTO tasks (project_name, description, status) VALUES (:project_name, :description, :status)"
+                "INSERT INTO tasks (project_name, title, description, status) VALUES (:project_name, :title, :description, :status)"
             );
 
             $count = 0;
             foreach ($newTasks as $task) {
+                // Fallback for replaceProjectTasks if source doesn't have title
+                $tTitle = $task['title'] ?? '';
+                $tDesc = $task['description'] ?? '';
+                if (empty($tTitle) && !empty($tDesc)) {
+                    // Simple split if only description is present
+                    $lines = explode("\n", $tDesc);
+                    $tTitle = trim($lines[0]);
+                    $tDesc = count($lines) > 1 ? trim(implode("\n", array_slice($lines, 1))) : '';
+                }
+
                 $insertStmt->execute([
                     ':project_name' => $projectName,
-                    ':description' => $task['description'],
+                    ':title' => $tTitle,
+                    ':description' => $tDesc,
                     ':status' => $task['status']
                 ]);
                 $count++;
@@ -175,13 +188,14 @@ class TaskService
         $lines = explode("\n", $rawTasks);
         $count = 0;
 
-        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, description, status, is_subtask, po_comments) VALUES (?, ?, 'SPRINT BACKLOG', 1, ?)");
+        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_subtask, po_comments) VALUES (?, ?, ?, 'SPRINT BACKLOG', 1, ?)");
 
         $poFeedback = "TAIPO: Based on original story: \"{$description}\"";
 
         foreach ($lines as $line) {
             if (trim($line)) {
-                $stmt->execute([$projectName, trim($line), $poFeedback]);
+                // Generated tasks are usually short one-liners. Use as title.
+                $stmt->execute([$projectName, trim($line), "", $poFeedback]);
                 $count++;
             }
         }
@@ -198,7 +212,7 @@ class TaskService
             throw new TaskNotFoundException("Task not found.");
         }
 
-        $context = "Task: " . $task['description'];
+        $context = "Task Title: " . $task['title'] . "\nDescription: " . $task['description'];
         if (!empty($task['po_comments'])) {
             $context .= "\nContext/Comments: " . $task['po_comments'];
         }
