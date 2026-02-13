@@ -40,18 +40,18 @@ Error Mockup:
 
 **Action Parameter:** `action` (in POST body)
 
-| Action | Required Fields | Description |
-| :--- | :--- | :--- |
-| `add_task` | `description`, `current_project`, `is_important` (0/1) | Creates a new task in the specified project. |
-| `delete_task` | `task_id` | Deletes a task by ID. |
-| `toggle_importance` | `task_id`, `is_important` (0/1) | Toggles the importance flag (star) of a task. |
-| `update_status` | `task_id`, `new_status`, `current_project` | Moves a task to a new Kanban column. |
-| `edit_task` | `task_id`, `description` | Updates the text description of a task. |
-| `generate_java_code` | `description` | Uses Gemini AI to generate Java code for the task. |
-| `decompose_task` | `description`, `current_project` | Uses Gemini AI to break down a large story into subtasks. |
-| `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | Commits the generated code to the configured GitHub repository. |
-| `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | Reorders tasks within a specific column/status. |
-| `query_task` | `task_id`, `query` | Uses Gemini AI to answer a question about a specific task. |
+| Action | Required Fields | Returns | Description |
+| :--- | :--- | :--- | :--- |
+| `add_task` | `title`, `description`, `current_project`, `is_important` (0/1) | `id`, `title`, `description`, `is_important` | Creates a new task in the specified project. |
+| `delete_task` | `task_id` | `status` | Deletes a task by ID. |
+| `toggle_importance` | `task_id`, `is_important` (0/1) | Message string | Toggles the importance flag (star) of a task. |
+| `update_status` | `task_id`, `new_status`, `current_project` | Message string | Moves a task to a new Kanban column. |
+| `edit_task` | `task_id`, `title`, `description` | `success: true` | Updates the title and description of a task. |
+| `generate_java_code` | `description` | `code` (string) | Uses Gemini AI to generate Java code for the task. |
+| `decompose_task` | `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a large story into subtasks. |
+| `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | `filePath` (string) | Commits the generated code to the configured GitHub repository. |
+| `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | `success: true` | Reorders tasks within a specific column/status. |
+| `query_task` | `task_id`, `query` | `answer` (string) | Uses Gemini AI to answer a question about a specific task. |
 
 ### 2. Project Management
 

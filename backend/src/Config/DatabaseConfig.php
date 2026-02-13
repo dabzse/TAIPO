@@ -17,6 +17,7 @@ class DatabaseConfig
                 'tasks' => "CREATE TABLE IF NOT EXISTS tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     project_name TEXT NOT NULL,
+                    title TEXT DEFAULT NULL,
                     description TEXT NOT NULL,
                     status TEXT NOT NULL CHECK (status IN ('SPRINT BACKLOG','IMPLEMENTATION WIP:3', 'TESTING WIP:2', 'REVIEW WIP:2', 'DONE')),
                     is_important INTEGER DEFAULT 0,

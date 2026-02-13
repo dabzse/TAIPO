@@ -12,7 +12,7 @@
     >
         <div
             @dblclick="enableEdit"
-            class="card-body p-3"
+            class="card-body p-3 border-b-4 border-azure-300 rounded-box"
         >
             <div class="flex justify-between items-start mb-2">
                 <!-- Priority Stars -->
@@ -126,25 +126,12 @@
                 Technical Task
             </div>
 
-            <!-- Description / Inline Edit -->
-            <div
-                v-if="isEditing"
-            >
-                <textarea
-                    v-model="editDescription"
-                    @blur="saveEdit"
-                    @keydown.enter.exact.prevent="saveEdit"
-                    ref="editInput"
-                    class="textarea textarea-bordered textarea-xs w-full"
-                >
-                </textarea>
+            <!-- Description / Display Only -->
+            <div>
+                <div class="font-bold text-lg mb-1">{{ task.title || 'Untitled' }}</div>
+                <hr class="border-t-2 border-primary/50 my-2" />
+                <p class="text-sm whitespace-pre-wrap">{{ task.description }}</p>
             </div>
-            <p
-                v-else
-                class="text-sm whitespace-pre-wrap"
-            >
-                {{ task.description }}
-            </p>
 
             <!-- PO Feedback -->
             <div
@@ -152,7 +139,10 @@
                 class="mt-2 text-xs bg-base-300 p-2 rounded border border-base-content/10"
             >
                 <div class="font-bold mb-1 opacity-70">🤖 TAIPO Feedback</div>
-                {{ task.po_comments }}
+                <div
+                    v-html="formattedPoComments"
+                >
+                </div>
             </div>
 
             <div
@@ -166,7 +156,7 @@
 </template>
 
 <script setup>
-import { computed, ref, nextTick } from "vue";
+import { computed, ref } from "vue";
 import { api } from "../services/api";
 
 const props = defineProps({
@@ -180,12 +170,29 @@ const emit = defineEmits([
     "decompose",
     "generate-code",
     "query-task",
+    "request-edit",
 ]);
 
+const formattedPoComments = computed(() => {
+    if (!props.task.po_comments) return "";
+    let text = props.task.po_comments;
+    // Escape HTML (basic)
+    text = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+    // Bold: **text** -> <b>text</b>
+    text = text.replaceAll(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+
+    // Separator: --- -> <hr>
+    text = text.replaceAll("\n\n---\n\n", '<hr class="my-2 border-base-content/20" />');
+
+    // Newlines: \n -> <br>
+    text = text.replaceAll("\n", "<br>");
+
+    return text;
+});
+
 const priority = computed(() => Number(props.task.is_important) || 0);
-const isEditing = ref(false);
-const editDescription = ref(props.task.description);
-const editInput = ref(null);
+// Removed inline editing state
 const hoverPriority = ref(0);
 
 const getStarColor = (index) => {
@@ -217,38 +224,9 @@ const requestDelete = () => {
     }
 };
 
-const enableEdit = async () => {
-    isEditing.value = true;
-    editDescription.value = props.task.description;
-    await nextTick();
-    if (editInput.value) editInput.value.focus();
+const enableEdit = () => {
+    emit("request-edit", props.task);
 };
 
-const saveEdit = async () => {
-    if (!isEditing.value) return;
-
-    if (editDescription.value.trim() !== props.task.description) {
-        // Assuming API has an edit method, but api.js mostly had generic post.
-        // script.js uses 'edit_task' action.
-        // Let's add that to api.js or assume generic post works if updated.
-        // api.js doesn't have explicit editTask method but we can add it or use raw client.
-        // Let's assume we need to add it or use generic update.
-        // For now, I'll call a hypothetical api.editTask or raw post.
-        // Let's check api.js again. It does NOT have editTask.
-        // I should stick to the pattern.
-        try {
-            const formData = new FormData();
-            formData.append("action", "edit_task");
-            formData.append("task_id", props.task.id);
-            formData.append("description", editDescription.value);
-            // Axios equivalent:
-            await api.editTask(props.task.id, editDescription.value);
-            emit("task-updated");
-        } catch (e) {
-            console.error("Failed to edit", e);
-            alert("Failed to save edit");
-        }
-    }
-    isEditing.value = false;
-};
+// saveEdit removed as logic moved to KanbanBoard/Modal
 </script>

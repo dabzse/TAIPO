@@ -263,6 +263,7 @@ const handleQueryTaskSubmit = async (query) => {
         const res = await api.queryTask(queryTaskTarget.value.id, query);
         if (res.success && res.answer) {
             queryAnswer.value = res.answer;
+            await refreshTasks();
         } else {
             queryError.value = res.error || "Failed to get an answer.";
         }

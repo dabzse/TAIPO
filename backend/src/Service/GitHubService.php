@@ -34,26 +34,15 @@ class GitHubService
         $url = "https://api.github.com/repos/{$this->username}/{$this->repo}/contents/{$filePath}";
         $encodedContent = base64_encode($content);
 
-        $payload = json_encode([
+        $payload = [
             'message' => $message,
             'content' => $encodedContent,
             'branch' => $branch
-        ]);
+        ];
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: token ' . $this->token,
-            Config::APP_JSON,
-            'User-Agent: AI-Kanban-App'
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        $result = json_decode($response, true);
+        $response = $this->makeRequest($url, $payload, 'PUT');
+        $result = json_decode($response['body'], true);
+        $httpCode = $response['http_code'];
 
         if ($httpCode === 201) {
             return ['success' => true, 'filePath' => $filePath];
@@ -62,5 +51,83 @@ class GitHubService
         } else {
             throw new GitHubApiException("GitHub API error ({$httpCode}): " . ($result['message'] ?? 'Unknown error.'), $httpCode);
         }
+    }
+
+    private function makeRequest(string $url, array $data, string $method): array
+    {
+        if (function_exists('curl_init')) {
+            return $this->makeCurlRequest($url, $data, $method);
+        } else {
+            return $this->makeFileGetContentsRequest($url, $data, $method);
+        }
+    }
+
+    private function makeCurlRequest(string $url, array $data, string $method): array
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: token ' . $this->token,
+            Config::APP_JSON,
+            Config::getGithubUserAgent()
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+        $response = curl_exec($ch);
+
+        if ($response === false) {
+            $error = curl_error($ch);
+            // curl_close moved to after check if needed, or rely on distinct checks
+            // To be consistent with GeminiService, we throw here.
+            throw new GitHubApiException("Request failed: " . $error);
+        }
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        return ['body' => $response, 'http_code' => $httpCode];
+    }
+
+    private function makeFileGetContentsRequest(string $url, array $data, string $method): array
+    {
+        $options = [
+            'http' => [
+                'header'  => Config::APP_JSON . "\r\n" .
+                    "Authorization: token " . $this->token . "\r\n" .
+                    Config::getGithubUserAgent() . "\r\n",
+                'method'  => $method,
+                'content' => json_encode($data),
+                'timeout' => 60,
+                'ignore_errors' => true
+            ]
+        ];
+
+        $context  = stream_context_create($options);
+        $response = @file_get_contents($url, false, $context);
+
+        if ($response === false) {
+            $error = error_get_last();
+            $safeErrorMessage = "Network request failed.";
+            if (isset($error['message'])) {
+                // Sanitize token
+                $msg = $error['message'];
+                $msg = str_replace($this->token, '***', $msg);
+                $safeErrorMessage .= " Details: " . $msg;
+            }
+            throw new GitHubApiException($safeErrorMessage);
+        }
+
+        $httpCode = 0;
+        if (isset($http_response_header)) {
+            foreach ($http_response_header as $header) {
+                if (preg_match('#HTTP/[\d\.]+\s+(\d+)#', $header, $matches)) {
+                    $httpCode = intval($matches[1]);
+                    break;
+                }
+            }
+        }
+
+        return ['body' => $response, 'http_code' => $httpCode];
     }
 }

@@ -4,7 +4,10 @@ namespace App;
 
 class Config
 {
-    public const PROJECT_NAME = 'AIKanban';
+    public static function getProjectName(): string
+    {
+        return $_ENV['PROJECT_NAME'];
+    }
     public const APP_JSON = 'Content-Type: application/json';
 
     public static function getGeminiBaseUrl(): string
@@ -49,5 +52,10 @@ class Config
     public static function getGeminiMaxOutputTokens(): int
     {
         return (int) ($_ENV['GEMINI_MAX_OUTPUT_TOKENS'] ?? 4096);
+    }
+
+    public static function getGithubUserAgent(): string
+    {
+        return "User-Agent: " . $_ENV['GITHUB_USERAGENT'];
     }
 }

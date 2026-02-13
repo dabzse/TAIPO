@@ -47,6 +47,7 @@
                         @decompose="$emit('decompose', element)"
                         @generate-code="$emit('generate-code', element)"
                         @query-task="$emit('query-task', element)"
+                        @request-edit="openEditTaskModal(element)"
                     />
                 </template>
             </draggable>
@@ -74,8 +75,9 @@
 
         <TaskModal
             :is-open="isTaskModalOpen"
-            @close="isTaskModalOpen = false"
-            @save="handleAddTask"
+            :task="taskToEdit"
+            @close="closeTaskModal"
+            @save="handleSaveTask"
         />
 
         <Teleport to="body">
@@ -115,6 +117,7 @@ const emit = defineEmits([
 ]);
 
 const isTaskModalOpen = ref(false);
+const taskToEdit = ref(null);
 
 const getResultingColor = (style) => {
     // Mapping internal style names to DaisyUI/Tailwind colors if needed
@@ -175,29 +178,48 @@ const formatColumnTitle = (title) => {
 };
 
 const openAddTaskModal = () => {
+    taskToEdit.value = null;
     isTaskModalOpen.value = true;
 };
 
-const handleAddTask = async (payload) => {
-    // Close modal immediately
-    isTaskModalOpen.value = false;
+const openEditTaskModal = (task) => {
+    taskToEdit.value = task;
+    isTaskModalOpen.value = true;
+};
 
-    let description, priority;
+const closeTaskModal = () => {
+    isTaskModalOpen.value = false;
+    taskToEdit.value = null;
+};
+
+const handleSaveTask = async (payload) => {
+    // Close modal immediately
+    closeTaskModal();
+
+    let title, description, priority;
 
     if (typeof payload === "object") {
+        title = payload.title;
         description = payload.description;
         priority = payload.priority;
     } else {
-        description = payload;
+        // Fallback for simple string (legacy)
+        title = payload;
+        description = "";
         priority = 0;
     }
 
-    if (!description) return;
+    if (!title) return;
     try {
-        await api.addTask(props.currentProject, description, priority);
-        emit("task-added");
+        if (taskToEdit.value) {
+            await api.editTask(taskToEdit.value.id, title, description);
+            emit("task-updated");
+        } else {
+            await api.addTask(props.currentProject, title, description, priority);
+            emit("task-added");
+        }
     } catch (e) {
-        alert("Failed to add task: " + (e.response?.data?.error || e.message));
+        alert("Failed to save task: " + (e.response?.data?.error || e.message));
     }
 };
 

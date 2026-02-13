@@ -8,7 +8,7 @@
         <!-- Modal Content -->
         <div class="relative p-5 border w-182 shadow-lg rounded-md bg-gray-500">
             <div class="flex items-center mb-4">
-                <h3 class="text-lg font-semibold text-white mr-auto">Add New Task</h3>
+                <h3 class="text-lg font-semibold text-white mr-auto">{{ isEditMode ? 'Edit Task' : 'Add New Task' }}</h3>
                 <div
                     @mouseleave="hoverPriority = 0"
                     class="flex space-x-1"
@@ -90,7 +90,7 @@
                     :disabled="!title"
                     class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Add Task
+                    {{ isEditMode ? 'Save Changes' : 'Add Task' }}
                 </button>
             </div>
         </div>
@@ -98,11 +98,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from "vue";
+import { ref, watch, nextTick, computed } from "vue";
 
 const props = defineProps({
     isOpen: Boolean,
+    task: Object, // Optional, if provided, we are in edit mode
 });
+
+const isEditMode = computed(() => !!props.task);
 
 const emit = defineEmits(["close", "save"]);
 
@@ -116,9 +119,18 @@ watch(
     () => props.isOpen,
     (newVal) => {
         if (newVal) {
-            title.value = "";
-            description.value = "";
-            priority.value = 0;
+            if (props.task) {
+                // Edit mode
+                title.value = props.task.title || '';
+                // If title was auto-generated from description before migration, it might be messy, but assuming clean state.
+                description.value = props.task.description || '';
+                priority.value = Number(props.task.is_important) || 0;
+            } else {
+                // Add mode
+                title.value = "";
+                description.value = "";
+                priority.value = 0;
+            }
             hoverPriority.value = 0;
             nextTick(() => {
                 titleInput.value?.focus();
@@ -145,11 +157,6 @@ const setPriority = (p) => {
 const save = () => {
     if (!title.value) return;
 
-    let finalDesc = title.value;
-    if (description.value) {
-        finalDesc += `\n\n${description.value}`;
-    }
-
-    emit("save", { description: finalDesc, priority: priority.value });
+    emit("save", { title: title.value, description: description.value, priority: priority.value });
 };
 </script>
