@@ -8,11 +8,11 @@
             'opacity-50': task.is_subtask,
         }"
         draggable="true"
-        class="card bg-base-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-move border-l-4"
+        class="card bg-base-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-move border-l-4 mt-4"
     >
         <div
             @dblclick="enableEdit"
-            class="card-body p-3 border-b-4 border-azure-300 rounded-box"
+            class="card-body p-2 border-b-4 border-azure-300 rounded-box"
         >
             <div class="flex justify-between items-start mb-2">
                 <!-- Priority Stars -->
