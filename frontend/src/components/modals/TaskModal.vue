@@ -8,7 +8,7 @@
         <!-- Modal Content -->
         <div class="relative p-5 border w-182 shadow-lg rounded-md bg-gray-500">
             <div class="flex items-center mb-4">
-                <h3 class="text-lg font-semibold text-white mr-auto">{{ isEditMode ? 'Edit Task' : 'Add New Task' }}</h3>
+                <h3 class="text-lg font-semibold text-white mr-auto">{{ isReadOnly ? 'View Task' : (isEditMode ? 'Edit Task' : 'Add New Task') }}</h3>
                 <div
                     @mouseleave="hoverPriority = 0"
                     class="flex space-x-1"
@@ -16,6 +16,7 @@
                     <button
                         v-for="i in 3"
                         :key="i"
+                        :disabled="isReadOnly"
                         @click="setPriority(i)"
                         @mouseover="hoverPriority = i"
                         class="focus:outline-none transition-colors duration-200"
@@ -50,6 +51,7 @@
             <div class="mb-4 relative">
                 <label class="label font-bold text-sm text-gray-200" for="task-title">Task Title</label>
                 <input
+                    v-if="!isReadOnly"
                     v-model="title"
                     @keyup.enter="save"
                     ref="titleInput"
@@ -59,7 +61,16 @@
                     class="w-full p-2 border rounded pr-16"
                     placeholder="Task Title"
                 >
-                <div class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded">
+                <div
+                    v-else
+                    class="w-full p-2 bg-gray-600 text-white rounded font-bold text-lg min-h-[40px]"
+                >
+                    {{ title || 'Untitled' }}
+                </div>
+                <div
+                    v-if="!isReadOnly"
+                    class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded"
+                >
                     {{ 42 - title.length }}
                 </div>
             </div>
@@ -67,14 +78,41 @@
             <div class="mb-4 relative">
                 <label class="label font-bold text-sm text-gray-200" for="task-desc">Description</label>
                 <textarea
+                    v-if="!isReadOnly"
                     v-model="description"
                     maxlength="512"
                     id="task-desc"
                     class="w-full p-2 border rounded h-24 pb-6"
                     placeholder="Task Description"
-                ></textarea>
-                <div class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded">
+                >
+                </textarea>
+                <div
+                    v-else
+                    class="w-full p-2 bg-gray-600 text-white rounded whitespace-pre-wrap min-h-[6rem]"
+                >
+                    {{ description || 'No description' }}
+                </div>
+                <div
+                    v-if="!isReadOnly"
+                    class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded"
+                >
                     {{ 512 - description.length }}
+                </div>
+            </div>
+
+            <!-- TAIPO Feedback (Read-Only) -->
+            <div
+                v-if="isReadOnly && task?.po_comments"
+                class="mb-4 text-sm bg-gray-700 p-3 rounded border border-gray-400 text-white"
+            >
+                <div class="font-bold mb-2 text-indigo-300 flex items-center gap-2">
+                    <span class="text-xl">🤖</span> TAIPO Feedback
+                </div>
+                <!-- Using same formatting logic as TaskCard -->
+                <div
+                    v-html="formattedPoComments"
+                    class="prose prose-sm prose-invert max-w-none"
+                >
                 </div>
             </div>
 
@@ -83,9 +121,10 @@
                     @click="$emit('close')"
                     class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded mr-2"
                 >
-                    Cancel
+                    {{ isReadOnly ? 'Close' : 'Cancel' }}
                 </button>
                 <button
+                    v-if="!isReadOnly"
                     @click="save"
                     :disabled="!title"
                     class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
@@ -102,7 +141,8 @@ import { ref, watch, nextTick, computed } from "vue";
 
 const props = defineProps({
     isOpen: Boolean,
-    task: Object, // Optional, if provided, we are in edit mode
+    task: Object,
+    isReadOnly: Boolean,
 });
 
 const isEditMode = computed(() => !!props.task);
@@ -114,6 +154,20 @@ const hoverPriority = ref(0);
 const title = ref("");
 const description = ref("");
 const titleInput = ref(null);
+
+const formattedPoComments = computed(() => {
+    if (!props.task?.po_comments) return "";
+    let text = props.task.po_comments;
+    // Escape HTML (basic)
+    text = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    // Bold: **text** -> <b>text</b>
+    text = text.replaceAll(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+    // Separator: --- -> <hr>
+    text = text.replaceAll("\n\n---\n\n", '<hr class="my-2 border-white/20" />');
+    // Newlines: \n -> <br>
+    text = text.replaceAll("\n", "<br>");
+    return text;
+});
 
 watch(
     () => props.isOpen,

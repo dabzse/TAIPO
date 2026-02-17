@@ -144,5 +144,18 @@ export const api = {
             query: query
         });
         return response.data;
+    },
+
+    async saveRequirement(projectName, content) {
+        return client.post('/', {
+            action: 'save_requirement',
+            project_name: projectName,
+            content: content
+        });
+    },
+
+    async getRequirements(projectName) {
+        const response = await client.get(`/?action=get_requirements&project_name=${encodeURIComponent(projectName)}`);
+        return response.data;
     }
 };

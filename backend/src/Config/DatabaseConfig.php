@@ -36,6 +36,13 @@ class DatabaseConfig
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )",
+                'requirements' => "CREATE TABLE IF NOT EXISTS requirements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(project_name) REFERENCES projects(name) ON DELETE CASCADE
                 )"
             ]
         ];

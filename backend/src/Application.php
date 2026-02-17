@@ -9,7 +9,9 @@ use App\Service\GeminiService;
 use App\Controller\TaskController;
 use App\Controller\ProjectController;
 use App\Controller\SettingsController;
+use App\Controller\RequirementController;
 use App\Service\SettingsService;
+use App\Service\RequirementService;
 use App\Utils;
 use App\Config;
 use App\Core\View;
@@ -26,6 +28,8 @@ class Application
     private TaskController $taskController;
     private ProjectController $projectController;
     private SettingsController $settingsController;
+    private RequirementService $requirementService;
+    private RequirementController $requirementController;
 
     public function run()
     {
@@ -122,6 +126,14 @@ class Application
                     exit;
                 case 'save_setting':
                     $this->settingsController->handleSaveSetting();
+                    exit;
+
+                    // Requirement Actions
+                case 'save_requirement':
+                    $this->requirementController->handleSaveRequirement();
+                    exit;
+                case 'get_requirements':
+                    $this->requirementController->handleGetRequirements();
                     exit;
                 default:
                     // Fallthrough to main page or 404 if API?
@@ -244,6 +256,9 @@ class Application
             $this->taskController = new TaskController($this->taskService);
             $this->projectController = new ProjectController($this->projectService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
+
+            $this->requirementService = new RequirementService($pdo);
+            $this->requirementController = new RequirementController($this->requirementService);
         } catch (Exception $e) {
             $error = $e->getMessage();
         }

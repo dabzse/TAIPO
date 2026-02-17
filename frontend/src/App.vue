@@ -46,6 +46,20 @@
                     </span>
                 </div>
 
+                <!-- Requirements Button -->
+                <div class="flex-none mr-2">
+                    <button 
+                        v-if="currentProject" 
+                        @click="isRequirementModalOpen = true" 
+                        class="btn btn-ghost btn-circle" 
+                        title="Project Requirements"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                    </button>
+                </div>
+
                 <!-- Theme Toggle -->
                 <div class="flex-none">
                     <label class="swap swap-rotate btn btn-ghost btn-circle">
@@ -65,7 +79,7 @@
             </div>
 
             <!-- Main Content -->
-            <main class="container mx-auto px-4">
+            <main class="container mx-auto">
                 <div
                     v-if="loading"
                     class="flex justify-center p-10"
@@ -115,6 +129,12 @@
             @submit="handleQueryTaskSubmit"
         />
 
+        <RequirementModal
+            :is-open="isRequirementModalOpen"
+            :project-name="currentProject"
+            @close="isRequirementModalOpen = false"
+        />
+
         <!-- Global Toast Notification -->
         <div
             v-if="notification"
@@ -141,6 +161,7 @@ import KanbanBoard from './components/KanbanBoard.vue';
 import ProjectSidebar from './components/ProjectSidebar.vue';
 import CodeGenerationModal from './components/modals/CodeGenerationModal.vue';
 import TaskQueryModal from './components/modals/TaskQueryModal.vue';
+import RequirementModal from './components/RequirementModal.vue';
 import { api } from './services/api';
 
 const loading = ref(false);
@@ -167,6 +188,9 @@ const queryLoading = ref(false);
 const queryAnswer = ref('');
 const queryError = ref('');
 const queryTaskTarget = ref(null);
+
+// Requirements Modal State
+const isRequirementModalOpen = ref(false);
 
 // Global Notification State
 const notification = ref(null);

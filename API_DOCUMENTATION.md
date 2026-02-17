@@ -89,3 +89,13 @@ Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` qu
 | :--- | :--- | :--- | :--- |
 | `get_setting` | GET | `key` | Retrieves a system setting by key. |
 | `save_setting` | POST | `key`, `value` | Saves or updates a system setting. |
+
+### 6. Requirement Management
+
+**Action Parameter:** `action` (in GET or POST)
+
+| Action | Method | Required Fields | Description |
+| :--- | :--- | :--- | :--- |
+| `save_requirement` | POST | `project_name`, `content` | Saves a new requirement for a project. |
+
+| `get_requirements` | GET | `project_name` | Retrieves all requirements for a specific project (ordered by newest). |
