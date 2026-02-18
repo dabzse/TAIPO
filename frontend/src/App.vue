@@ -26,7 +26,7 @@
                 <div class="flex-none">
                     <a class="btn btn-ghost text-xl">
                         <img src="./images/robot_head.svg" alt="App Logo" class="w-8 h-8 mr-2" />
-                        AI-Driven Kanban
+                        {{ appConfig.projectName }}
                     </a>
                 </div>
 
@@ -100,6 +100,8 @@
                     :columns="columns"
                     :tasks="tasks"
                     :current-project="currentProject"
+                    :max-title-length="appConfig.maxTitleLength"
+                    :max-description-length="appConfig.maxDescriptionLength"
                     @task-updated="refreshTasks"
                     @task-deleted="refreshTasks"
                     @task-added="refreshTasks"
@@ -125,6 +127,7 @@
             :loading="queryLoading"
             :answer="queryAnswer"
             :error="queryError"
+            :max-query-length="appConfig.maxQueryLength"
             @close="isQueryModalOpen = false"
             @submit="handleQueryTaskSubmit"
         />
@@ -167,6 +170,12 @@ import { api } from './services/api';
 const loading = ref(false);
 const error = ref(null);
 const tasks = ref({});
+const appConfig = ref({
+    projectName: "AI-Driven Kanban",
+    maxTitleLength: 42,
+    maxDescriptionLength: 512,
+    maxQueryLength: 1320
+});
 const currentProject = ref(null);
 const showGithubModal = ref(false);
 const drawerOpen = ref(false);
@@ -220,8 +229,14 @@ const refreshTasks = async () => {
 
     try {
         loading.value = true;
-        const allTasks = await api.getKanbanTasks(currentProject.value);
-        tasks.value = allTasks;
+        const data = await api.getKanbanTasks(currentProject.value);
+        tasks.value = data.tasks || {};
+        if (data.config) {
+            appConfig.value = { ...appConfig.value, ...data.config };
+            if (data.config.projectName) {
+                document.title = data.config.projectName;
+            }
+        }
     } catch (e) {
         error.value = e.response?.data?.error || e.message;
     } finally {

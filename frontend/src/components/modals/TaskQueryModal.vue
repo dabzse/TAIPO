@@ -39,8 +39,8 @@
                 <textarea
                     v-model="query"
                     @keydown.enter.ctrl="submitQuery"
+                    :maxlength="maxQueryLength"
                     ref="queryInput"
-                    maxlength="1320"
                     id="task-query-input"
                     class="textarea h-28 w-full border-outline-cyan-400"
                     placeholder="e.g., How do I implement the login logic?"
@@ -53,10 +53,10 @@
 
             <div class="modal-action justify-between items-center">
                 <span 
-                    :class="query.length >= 1320 ? 'text-error font-bold' : 'opacity-60'"
+                    :class="query.length >= maxQueryLength ? 'text-error font-bold' : 'opacity-60'"
                     class="text-green-400"
                 >
-                    {{ 1320 - query.length }} chars remaining
+                    {{ maxQueryLength - query.length }} chars remaining
                 </span>
                 <button
                     @click="submitQuery"
@@ -113,6 +113,10 @@ const props = defineProps({
     loading: Boolean,
     answer: String,
     error: String,
+    maxQueryLength: {
+        type: Number,
+        default: 1320
+    }
 });
 
 const emit = defineEmits(['close', 'submit']);

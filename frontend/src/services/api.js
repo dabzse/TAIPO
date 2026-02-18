@@ -13,8 +13,8 @@ export const api = {
     async getKanbanTasks(project) {
         const url = project ? `/?project=${encodeURIComponent(project)}` : '/';
         const response = await client.get(url);
-        // Backend returns: { tasks: {...}, existingProjects: [...], ... }
-        return response.data.tasks;
+        // Backend returns: { tasks: {...}, existingProjects: [...], config: {...}, ... }
+        return response.data;
     },
 
     async addTask(project, title, description, priority = 0) {

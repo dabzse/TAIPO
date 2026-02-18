@@ -54,9 +54,9 @@
                     v-if="!isReadOnly"
                     v-model="title"
                     @keyup.enter="save"
+                    :maxlength="maxTitleLength"
                     ref="titleInput"
                     type="text"
-                    maxlength="42"
                     id="task-title"
                     class="w-full p-2 border rounded pr-16"
                     placeholder="Task Title"
@@ -71,7 +71,7 @@
                     v-if="!isReadOnly"
                     class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded"
                 >
-                    {{ 42 - title.length }}
+                    {{ maxTitleLength - title.length }}
                 </div>
             </div>
 
@@ -80,7 +80,7 @@
                 <textarea
                     v-if="!isReadOnly"
                     v-model="description"
-                    maxlength="512"
+                    :maxlength="maxDescriptionLength"
                     id="task-desc"
                     class="w-full p-2 border rounded h-24 pb-6"
                     placeholder="Task Description"
@@ -96,7 +96,7 @@
                     v-if="!isReadOnly"
                     class="absolute right-2 bottom-2 bg-gray-100 text-green-800 text-xs px-1 rounded"
                 >
-                    {{ 512 - description.length }}
+                    {{ maxDescriptionLength - description.length }}
                 </div>
             </div>
 
@@ -143,6 +143,14 @@ const props = defineProps({
     isOpen: Boolean,
     task: Object,
     isReadOnly: Boolean,
+    maxTitleLength: {
+        type: Number,
+        default: 42
+    },
+    maxDescriptionLength: {
+        type: Number,
+        default: 512
+    }
 });
 
 const isEditMode = computed(() => !!props.task);

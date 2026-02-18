@@ -14,7 +14,6 @@ use App\Service\SettingsService;
 use App\Service\RequirementService;
 use App\Utils;
 use App\Config;
-use App\Core\View;
 use Exception;
 use App\Database;
 use Dotenv\Dotenv;
@@ -142,22 +141,13 @@ class Application
             }
         }
 
-        // Handle Project Generation via POST (legacy)
-        $projectName = trim($_POST['project_name'] ?? '');
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($projectName) && !isset($_POST['action'])) {
-            // This is the "Generate Project" flow
-            $err = $this->handleProjectGeneration($projectName);
-            if ($err) {
-                $error = $err;
-            }
-        }
 
 
         // Default View Rendering
-        $this->renderDashboard($error);
+        $this->handleApiData($error);
     }
 
-    private function renderDashboard($error)
+    private function handleApiData($error)
     {
         $columns = [
             'SPRINT BACKLOG' => 'info',
@@ -193,35 +183,22 @@ class Application
 
         $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
 
-        // Check if client expects JSON (API mode general)
-        $isApiRequest = (
-            (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-            isset($_GET['api'])
-        );
-
-        if ($isApiRequest) {
-            header(Config::APP_JSON);
-            echo json_encode([
-                'currentProjectName' => $currentProjectName,
-                'existingProjects' => $existingProjects,
-                'projects' => $projectsData,
-                'error' => $error,
-                'columns' => array_keys($columns),
-                'tasks' => $kanbanTasks
-            ]);
-            exit;
-        }
-
-        $isServerConfigured = !empty($_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO')) && !empty($_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'));
-
-        View::render('index.view.php', [
+        header(Config::APP_JSON);
+        echo json_encode([
             'currentProjectName' => $currentProjectName,
             'existingProjects' => $existingProjects,
+            'projects' => $projectsData,
             'error' => $error,
-            'isServerConfigured' => $isServerConfigured,
-            'columns' => $columns,
-            'kanbanTasks' => $kanbanTasks
+            'columns' => array_keys($columns),
+            'tasks' => $kanbanTasks,
+            'config' => [
+                'projectName' => Config::getProjectName(),
+                'maxTitleLength' => Config::getMaxTitleLength(),
+                'maxDescriptionLength' => Config::getMaxDescriptionLength(),
+                'maxQueryLength' => Config::getMaxQueryLength(),
+            ]
         ]);
+        exit;
     }
 
     private function initEnvAndInput(): void
@@ -318,66 +295,6 @@ class Application
         }
     }
 
-    private function handleProjectGeneration($projectName)
-    {
-        // This logic is bound to 'Start Project' AI generation that creates multiple tasks.
-        // It uses TaskService::replaceProjectTasks.
-
-        // We should also ensure the project exists in `projects` table!
-        try {
-            // Create project if not exists
-            try {
-                $this->projectService->createProject($projectName);
-            } catch (Exception $e) {
-                // Ignore if exists
-            }
-
-            // Logic from original handleProjectGeneration
-            $rawPrompt = trim($_POST['ai_prompt'] ?? '');
-
-            if (empty($rawPrompt)) {
-                return "Error: The AI prompt field cannot be empty.";
-            }
-
-            $prompt = str_replace('{{PROJECT_NAME}}', $projectName, $rawPrompt);
-            $rawText = $this->geminiService->askTaipo($prompt);
-
-            $lines = explode("\n", $rawText);
-            $newTasks = [];
-
-            foreach ($lines as $line) {
-                // ... (Parsing logic same as before)
-                $line = trim($line);
-                if (empty($line)) {
-                    continue;
-                }
-
-                $taskDescription = $line;
-                $finalStatus = 'SPRINTBACKLOG';
-
-                // "SPRINTBACKLOG" vs. "SPRINT BACKLOG"
-                if (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)\]:\s*(.*)/iu', $line, $matches)) {
-                    $taskDescription = trim($matches[2]);
-                    $finalStatus = strtoupper($matches[1]);
-                }
-
-                if (!empty($taskDescription) && strlen($taskDescription) > 5) {
-                    $newTasks[] = [
-                        'description' => $taskDescription,
-                        'status' => $finalStatus
-                    ];
-                }
-            }
-
-            // Replaces tasks in `tasks` table
-            $this->taskService->replaceProjectTasks($projectName, $newTasks);
-
-            header("Location: " . basename($_SERVER['SCRIPT_NAME']) . "?project=" . urlencode($projectName));
-            exit;
-        } catch (Exception $e) {
-            return "Error during Gemini API call/save: " . $e->getMessage();
-        }
-    }
 
     private function loadKanbanTasks(string $currentProjectName, array $columns, ?string &$error): array
     {

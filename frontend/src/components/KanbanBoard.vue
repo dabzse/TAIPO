@@ -78,6 +78,8 @@
             :is-open="isTaskModalOpen"
             :task="taskToEdit"
             :is-read-only="isTaskModalReadOnly"
+            :max-title-length="maxTitleLength"
+            :max-description-length="maxDescriptionLength"
             @close="closeTaskModal"
             @save="handleSaveTask"
         />
@@ -106,6 +108,8 @@ const props = defineProps({
     columns: Object,
     tasks: Object,
     currentProject: String,
+    maxTitleLength: Number,
+    maxDescriptionLength: Number,
 });
 
 const emit = defineEmits([

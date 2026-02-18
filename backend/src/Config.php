@@ -58,4 +58,19 @@ class Config
     {
         return "User-Agent: " . $_ENV['GITHUB_USERAGENT'];
     }
+
+    public static function getMaxTitleLength(): int
+    {
+        return (int) ($_ENV['MAX_TITLE_LENGTH'] ?? 42);
+    }
+
+    public static function getMaxDescriptionLength(): int
+    {
+        return (int) ($_ENV['MAX_DESCRIPTION_LENGTH'] ?? 512);
+    }
+
+    public static function getMaxQueryLength(): int
+    {
+        return (int) ($_ENV['MAX_QUERY_LENGTH'] ?? 1320);
+    }
 }

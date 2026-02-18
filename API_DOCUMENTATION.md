@@ -18,7 +18,13 @@ Success Mockup:
 ```json
 {
   "success": true,
-  "data": { ... }
+  "data": { ... },
+  "config": {
+    "projectName": "TAIPO: AI-Kanban",
+    "maxTitleLength": 42,
+    "maxDescriptionLength": 512,
+    "maxQueryLength": 1320
+  }
 }
 ```
 
@@ -80,6 +86,18 @@ This request triggers the **AI Brainstorming** flow, creating the project and po
 **Endpoint:** GET `/`
 
 Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` query param is used, it returns the Kanban board state as JSON.
+
+**Response Fields:**
+
+- `currentProjectName`: String - Name of the active project.
+- `existingProjects`: Array - List of all project names.
+- `projects`: Array - Detailed project objects.
+- `tasks`: Object - Tasks grouped by status.
+- `config`: Object - System configuration:
+  - `projectName`: String - The globally configured name of the application.
+  - `maxTitleLength`: Integer - Maximum characters allowed for task titles.
+  - `maxDescriptionLength`: Integer - Maximum characters allowed for task descriptions.
+  - `maxQueryLength`: Integer - Maximum characters allowed for TAIPO queries.
 
 ### 5. Settings Management
 
