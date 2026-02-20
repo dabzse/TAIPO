@@ -140,7 +140,7 @@ class TaskController
         }
     }
 
-    public function handleGenerateJavaCode()
+    public function handleGenerateCode()
     {
         $description = trim($_POST['description'] ?? '');
 
@@ -151,7 +151,7 @@ class TaskController
         }
 
         try {
-            $formattedCode = $this->taskService->generateJavaCode($description);
+            $formattedCode = $this->taskService->generateCode($description);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'code' => $formattedCode]);
         } catch (GeminiApiException $e) {

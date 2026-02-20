@@ -13,7 +13,6 @@ but [VSCode](https://code.visualstudio.com/) has more because of its own marketp
 
 Of course, you won't need all of them!
 
-
 **PHP** extensions:
 
       - bmewburn.vscode-intelephense-client

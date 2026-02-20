@@ -45,13 +45,17 @@
                         <div class="form-control w-full">
                             <div class="flex justify-between items-center mb-2">
                                 <label class="label font-bold p-0" for="promptInput">AI Prompt</label>
-                                <button
-                                    @click="loadDefaultPrompt"
-                                    type="button"
-                                    class="btn btn-xs btn-ghost text-info"
-                                >
-                                    Load Default
-                                </button>
+                                <div class="dropdown dropdown-end">
+                                    <button tabindex="0" class="btn btn-xs btn-ghost text-info m-1">Load Default ▾</button>
+                                    <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                        <li
+                                            v-for="lang in supportedLanguages"
+                                            :key="lang"
+                                        >
+                                            <a @mousedown="loadDefaultPrompt(lang)">{{ lang }}</a>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                             <textarea
                                 v-model="prompt"
@@ -59,6 +63,18 @@
                                 class="textarea textarea-bordered h-32 leading-relaxed"
                                 placeholder="Describe the project you want to build..."
                             ></textarea>
+                        </div>
+
+                        <div class="divider text-xs">OR UPLOAD SPEC</div>
+
+                        <div class="form-control w-full">
+                            <input
+                                @change="handleFileUpload"
+                                :disabled="loading"
+                                type="file"
+                                accept=".txt,.md"
+                                class="file-input file-input-bordered file-input-sm w-full"
+                            />
                         </div>
 
                         <div class="grid grid-cols-2 gap-2">
@@ -268,18 +284,68 @@ const projectLoadError = ref(null);
 const isRenameModalOpen = ref(false);
 const renameName = ref("");
 
-const DEFAULT_PROMPT =
-    "Plan a project named {{PROJECT_NAME}}! Generate at least 10 tasks for the Kanban board covering basic development steps. Provide each task on a new line without any prefix (e.g. [SPRINT BACKLOG]:) so they all go into the **SPRINT BACKLOG** column. Do not include introductory text.";
+const supportedLanguages = ref([]);
+const languagePrompts = ref({});
 
-const loadDefaultPrompt = () => {
-    // Auto-fill project name if empty
-    if (!projectName.value) {
-        projectName.value = "New Project";
+onMounted(async () => {
+    try {
+        const defaults = await api.getProjectDefaults();
+        if (defaults.success) {
+            supportedLanguages.value = defaults.languages;
+            languagePrompts.value = defaults.prompts;
+        }
+    } catch (e) {
+        console.error("Failed to load project defaults", e);
     }
-    prompt.value = DEFAULT_PROMPT.replace(
-        "{{PROJECT_NAME}}",
-        projectName.value,
-    );
+});
+
+const loadDefaultPrompt = (language) => {
+    // Auto-fill project name if empty or generic
+    if (!projectName.value || /^New .* Project \d{4}-\d{2}-\d{2}/.test(projectName.value) || projectName.value.startsWith("New Project")) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sec = String(now.getSeconds()).padStart(2, '0');
+        projectName.value = `New ${language} Project ${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}`;
+    }
+
+    let promptText = languagePrompts.value[language] || "";
+    if (promptText) {
+        prompt.value = promptText.replace(
+            "{{PROJECT_NAME}}",
+            projectName.value,
+        );
+    }
+};
+
+const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        if (!text.trim()) return;
+
+        loading.value = true;
+        const res = await api.createProjectFromSpec(text);
+        if (res.success) {
+            await fetchProjects();
+            if (res.projectName) {
+                selectProjectByName(res.projectName);
+            }
+            drawerOpen.value = false;
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error generating project from spec: " + (err.response?.data?.error || err.message));
+    } finally {
+        loading.value = false;
+        // Reset input
+        event.target.value = '';
+    }
 };
 
 const handleGenerate = async () => {
@@ -291,6 +357,11 @@ const handleGenerate = async () => {
         // Refetch to get ID
         await fetchProjects();
         selectProjectByName(projectName.value);
+        drawerOpen.value = false;
+
+        // Reset the form values after successful generation
+        prompt.value = "";
+        projectName.value = "";
     } catch (e) {
         alert("Error generating project: " + (e.response?.data?.error || e.message));
     } finally {
@@ -305,6 +376,7 @@ const handleCreateEmpty = async () => {
         await api.createProject(projectName.value);
         await fetchProjects();
         selectProjectByName(projectName.value);
+        drawerOpen.value = false;
     } catch (e) {
         alert("Error creating project: " + (e.response?.data?.error || e.message));
     } finally {

@@ -42,7 +42,10 @@ class Database
     {
         // 1. Create Tables
         if (isset($this->config['schema'])) {
-            foreach ($this->config['schema'] as $createSql) {
+            foreach ($this->config['schema'] as $key => $createSql) {
+                if ($key === 'fix_schema') {
+                    continue;
+                }
                 $this->pdo->exec($createSql);
             }
         }
@@ -63,6 +66,22 @@ class Database
                 FROM tasks
                 WHERE project_name IS NOT NULL AND project_name != ''
             ");
+        }
+
+        // Run schema fix migration natively if needed
+        if (isset($this->config['schema']['fix_schema'])) {
+            try {
+                // If the check constraint is already correct or there is no data to migrate it might be a no-op,
+                // but trying to rename the table will throw if there's no tasks table, or if it's already migrated
+                // We do a quick check to see if we have tasks with bad statuses
+                $badStatusStmt = $this->pdo->query("SELECT COUNT(*) FROM tasks WHERE status = 'SPRINTBACKLOG'");
+                if ($badStatusStmt && $badStatusStmt->fetchColumn() > 0) {
+                    $this->pdo->exec($this->config['schema']['fix_schema']);
+                }
+            } catch (Exception $e) {
+                // Ignore if it fails (likely already migrated or table structure is fine)
+                error_log("Schema fix migration skipped: " . $e->getMessage());
+            }
         }
     }
 

@@ -68,100 +68,110 @@ class Application
 
         // Existing actions delegating to TaskController
         if ($action) {
-            switch ($action) {
-                // Task Actions
-                case 'add_task':
-                    $this->taskController->handleAddTask();
-                    exit;
-                case 'delete_task':
-                    $this->taskController->handleDeleteTask();
-                    exit;
-                case 'toggle_importance':
-                    $this->taskController->handleToggleImportance();
-                    exit;
-                case 'update_status':
-                    $this->taskController->handleUpdateStatus();
-                    exit;
-                case 'reorder_tasks':
-                    $this->taskController->handleReorderTasks();
-                    exit;
-                case 'edit_task':
-                    $this->taskController->handleEditTask();
-                    exit;
-                    // Should it be `generate_source_code`? Why just "java"?
-                    // Give an option for few languages, like: python, php, rust, c, cpp, cs, java, typescript...
-                case 'generate_java_code':
-                    $this->taskController->handleGenerateJavaCode();
-                    exit;
-                case 'generate_project_tasks':
-                    $projectName = $_POST['project_name'] ?? '';
-                    $aiPrompt = $_POST['ai_prompt'] ?? '';
-                    if (empty($projectName) || empty($aiPrompt)) {
-                        header(Config::APP_JSON, true, 400);
-                        echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
-                        exit;
-                    }
-                    try {
-                        $this->taskService->generateProjectTasks($projectName, $aiPrompt);
-                        echo json_encode(['success' => true]);
-                    } catch (Exception $e) {
-                        header(Config::APP_JSON, true, 502);
-                        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-                    }
-                    exit;
-
-                case 'decompose_task':
-                    // We need project name here
-                    $this->taskController->handleDecomposeTask();
-                    exit;
-                case 'commit_to_github':
-                    $this->handleCommitToGithub();
-                    exit;
-                case 'query_task':
-                    $this->taskController->handleQueryTask();
-                    exit;
-
-                    // Project Actions
-                case 'create_project':
-                    $this->projectController->handleCreate();
-                    exit;
-                case 'list_projects':
-                    $this->projectController->handleList();
-                    exit;
-                case 'update_project':
-                    $this->projectController->handleUpdate();
-                    exit;
-                case 'delete_project':
-                    $this->projectController->handleDelete();
-                    exit;
-
-                    // Settings Actions
-                case 'get_setting':
-                    $key = $_GET['key'] ?? '';
-                    $this->settingsController->handleGetSetting($key);
-                    exit;
-                case 'save_setting':
-                    $this->settingsController->handleSaveSetting();
-                    exit;
-
-                    // Requirement Actions
-                case 'save_requirement':
-                    $this->requirementController->handleSaveRequirement();
-                    exit;
-                case 'get_requirements':
-                    $this->requirementController->handleGetRequirements();
-                    exit;
-                default:
-                    // Fallthrough to main page or 404 if API?
-                    // For now break to allow rendering dashboard if action is unknown but page load is fine
-                    break;
-            }
+            $this->routeApiAction($action);
         }
-
-
 
         // Default View Rendering
         $this->handleApiData($error);
+    }
+
+    private function routeApiAction(string $action): void
+    {
+        switch ($action) {
+            // Task Actions
+            case 'add_task':
+                $this->taskController->handleAddTask();
+                exit;
+            case 'delete_task':
+                $this->taskController->handleDeleteTask();
+                exit;
+            case 'toggle_importance':
+                $this->taskController->handleToggleImportance();
+                exit;
+            case 'update_status':
+                $this->taskController->handleUpdateStatus();
+                exit;
+            case 'reorder_tasks':
+                $this->taskController->handleReorderTasks();
+                exit;
+            case 'edit_task':
+                $this->taskController->handleEditTask();
+                exit;
+            case 'generate_code':
+                $this->taskController->handleGenerateCode();
+                exit;
+            case 'generate_project_tasks':
+                $projectName = $_POST['project_name'] ?? '';
+                $aiPrompt = $_POST['ai_prompt'] ?? '';
+                if (empty($projectName) || empty($aiPrompt)) {
+                    header(Config::APP_JSON, true, 400);
+                    echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
+                    exit;
+                }
+                try {
+                    try {
+                        $this->projectService->createProject($projectName);
+                    } catch (\App\Exception\ProjectAlreadyExistsException $e) {
+                        // Project exists, we will replace tasks inside it
+                    }
+
+                    $this->taskService->generateProjectTasks($projectName, $aiPrompt);
+                    echo json_encode(['success' => true]);
+                } catch (Exception $e) {
+                    header(Config::APP_JSON, true, 502);
+                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                }
+                exit;
+
+            case 'decompose_task':
+                $this->taskController->handleDecomposeTask();
+                exit;
+            case 'commit_to_github':
+                $this->handleCommitToGithub();
+                exit;
+            case 'query_task':
+                $this->taskController->handleQueryTask();
+                exit;
+
+                // Project Actions
+            case 'create_project':
+                $this->projectController->handleCreate();
+                exit;
+            case 'list_projects':
+                $this->projectController->handleList();
+                exit;
+            case 'update_project':
+                $this->projectController->handleUpdate();
+                exit;
+            case 'delete_project':
+                $this->projectController->handleDelete();
+                exit;
+            case 'create_project_from_spec':
+                $this->projectController->handleCreateFromSpec();
+                exit;
+            case 'get_project_defaults':
+                $this->projectController->handleGetDefaults();
+                exit;
+
+                // Settings Actions
+            case 'get_setting':
+                $key = $_GET['key'] ?? '';
+                $this->settingsController->handleGetSetting($key);
+                exit;
+            case 'save_setting':
+                $this->settingsController->handleSaveSetting();
+                exit;
+
+                // Requirement Actions
+            case 'save_requirement':
+                $this->requirementController->handleSaveRequirement();
+                exit;
+            case 'get_requirements':
+                $this->requirementController->handleGetRequirements();
+                exit;
+            default:
+                break;
+        }
     }
 
     private function handleApiData($error)
@@ -248,7 +258,7 @@ class Application
             $this->projectService = new ProjectService($pdo);
 
             $this->taskController = new TaskController($this->taskService);
-            $this->projectController = new ProjectController($this->projectService);
+            $this->projectController = new ProjectController($this->projectService, $this->taskService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
 
             $this->requirementService = new RequirementService($pdo);

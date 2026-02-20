@@ -10,6 +10,19 @@ class Config
     }
     public const APP_JSON = 'Content-Type: application/json';
 
+    public const SUPPORTED_LANGUAGES = [
+        'Python',
+        'PHP',
+        'Rust',
+        'C++',
+        'C#',
+        'Dart',
+        'Java',
+        'Go',
+        'TypeScript',
+        'JavaScript'
+    ];
+
     public static function getGeminiBaseUrl(): string
     {
         return $_ENV['GEMINI_BASE_URL'] ?? $_ENV['GEMINI_FALLBACK_URL'];

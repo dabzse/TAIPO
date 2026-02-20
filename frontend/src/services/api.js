@@ -76,9 +76,16 @@ export const api = {
         });
     },
 
+    async getProjectDefaults() {
+        const response = await client.post('/', {
+            action: 'get_project_defaults'
+        });
+        return response.data;
+    },
+
     async generateCode(taskId, description) {
         const response = await client.post('/', {
-            action: 'generate_java_code',
+            action: 'generate_code',
             task_id: taskId,
             description: description
         });
@@ -108,6 +115,14 @@ export const api = {
             action: 'create_project',
             name: name
         });
+    },
+
+    async createProjectFromSpec(specContent) {
+        const response = await client.post('/', {
+            action: 'create_project_from_spec',
+            spec: specContent
+        });
+        return response.data;
     },
 
     async renameProject(id, name) {

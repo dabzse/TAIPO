@@ -53,7 +53,7 @@ Error Mockup:
 | `toggle_importance` | `task_id`, `is_important` (0/1) | Message string | Toggles the importance flag (star) of a task. |
 | `update_status` | `task_id`, `new_status`, `current_project` | Message string | Moves a task to a new Kanban column. |
 | `edit_task` | `task_id`, `title`, `description` | `success: true` | Updates the title and description of a task. |
-| `generate_java_code` | `description` | `code` (string) | Uses Gemini AI to generate Java code for the task. |
+| `generate_code` | `description` | `code` (string) | Uses Gemini AI to generate source code for the task in the requested language. |
 | `decompose_task` | `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a large story into subtasks. |
 | `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | `filePath` (string) | Commits the generated code to the configured GitHub repository. |
 | `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | `success: true` | Reorders tasks within a specific column/status. |
@@ -69,10 +69,12 @@ Error Mockup:
 | `list_projects` | None | Returns a list of all available projects. |
 | `update_project` | `id`, `name` | Renames an existing project. |
 | `delete_project` | `id` | Deletes a project and all its tasks. |
+| `create_project_from_spec` | `spec` (string) | Uses Gemini AI to automatically create a project and tasks from a text specification. |
+| `get_project_defaults` | None | Returns supported programming `languages` and their default `prompts`. |
 
-### 3. Project Generation (Legacy/Composite)
+### 3. Project Generation
 
-**Endpoint:** POST `/` (No `action` parameter)
+**Action Parameter:** `action` = `generate_project_tasks`
 
 | Field | Description |
 | :--- | :--- |
