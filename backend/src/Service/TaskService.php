@@ -146,7 +146,7 @@ class TaskService
             $stmt->execute([':projectName' => $projectName]);
 
             $insertStmt = $this->pdo->prepare(
-                "INSERT INTO tasks (project_name, title, description, status) VALUES (:project_name, :title, :description, :status)"
+                "INSERT INTO tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, :status, :is_important)"
             );
 
             $count = 0;
@@ -165,7 +165,8 @@ class TaskService
                     ':project_name' => $projectName,
                     ':title' => $tTitle,
                     ':description' => $tDesc,
-                    ':status' => $task['status']
+                    ':status' => $task['status'],
+                    ':is_important' => $task['is_important'] ?? 0
                 ]);
                 $count++;
             }
@@ -185,10 +186,11 @@ class TaskService
         $prompt = str_replace('{{PROJECT_NAME}}', $projectName, $rawPrompt);
         $prompt .= "\n\nPlease generate a list of user stories for this project.
                     Each user story must follow the standard format: 'As a [user], I want to [action], so that [benefit]'.
-                    Format each line as: [STATUS]: [Short Title] | [User Story Text]
+                    Format each line as: [STATUS|PRIORITY]: [Short Title] | [User Story Text]
+                    The PRIORITY must be an integer from 0 (None) to 3 (High).
                     The Short Title must be under " . Config::getMaxTitleLength() . " characters.
                     Available statuses: SPRINTBACKLOG, IMPLEMENTATION, TESTING, REVIEW, DONE.
-                    Example: [SPRINTBACKLOG]: Login Feature | As a user, I want to log in, so that I can access my profile.";
+                    Example: [SPRINTBACKLOG|2]: Login Feature | As a user, I want to log in, so that I can access my profile.";
 
         $rawText = $this->geminiService->askTaipo($prompt);
         $lines = explode("\n", $rawText);
@@ -217,17 +219,20 @@ class TaskService
         $title = '';
         $description = '';
         $status = '';
+        $isImportant = 0;
         $isValid = false;
 
-        if (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)\]:\s*(.*?)\s*\|\s*(.*)/iu', $line, $matches)) {
+        if (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)(?:\|([0-3]))?\]:\s*(.*?)\s*\|\s*(.*)/iu', $line, $matches)) {
             $rawStatus = strtoupper($matches[1]);
-            $title = trim($matches[2]);
-            $description = trim($matches[3]);
+            $isImportant = isset($matches[2]) && $matches[2] !== '' ? (int)$matches[2] : 0;
+            $title = trim($matches[3]);
+            $description = trim($matches[4]);
             $status = $this->mapStatus($rawStatus);
             $isValid = true;
-        } elseif (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)\]:\s*(.*)/iu', $line, $matches)) {
+        } elseif (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)(?:\|([0-3]))?\]:\s*(.*)/iu', $line, $matches)) {
             $rawStatus = strtoupper($matches[1]);
-            $description = trim($matches[2]);
+            $isImportant = isset($matches[2]) && $matches[2] !== '' ? (int)$matches[2] : 0;
+            $description = trim($matches[3]);
             $maxLen = Config::getMaxTitleLength();
             $title = substr($description, 0, $maxLen) . (strlen($description) > $maxLen ? '...' : '');
             $status = $this->mapStatus($rawStatus);
@@ -238,7 +243,8 @@ class TaskService
             return [
                 'title' => $title,
                 'description' => $description,
-                'status' => $status
+                'status' => $status,
+                'is_important' => $isImportant
             ];
         }
         return null;
@@ -270,8 +276,9 @@ class TaskService
 
         Output format:
         PROJECT_NAME: [Name]
-        [SPRINTBACKLOG]: [Short Title] | [User Story Text]
+        [SPRINTBACKLOG|PRIORITY]: [Short Title] | [User Story Text]
         ...
+        The PRIORITY must be an integer from 0 (None) to 3 (High).
         The Short Title must be under {Config::getMaxTitleLength()} characters.
         ";
 
