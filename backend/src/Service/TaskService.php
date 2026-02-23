@@ -12,6 +12,8 @@ use App\Config;
 
 class TaskService
 {
+    public const STATUS_SPRINT_BACKLOG = 'SPRINT BACKLOG';
+
     private PDO $pdo;
     private GeminiService $geminiService;
 
@@ -184,7 +186,12 @@ class TaskService
     public function generateProjectTasks(string $projectName, string $rawPrompt): int
     {
         $prompt = str_replace('{{PROJECT_NAME}}', $projectName, $rawPrompt);
-        $prompt .= "\n\nPlease generate a list of user stories for this project.
+        $prompt .= "\n\nPlease generate a list of high-quality, relevant user stories for this project.
+                    Quality Guidelines:
+                    - Ensure each story provides clear, actionable value and is highly relevant to the project description.
+                    - Make the stories atomic and testable. Avoid vague or overly broad tasks.
+                    - Cover core functionalities first, ensuring a logical flow of dependency.
+
                     Each user story must follow the standard format: 'As a [user], I want to [action], so that [benefit]'.
                     Format each line as: [STATUS|PRIORITY]: [Short Title] | [User Story Text]
                     The PRIORITY must be an integer from 0 (None) to 3 (High).
@@ -250,8 +257,6 @@ class TaskService
         return null;
     }
 
-    public const STATUS_SPRINT_BACKLOG = 'SPRINT BACKLOG';
-
     private function mapStatus(string $rawStatus): string
     {
         $statusMap = [
@@ -269,7 +274,14 @@ class TaskService
     {
         $prompt = "Analyze the following project specification and:
         1. Suggest a short, creative, and unique Project Name (max 5 words).
-        2. Extract a list of User Stories/Tasks. Each task must follow the format: 'As a [user], I want to [action], so that [benefit]'.
+        2. Extract a list of high-quality User Stories/Tasks based on the spec.
+
+        Quality Guidelines for Stories:
+        - Ensure each story provides clear, actionable value and is strictly relevant to the provided specification.
+        - Make each story atomic, testable, and sufficiently detailed. Do not create vague or overly broad tasks.
+        - Ensure comprehensive coverage of the core features mentioned in the spec.
+
+        Each task must follow the format: 'As a [user], I want to [action], so that [benefit]'.
 
         Specification:
         {$spec}
@@ -316,7 +328,13 @@ class TaskService
 
     public function decomposeTask(string $description, string $projectName): int
     {
-        $prompt = "Decompose this user story into 3-5 concrete technical subtasks: '{$description}'.
+        $prompt = "Decompose this parent user story into 3-5 concrete, high-quality technical subtasks: '{$description}'.
+
+                    Quality Guidelines:
+                    - Ensure subtasks are highly relevant to the parent story and represent actual actionable steps for implementation.
+                    - Make each subtask atomic, tightly scoped, and directly contributing to the parent story's goal.
+                    - Use clear, professional, component-level language where appropriate.
+
                     Each subtask must be a User Story following the standard format: 'As a [actor], I want to [action], so that [benefit]'.
                     Format each line as: [Short Title] | [User Story Text]
                     The Short Title must be under 40 characters.
