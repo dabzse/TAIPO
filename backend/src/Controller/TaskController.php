@@ -155,7 +155,8 @@ class TaskController
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'code' => $formattedCode]);
         } catch (GeminiApiException $e) {
-            $code = $e->getCode() ?: 500;
+            $code = $e->getCode();
+            $code = ($code >= 100 && $code <= 599) ? $code : 500;
             http_response_code($code);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         } catch (Exception $e) {
@@ -184,7 +185,8 @@ class TaskController
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'count' => $count]);
         } catch (GeminiApiException $e) {
-            $code = $e->getCode() ?: 500;
+            $code = $e->getCode();
+            $code = ($code >= 100 && $code <= 599) ? $code : 500;
             http_response_code($code);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         } catch (Exception $e) {
@@ -209,7 +211,8 @@ class TaskController
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'answer' => $answer]);
         } catch (GeminiApiException $e) {
-            $code = $e->getCode() ?: 500;
+            $code = $e->getCode();
+            $code = ($code >= 100 && $code <= 599) ? $code : 500;
             http_response_code($code);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         } catch (Exception $e) {

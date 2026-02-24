@@ -49,13 +49,19 @@ class GeminiService
 
         if (isset($result['error'])) {
             $errorMessage = $result['error']['message'] ?? 'Unknown error';
-            $errorCode = $result['error']['code'] ?? $httpCode;
+            $errorCode = (int)($result['error']['code'] ?? $httpCode);
             $errorStatus = $result['error']['status'] ?? 'UNKNOWN';
-            throw new GeminiApiException("API error [{$errorStatus}]: {$errorMessage}", (int)$errorCode ?: 500);
+
+            $contextualMessage = $this->getContextualMessage($errorCode, $errorStatus);
+            $finalMessage = $contextualMessage ? "{$contextualMessage} (API: {$errorMessage})" : "API error [{$errorStatus}]: {$errorMessage}";
+
+            throw new GeminiApiException($finalMessage, $errorCode ?: 500);
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
-            throw new GeminiApiException("API request failed with HTTP Code: {$httpCode}", $httpCode);
+            $contextualMessage = $this->getContextualMessage($httpCode, '');
+            $finalMessage = $contextualMessage ? $contextualMessage : "API request failed with HTTP Code: {$httpCode}";
+            throw new GeminiApiException($finalMessage, $httpCode);
         }
 
         if (!isset($result['candidates'][0]['content']['parts'][0]['text'])) {
@@ -64,6 +70,23 @@ class GeminiService
         }
 
         return $result['candidates'][0]['content']['parts'][0]['text'];
+    }
+
+    private function getContextualMessage(int $httpCode, string $errorStatus): ?string
+    {
+        $message = null;
+
+        if ($httpCode === 400 || $errorStatus === 'INVALID_ARGUMENT') {
+            $message = "Bad Request: Data format issue or invalid API key.";
+        } elseif ($httpCode === 403 || $errorStatus === 'PERMISSION_DENIED') {
+            $message = "API Key is forbidden or lacks necessary permissions.";
+        } elseif ($httpCode === 429 || $errorStatus === 'RESOURCE_EXHAUSTED') {
+            $message = "Rate limit exceeded or quota exhausted. Please try again later.";
+        } elseif ($httpCode === 500 || $httpCode === 502) {
+            $message = "Gemini API is currently encountering an internal error.";
+        }
+
+        return $message;
     }
 
     private function makeRequest(string $url, array $data): array

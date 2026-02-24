@@ -12,6 +12,7 @@ use App\Controller\SettingsController;
 use App\Controller\RequirementController;
 use App\Service\SettingsService;
 use App\Service\RequirementService;
+use App\Exception\GeminiApiException;
 use App\Utils;
 use App\Config;
 use Exception;
@@ -117,9 +118,14 @@ class Application
 
                     $this->taskService->generateProjectTasks($projectName, $aiPrompt);
                     echo json_encode(['success' => true]);
-                } catch (Exception $e) {
-                    header(Config::APP_JSON, true, 502);
+                } catch (GeminiApiException $e) {
+                    $code = $e->getCode() ?: 502;
+                    header(Config::APP_JSON, true, $code);
                     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                } catch (Exception $e) {
+                    header(Config::APP_JSON, true, 500);
+                    error_log("General error generating tasks: " . $e->getMessage());
+                    echo json_encode(['success' => false, 'error' => "Server error: " . $e->getMessage()]);
                 }
                 exit;
 

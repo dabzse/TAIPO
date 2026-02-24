@@ -8,6 +8,7 @@ use App\Config;
 use Exception;
 use App\Exception\ProjectNotFoundException;
 use App\Exception\ProjectAlreadyExistsException;
+use App\Exception\GeminiApiException;
 use App\Prompts;
 
 class ProjectController
@@ -146,6 +147,10 @@ class ProjectController
 
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'projectName' => $projectName, 'projectId' => $projectId]);
+        } catch (GeminiApiException $e) {
+            $code = $e->getCode() ?: 502;
+            http_response_code($code);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         } catch (Exception $e) {
             http_response_code(500);
             error_log("Error generating project from spec: " . $e->getMessage());
