@@ -4,11 +4,15 @@ namespace App\Service;
 
 use App\Config;
 use App\Exception\GeminiApiException;
+use PDO;
 
 class GeminiService
 {
-    public function __construct()
+    private ?PDO $pdo;
+
+    public function __construct(?PDO $pdo = null)
     {
+        $this->pdo = $pdo;
         $apiKey = Config::getGeminiApiKey();
 
         if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
@@ -69,7 +73,49 @@ class GeminiService
             throw new GeminiApiException("API response blocked or invalid format. Reason: " . $blockReason, 502);
         }
 
+        $usageMetadata = $result['usageMetadata'] ?? null;
+        if ($usageMetadata && $this->pdo) {
+            $promptTokens = $usageMetadata['promptTokenCount'] ?? 0;
+            $candidateTokens = $usageMetadata['candidatesTokenCount'] ?? 0;
+            $totalTokens = $usageMetadata['totalTokenCount'] ?? 0;
+            $modelName = Config::getGeminiModel();
+
+            try {
+                $stmt = $this->pdo->prepare("INSERT INTO api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$modelName, $promptTokens, $candidateTokens, $totalTokens]);
+            } catch (\Exception $e) {
+                error_log("Failed to log API usage: " . $e->getMessage());
+            }
+        }
+
         return $result['candidates'][0]['content']['parts'][0]['text'];
+    }
+
+    public function getAggregatedApiUsage(): array
+    {
+        if (!$this->pdo) {
+            return [];
+        }
+
+        try {
+            $stmt = $this->pdo->query("SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM api_usage GROUP BY endpoint");
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($results) {
+                return array_map(function ($row) {
+                    return [
+                        'model' => $row['model'],
+                        'prompt_tokens' => (int) $row['prompt_tokens'],
+                        'candidate_tokens' => (int) $row['candidate_tokens'],
+                        'total_tokens' => (int) $row['total_tokens']
+                    ];
+                }, $results);
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to get aggregated API usage: " . $e->getMessage());
+        }
+
+        return [];
     }
 
     private function getContextualMessage(int $httpCode, string $errorStatus): ?string

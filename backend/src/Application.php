@@ -175,6 +175,26 @@ class Application
             case 'get_requirements':
                 $this->requirementController->handleGetRequirements();
                 exit;
+
+                // API Cost Actions
+            case 'get_api_usage':
+                header(Config::APP_JSON);
+                try {
+                    $usageData = $this->geminiService->getAggregatedApiUsage();
+                    $costConfig = [];
+                    foreach ($usageData as $usageItem) {
+                        $model = $usageItem['model'];
+                        $costConfig[$model] = [
+                            'promptCostPerMillion' => Config::getModelPromptCost($model),
+                            'candidateCostPerMillion' => Config::getModelCandidateCost($model)
+                        ];
+                    }
+                    echo json_encode(['success' => true, 'data' => $usageData, 'config' => $costConfig]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => implode(" ", [$e->getMessage(), $e->getTraceAsString()])]);
+                }
+                exit;
             default:
                 break;
         }
@@ -259,7 +279,7 @@ class Application
             $database = new Database($dbFile);
             $pdo = $database->getPdo();
 
-            $this->geminiService = new GeminiService();
+            $this->geminiService = new GeminiService($pdo);
             $this->taskService = new TaskService($pdo, $this->geminiService);
             $this->projectService = new ProjectService($pdo);
 

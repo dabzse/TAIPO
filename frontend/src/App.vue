@@ -30,6 +30,20 @@
                     </a>
                 </div>
 
+                <!-- API Costs Button -->
+                <div class="flex-none ml-2 hidden sm:flex">
+                    <button
+                        @click="isApiCostModalOpen = true"
+                        class="btn btn-outline btn-sm btn-info gap-2"
+                        title="API Costs"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        API Costs
+                    </button>
+                </div>
+
                 <!-- Spacer & Centered Project Name -->
                 <div class="flex-1 flex justify-center">
                     <span
@@ -138,6 +152,11 @@
             @close="isRequirementModalOpen = false"
         />
 
+        <ApiCostModal
+            :is-open="isApiCostModalOpen"
+            @close="isApiCostModalOpen = false"
+        />
+
         <!-- Global Toast Notification -->
         <div
             v-if="notification"
@@ -164,6 +183,7 @@ import KanbanBoard from './components/KanbanBoard.vue';
 import ProjectSidebar from './components/ProjectSidebar.vue';
 import CodeGenerationModal from './components/modals/CodeGenerationModal.vue';
 import TaskQueryModal from './components/modals/TaskQueryModal.vue';
+import ApiCostModal from './components/modals/ApiCostModal.vue';
 import RequirementModal from './components/RequirementModal.vue';
 import { api } from './services/api';
 
@@ -200,6 +220,9 @@ const queryTaskTarget = ref(null);
 
 // Requirements Modal State
 const isRequirementModalOpen = ref(false);
+
+// API Cost Modal State
+const isApiCostModalOpen = ref(false);
 
 // Global Notification State
 const notification = ref(null);
