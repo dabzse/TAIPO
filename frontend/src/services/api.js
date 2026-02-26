@@ -6,8 +6,27 @@ const client = axios.create({
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-    }
+    },
+    withCredentials: true // Important for sending/receiving session cookies
 });
+
+// Add a response interceptor to handle global 401s
+client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error?.response?.status === 401) {
+            // If we get an unauthorized error and we're not already trying to login/check auth
+            const action = error.config?.data ? JSON.parse(error.config.data).action : '';
+            if (!['login', 'register', 'check_auth'].includes(action)) {
+                // Dispatch event so App.vue can log the user out visually
+                if (typeof globalThis !== 'undefined' && globalThis.window) {
+                    globalThis.window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
+                }
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 export const api = {
     async getKanbanTasks(project) {
@@ -177,6 +196,39 @@ export const api = {
 
     async getApiUsage() {
         const response = await client.get(`/?action=get_api_usage`);
+        return response.data;
+    },
+
+    // Authentication
+    async login(username, password) {
+        const response = await client.post('/', {
+            action: 'login',
+            username: username,
+            password: password
+        });
+        return response.data;
+    },
+
+    async register(username, password) {
+        const response = await client.post('/', {
+            action: 'register',
+            username: username,
+            password: password
+        });
+        return response.data;
+    },
+
+    async logout() {
+        const response = await client.post('/', {
+            action: 'logout'
+        });
+        return response.data;
+    },
+
+    async checkAuth() {
+        const response = await client.post('/', {
+            action: 'check_auth'
+        });
         return response.data;
     }
 };

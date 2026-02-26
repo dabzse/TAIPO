@@ -109,4 +109,14 @@ class Config
     {
         return (int) ($_ENV['MAX_QUERY_LENGTH'] ?? 1320);
     }
+
+    public static function getMinUsernameLength(): int
+    {
+        return (int) ($_ENV['MIN_USERNAME_LENGTH'] ?? 3);
+    }
+
+    public static function getMinPasswordLength(): int
+    {
+        return (int) ($_ENV['MIN_PASSWORD_LENGTH'] ?? 6);
+    }
 }

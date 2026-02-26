@@ -56,7 +56,7 @@ class Database
         // Special case for projects migration if needed (from ProjectService)
         $stmt = $this->pdo->query("SELECT COUNT(*) FROM projects");
         if ($stmt->fetchColumn() == 0) {
-            // Only run if tasks table exists which it should by now
+            // Check if tasks table structure looks ready, maybe wait for it
             $this->pdo->exec("
                 INSERT OR IGNORE INTO projects (name)
                 SELECT DISTINCT project_name
@@ -64,6 +64,20 @@ class Database
                 WHERE project_name IS NOT NULL AND project_name != ''
             ");
         }
+
+        // 4. Create users Table
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
+        // 5. Link projects to users (Safe Migration)
+        $this->ensureColumnsExist('projects', ['user_id', 'is_archived']);
+        $this->ensureColumnsExist('tasks', ['parent_id']); // will be used in story 2.3
     }
 
     private function ensureColumnsExist(string $tableName, array $columnsToCheck): void
@@ -101,6 +115,8 @@ class Database
         $definitions = [
             'is_subtask' => ['type' => 'INTEGER', 'default' => '0'],
             'position' => ['type' => 'INTEGER', 'default' => '0'],
+            'user_id' => ['type' => 'INTEGER', 'default' => 'NULL'],
+            'parent_id' => ['type' => 'INTEGER', 'default' => 'NULL'],
         ];
 
         return $definitions[$col] ?? ['type' => 'TEXT', 'default' => 'NULL'];

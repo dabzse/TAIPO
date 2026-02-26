@@ -10,9 +10,11 @@ use App\Controller\TaskController;
 use App\Controller\ProjectController;
 use App\Controller\SettingsController;
 use App\Controller\RequirementController;
+use App\Controller\AuthController;
 use App\Service\SettingsService;
 use App\Service\RequirementService;
 use App\Exception\GeminiApiException;
+use App\Exception\ProjectAlreadyExistsException;
 use App\Utils;
 use App\Config;
 use Exception;
@@ -30,6 +32,7 @@ class Application
     private SettingsController $settingsController;
     private RequirementService $requirementService;
     private RequirementController $requirementController;
+    private AuthController $authController;
 
     public function run()
     {
@@ -51,6 +54,17 @@ class Application
             exit;
         }
 
+        // Start session before any output
+        session_set_cookie_params([
+            'lifetime' => 86400 * 30, // 30 days
+            'path' => '/',
+            // Domain omitted to allow the browser to use the request host (fixes localhost Vite proxy issues)
+            'secure' => isset($_ENV['FORCE_HTTPS']) && $_ENV['FORCE_HTTPS'] === 'true', // Use environment variable for HTTPS
+            'httponly' => true,
+            'samesite' => 'Lax' // Or 'Strict' depending on cross-site needs
+        ]);
+        session_start();
+
         $this->initEnvAndInput();
 
         $dbFile = __DIR__ . '/../kanban.sqlite';
@@ -67,7 +81,7 @@ class Application
 
         $action = $_POST['action'] ?? $_GET['action'] ?? null;
 
-        // Existing actions delegating to TaskController
+        // Existing actions delegating to Controllers
         if ($action) {
             $this->routeApiAction($action);
         }
@@ -78,8 +92,34 @@ class Application
 
     private function routeApiAction(string $action): void
     {
+        // Public Actions (No Auth Required)
         switch ($action) {
-            // Task Actions
+            case 'login':
+                $this->authController->handleLogin();
+                exit;
+            case 'register':
+                $this->authController->handleRegister();
+                exit;
+            case 'check_auth':
+                $this->authController->handleCheckAuth();
+                exit;
+            default:
+                break;
+        }
+
+        // AUTHENTICATION CHECK
+        if (!isset($_SESSION['user_id'])) {
+            header(Config::APP_JSON, true, 401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized. Please log in.']);
+            exit;
+        }
+
+        // Protected Actions
+        switch ($action) {
+            case 'logout':
+                $this->authController->handleLogout();
+                exit;
+                // Task Actions
             case 'add_task':
                 $this->taskController->handleAddTask();
                 exit;
@@ -102,31 +142,7 @@ class Application
                 $this->taskController->handleGenerateCode();
                 exit;
             case 'generate_project_tasks':
-                $projectName = $_POST['project_name'] ?? '';
-                $aiPrompt = $_POST['ai_prompt'] ?? '';
-                if (empty($projectName) || empty($aiPrompt)) {
-                    header(Config::APP_JSON, true, 400);
-                    echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
-                    exit;
-                }
-                try {
-                    try {
-                        $this->projectService->createProject($projectName);
-                    } catch (\App\Exception\ProjectAlreadyExistsException $e) {
-                        // Project exists, we will replace tasks inside it
-                    }
-
-                    $this->taskService->generateProjectTasks($projectName, $aiPrompt);
-                    echo json_encode(['success' => true]);
-                } catch (GeminiApiException $e) {
-                    $code = $e->getCode() ?: 502;
-                    header(Config::APP_JSON, true, $code);
-                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-                } catch (Exception $e) {
-                    header(Config::APP_JSON, true, 500);
-                    error_log("General error generating tasks: " . $e->getMessage());
-                    echo json_encode(['success' => false, 'error' => "Server error: " . $e->getMessage()]);
-                }
+                $this->handleGenerateProjectTasks();
                 exit;
 
             case 'decompose_task':
@@ -200,6 +216,36 @@ class Application
         }
     }
 
+    private function handleGenerateProjectTasks(): void
+    {
+        $projectName = $_POST['project_name'] ?? '';
+        $aiPrompt = $_POST['ai_prompt'] ?? '';
+        if (empty($projectName) || empty($aiPrompt)) {
+            header(Config::APP_JSON, true, 400);
+            echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
+            return;
+        }
+        try {
+            try {
+                $this->projectService->createProject($projectName);
+            } catch (ProjectAlreadyExistsException $e) {
+                // Project exists, we will replace tasks inside it
+            }
+
+            $this->taskService->generateProjectTasks($projectName, $aiPrompt);
+            echo json_encode(['success' => true]);
+        } catch (GeminiApiException $e) {
+            $code = $e->getCode() ?: 502;
+            header(Config::APP_JSON, true, $code);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        } catch (Exception $e) {
+            header(Config::APP_JSON, true, 500);
+            error_log("General error generating tasks: " . $e->getMessage());
+            echo json_encode(['success' => false, 'error' => "Server error: " . $e->getMessage()]);
+        }
+    }
+
+
     private function handleApiData($error)
     {
         $columns = [
@@ -234,10 +280,15 @@ class Application
             $currentProjectName = $existingProjects[0];
         }
 
-        $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
+        $kanbanTasks = [];
+        // Only load tasks if authenticated
+        if (isset($_SESSION['user_id'])) {
+            $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
+        }
 
         header(Config::APP_JSON);
         echo json_encode([
+            'authenticated' => isset($_SESSION['user_id']),
             'currentProjectName' => $currentProjectName,
             'existingProjects' => $existingProjects,
             'projects' => $projectsData,
@@ -249,6 +300,8 @@ class Application
                 'maxTitleLength' => Config::getMaxTitleLength(),
                 'maxDescriptionLength' => Config::getMaxDescriptionLength(),
                 'maxQueryLength' => Config::getMaxQueryLength(),
+                'minUsernameLength' => Config::getMinUsernameLength(),
+                'minPasswordLength' => Config::getMinPasswordLength(),
             ]
         ]);
         exit;
@@ -289,6 +342,7 @@ class Application
 
             $this->requirementService = new RequirementService($pdo);
             $this->requirementController = new RequirementController($this->requirementService);
+            $this->authController = new AuthController($pdo);
         } catch (Exception $e) {
             $error = $e->getMessage();
         }

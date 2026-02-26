@@ -240,7 +240,7 @@ const handleSaveTask = async (payload) => {
     }
 };
 
-// --- Safe Delete Logic ---
+// Safe Delete Logic
 const isDeleteModalOpen = ref(false);
 const taskToDelete = ref(null);
 
