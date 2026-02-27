@@ -20,12 +20,17 @@ class TaskController
 
     public function handleAddTask()
     {
-        $newTitle = trim($_POST['title'] ?? '');
+        $newTitle = strip_tags(trim($_POST['title'] ?? ''));
         $newTaskDescription = trim($_POST['description'] ?? '');
-        $projectForAdd = trim($_POST['current_project'] ?? '');
-        $isImportant = (int)($_POST['is_important'] ?? 0);
+        $projectForAdd = strip_tags(trim($_POST['current_project'] ?? ''));
+        $isImportant = filter_var($_POST['is_important'] ?? 0, FILTER_VALIDATE_INT);
 
         if (!empty($newTitle) && !empty($projectForAdd)) {
+            if (strlen($newTitle) > Config::getMaxTitleLength() || strlen($newTaskDescription) > Config::getMaxDescriptionLength()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => "Title or description exceeds max length."]);
+                return;
+            }
             try {
                 // If description is empty, that's fine now, title is required.
                 $newId = $this->taskService->addTask($projectForAdd, $newTitle, $newTaskDescription, $isImportant);
@@ -44,7 +49,7 @@ class TaskController
 
     public function handleDeleteTask()
     {
-        $taskId = $_POST['task_id'] ?? null;
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
 
         if (is_numeric($taskId)) {
             try {
@@ -64,7 +69,7 @@ class TaskController
 
     public function handleToggleImportance()
     {
-        $taskId = $_POST['task_id'] ?? null;
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
         $isImportant = filter_var($_POST['is_important'] ?? 0, FILTER_VALIDATE_INT);
 
         if (is_numeric($taskId)) {
@@ -85,9 +90,9 @@ class TaskController
 
     public function handleUpdateStatus()
     {
-        $taskId = $_POST['task_id'] ?? null;
-        $newStatus = $_POST['new_status'] ?? null;
-        $currentProjectName = $_POST['current_project'] ?? '';
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        $newStatus = strip_tags(trim($_POST['new_status'] ?? ''));
+        $currentProjectName = strip_tags(trim($_POST['current_project'] ?? ''));
 
         // Use fixed columns helper or passed config, for now hardcode columns check to match App
         $columns = [
@@ -120,11 +125,16 @@ class TaskController
 
     public function handleEditTask()
     {
-        $taskId = $_POST['task_id'] ?? null;
-        $newTitle = trim($_POST['title'] ?? '');
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        $newTitle = strip_tags(trim($_POST['title'] ?? ''));
         $newDescription = trim($_POST['description'] ?? '');
 
         if (is_numeric($taskId) && !empty($newTitle)) {
+            if (strlen($newTitle) > Config::getMaxTitleLength() || strlen($newDescription) > Config::getMaxDescriptionLength()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => "Title or description exceeds max length."]);
+                return;
+            }
             try {
                 $this->taskService->updateTask((int)$taskId, $newTitle, $newDescription);
                 header(Config::APP_JSON);
@@ -144,7 +154,7 @@ class TaskController
     {
         $description = trim($_POST['description'] ?? '');
 
-        if (empty($description)) {
+        if (empty($description) || strlen($description) > Config::getMaxDescriptionLength() * 2) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => "Error: Task description is missing."]);
             return;
@@ -171,8 +181,8 @@ class TaskController
         // ProjectID isn't actually used by service decompose,
         // but the current implementation requires project name to decompose into.
         // Wait, the Service needs `projectName`.
-        $currentProjectName = $_POST['current_project'] ?? '';
-        $desc = $_POST['description'] ?? '';
+        $currentProjectName = strip_tags(trim($_POST['current_project'] ?? ''));
+        $desc = trim($_POST['description'] ?? '');
 
         if (empty($desc) || empty($currentProjectName)) {
             http_response_code(400);

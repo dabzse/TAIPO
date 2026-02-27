@@ -24,12 +24,18 @@ class SettingsController
 
     public function handleSaveSetting()
     {
-        $key = $_POST['key'] ?? null;
-        $value = $_POST['value'] ?? null;
+        $key = strip_tags(trim($_POST['key'] ?? ''));
+        $value = trim($_POST['value'] ?? '');
 
         if (!$key || $value === null) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Missing key or value']);
+            return;
+        }
+
+        if (!preg_match('/^\w+$/', $key)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid setting key']);
             return;
         }
 

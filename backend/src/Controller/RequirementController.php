@@ -16,8 +16,8 @@ class RequirementController
 
     public function handleSaveRequirement()
     {
-        $projectName = $_POST['project_name'] ?? null;
-        $content = $_POST['content'] ?? null;
+        $projectName = strip_tags(trim($_POST['project_name'] ?? ''));
+        $content = trim($_POST['content'] ?? '');
 
         if (!$projectName || !$content) {
             http_response_code(400);
@@ -37,7 +37,7 @@ class RequirementController
 
     public function handleGetRequirements()
     {
-        $projectName = $_GET['project_name'] ?? null;
+        $projectName = strip_tags(trim($_GET['project_name'] ?? ''));
 
         if (!$projectName) {
             http_response_code(400);

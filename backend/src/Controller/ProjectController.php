@@ -36,10 +36,16 @@ class ProjectController
 
     public function handleCreate()
     {
-        $name = trim($_POST['name'] ?? '');
+        $name = strip_tags(trim($_POST['name'] ?? ''));
         if (empty($name)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Project name is required']);
+            return;
+        }
+
+        if (strlen($name) > Config::getMaxTitleLength()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Project name too long']);
             return;
         }
 
@@ -58,12 +64,18 @@ class ProjectController
 
     public function handleUpdate()
     {
-        $id = $_POST['id'] ?? null;
-        $name = trim($_POST['name'] ?? '');
+        $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
+        $name = strip_tags(trim($_POST['name'] ?? ''));
 
         if (!$id || empty($name)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'ID and name are required']);
+            return;
+        }
+
+        if (strlen($name) > Config::getMaxTitleLength()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Project name too long']);
             return;
         }
 
@@ -85,7 +97,7 @@ class ProjectController
 
     public function handleDelete()
     {
-        $id = $_POST['id'] ?? null;
+        $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
 
         if (!$id) {
             http_response_code(400);
