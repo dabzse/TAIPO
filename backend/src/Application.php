@@ -66,6 +66,7 @@ class Application
         session_start();
 
         $this->initEnvAndInput();
+        $this->enforceHttps();
 
         $dbFile = __DIR__ . '/../kanban.sqlite';
 
@@ -216,6 +217,25 @@ class Application
         }
     }
 
+    private function enforceHttps(): void
+    {
+        if (Config::isOffline()) {
+            return;
+        }
+
+        $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+            (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+            (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+
+        if (!$isSecure) {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $uri = $_SERVER['REQUEST_URI'] ?? '/';
+            $redirectUrl = 'https://' . $host . $uri;
+            header("Location: $redirectUrl", true, 301);
+            exit;
+        }
+    }
+
     private function handleGenerateProjectTasks(): void
     {
         $projectName = $_POST['project_name'] ?? '';
@@ -225,13 +245,15 @@ class Application
             echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
             return;
         }
-        try {
-            try {
-                $this->projectService->createProject($projectName);
-            } catch (ProjectAlreadyExistsException $e) {
-                // Project exists, we will replace tasks inside it
-            }
 
+        try {
+            $this->projectService->createProject($projectName);
+        } catch (ProjectAlreadyExistsException $e) {
+            // Project exists, we will replace tasks inside it
+            error_log("Project already exists: " . $e->getMessage());
+        }
+
+        try {
             $this->taskService->generateProjectTasks($projectName, $aiPrompt);
             echo json_encode(['success' => true]);
         } catch (GeminiApiException $e) {

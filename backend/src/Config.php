@@ -119,4 +119,10 @@ class Config
     {
         return (int) ($_ENV['MIN_PASSWORD_LENGTH'] ?? 6);
     }
+
+    public static function isOffline(): bool
+    {
+        $rootDir = realpath(__DIR__ . '/../../');
+        return is_dir($rootDir . '/__OFFLINE') || file_exists($rootDir . '/.offline');
+    }
 }
