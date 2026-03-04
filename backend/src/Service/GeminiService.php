@@ -4,11 +4,15 @@ namespace App\Service;
 
 use App\Config;
 use App\Exception\GeminiApiException;
+use PDO;
 
 class GeminiService
 {
-    public function __construct()
+    private ?PDO $pdo;
+
+    public function __construct(?PDO $pdo = null)
     {
+        $this->pdo = $pdo;
         $apiKey = Config::getGeminiApiKey();
 
         if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
@@ -37,13 +41,31 @@ class GeminiService
         ];
 
         $response = $this->makeRequest($url, $data);
-        $result = json_decode($response, true);
+        $body = $response['body'];
+        $httpCode = $response['http_code'];
+
+        $result = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $snippet = trim(substr(strip_tags($body), 0, 100));
+            throw new GeminiApiException("Invalid JSON response. HTTP: {$httpCode}. Context: {$snippet}", $httpCode ?: 500);
+        }
 
         if (isset($result['error'])) {
             $errorMessage = $result['error']['message'] ?? 'Unknown error';
-            // The HTTP code is not directly available here from makeRequest,
-            // but the error message from Gemini API usually indicates the problem.
-            throw new GeminiApiException("API error: " . $errorMessage);
+            $errorCode = (int)($result['error']['code'] ?? $httpCode);
+            $errorStatus = $result['error']['status'] ?? 'UNKNOWN';
+
+            $contextualMessage = $this->getContextualMessage($errorCode, $errorStatus);
+            $finalMessage = $contextualMessage ? "{$contextualMessage} (API: {$errorMessage})" : "API error [{$errorStatus}]: {$errorMessage}";
+
+            throw new GeminiApiException($finalMessage, $errorCode ?: 500);
+        }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $contextualMessage = $this->getContextualMessage($httpCode, '');
+            $finalMessage = $contextualMessage ? $contextualMessage : "API request failed with HTTP Code: {$httpCode}";
+            throw new GeminiApiException($finalMessage, $httpCode);
         }
 
         if (!isset($result['candidates'][0]['content']['parts'][0]['text'])) {
@@ -51,10 +73,69 @@ class GeminiService
             throw new GeminiApiException("API response blocked or invalid format. Reason: " . $blockReason, 502);
         }
 
+        $usageMetadata = $result['usageMetadata'] ?? null;
+        if ($usageMetadata && $this->pdo) {
+            $promptTokens = $usageMetadata['promptTokenCount'] ?? 0;
+            $candidateTokens = $usageMetadata['candidatesTokenCount'] ?? 0;
+            $totalTokens = $usageMetadata['totalTokenCount'] ?? 0;
+            $modelName = Config::getGeminiModel();
+
+            try {
+                $stmt = $this->pdo->prepare("INSERT INTO api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$modelName, $promptTokens, $candidateTokens, $totalTokens]);
+            } catch (\Exception $e) {
+                error_log("Failed to log API usage: " . $e->getMessage());
+            }
+        }
+
         return $result['candidates'][0]['content']['parts'][0]['text'];
     }
 
-    private function makeRequest(string $url, array $data): string
+    public function getAggregatedApiUsage(): array
+    {
+        if (!$this->pdo) {
+            return [];
+        }
+
+        try {
+            $stmt = $this->pdo->query("SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM api_usage GROUP BY endpoint");
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($results) {
+                return array_map(function ($row) {
+                    return [
+                        'model' => $row['model'],
+                        'prompt_tokens' => (int) $row['prompt_tokens'],
+                        'candidate_tokens' => (int) $row['candidate_tokens'],
+                        'total_tokens' => (int) $row['total_tokens']
+                    ];
+                }, $results);
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to get aggregated API usage: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    private function getContextualMessage(int $httpCode, string $errorStatus): ?string
+    {
+        $message = null;
+
+        if ($httpCode === 400 || $errorStatus === 'INVALID_ARGUMENT') {
+            $message = "Bad Request: Data format issue or invalid API key.";
+        } elseif ($httpCode === 403 || $errorStatus === 'PERMISSION_DENIED') {
+            $message = "API Key is forbidden or lacks necessary permissions.";
+        } elseif ($httpCode === 429 || $errorStatus === 'RESOURCE_EXHAUSTED') {
+            $message = "Rate limit exceeded or quota exhausted. Please try again later.";
+        } elseif ($httpCode === 500 || $httpCode === 502) {
+            $message = "Gemini API is currently encountering an internal error.";
+        }
+
+        return $message;
+    }
+
+    private function makeRequest(string $url, array $data): array
     {
         if (function_exists('curl_init')) {
             return $this->makeCurlRequest($url, $data);
@@ -63,13 +144,16 @@ class GeminiService
         }
     }
 
-    private function makeCurlRequest(string $url, array $data): string
+    private function makeCurlRequest(string $url, array $data): array
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [Config::APP_JSON]);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            Config::APP_JSON,
+            Config::getGeminiApiKeyHeader()
+        ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
         // SSL verification to match production standards
@@ -85,21 +169,15 @@ class GeminiService
 
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        if ($httpCode !== 200) {
-            // For non-200, we still return response so calling method can parse error JSON
-            // unless it's a complete failure?
-            // Actually, `askTaipo` expects json, so lets return it.
-            // But if it's 404 or 500 HTML...
-        }
-
-        return $response;
+        return ['body' => $response, 'http_code' => $httpCode];
     }
 
-    private function makeFileGetContentsRequest(string $url, array $data): string
+    private function makeFileGetContentsRequest(string $url, array $data): array
     {
         $options = [
             'http' => [
-                'header'  => Config::APP_JSON . "\r\n",
+                'header'  => Config::APP_JSON . "\r\n" .
+                    Config::getGeminiApiKeyHeader() . "\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => 60,
@@ -121,13 +199,26 @@ class GeminiService
             $safeErrorMessage = "Network request failed.";
             if (isset($error['message'])) {
                 $msg = $error['message'];
-                // Sanitize key
+                // Sanitize key (both old URL query param style and header presence)
                 $msg = preg_replace('/key=[^&\s]+/', 'key=***', $msg);
+                if (Config::getGeminiApiKey() !== '') {
+                    $msg = str_replace(Config::getGeminiApiKey(), '***', $msg);
+                }
                 $safeErrorMessage .= " Details: " . $msg;
             }
             throw new GeminiApiException($safeErrorMessage);
         }
 
-        return $response;
+        $httpCode = 0;
+        if (isset($http_response_header)) {
+            foreach ($http_response_header as $header) {
+                if (preg_match('#HTTP/[\d\.]+\s+(\d+)#', $header, $matches)) {
+                    $httpCode = intval($matches[1]);
+                    break;
+                }
+            }
+        }
+
+        return ['body' => $response, 'http_code' => $httpCode];
     }
 }

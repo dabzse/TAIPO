@@ -1,9 +1,9 @@
 <template>
-    <div class="flex flex-nowrap overflow-x-auto gap-4 p-4 h-[calc(100vh-140px)]">
+    <div class="flex flex-nowrap overflow-x-auto gap-4 min-h-[calc(100vh-140px)]">
         <div
             v-for="(style, title) in columns"
             :key="title"
-            class="min-w-[280px] flex flex-col bg-base-100 rounded-box shadow-xl h-full"
+            class="min-w-[280px] flex flex-col bg-base-100 rounded-box shadow-xl"
         >
             <!-- Column Header -->
             <div
@@ -36,7 +36,7 @@
                 group="tasks"
                 ghost-class="opacity-50"
                 item-key="id"
-                class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]"
+                class="flex-1 p-3 flex flex-col gap-3 min-h-[100px]"
             >
                 <template #item="{ element }">
                     <TaskCard
@@ -48,6 +48,7 @@
                         @generate-code="$emit('generate-code', element)"
                         @query-task="$emit('query-task', element)"
                         @request-edit="openEditTaskModal(element)"
+                        @request-view="openViewTaskModal(element)"
                     />
                 </template>
             </draggable>
@@ -76,6 +77,9 @@
         <TaskModal
             :is-open="isTaskModalOpen"
             :task="taskToEdit"
+            :is-read-only="isTaskModalReadOnly"
+            :max-title-length="maxTitleLength"
+            :max-description-length="maxDescriptionLength"
             @close="closeTaskModal"
             @save="handleSaveTask"
         />
@@ -104,6 +108,8 @@ const props = defineProps({
     columns: Object,
     tasks: Object,
     currentProject: String,
+    maxTitleLength: Number,
+    maxDescriptionLength: Number,
 });
 
 const emit = defineEmits([
@@ -114,10 +120,12 @@ const emit = defineEmits([
     "generate-code",
     "show-notification",
     "query-task",
+    "request-view",
 ]);
 
 const isTaskModalOpen = ref(false);
 const taskToEdit = ref(null);
+const isTaskModalReadOnly = ref(false);
 
 const getResultingColor = (style) => {
     // Mapping internal style names to DaisyUI/Tailwind colors if needed
@@ -179,17 +187,26 @@ const formatColumnTitle = (title) => {
 
 const openAddTaskModal = () => {
     taskToEdit.value = null;
+    isTaskModalReadOnly.value = false;
     isTaskModalOpen.value = true;
 };
 
 const openEditTaskModal = (task) => {
     taskToEdit.value = task;
+    isTaskModalReadOnly.value = false;
+    isTaskModalOpen.value = true;
+};
+
+const openViewTaskModal = (task) => {
+    taskToEdit.value = task;
+    isTaskModalReadOnly.value = true;
     isTaskModalOpen.value = true;
 };
 
 const closeTaskModal = () => {
     isTaskModalOpen.value = false;
     taskToEdit.value = null;
+    isTaskModalReadOnly.value = false;
 };
 
 const handleSaveTask = async (payload) => {
@@ -223,7 +240,7 @@ const handleSaveTask = async (payload) => {
     }
 };
 
-// --- Safe Delete Logic ---
+// Safe Delete Logic
 const isDeleteModalOpen = ref(false);
 const taskToDelete = ref(null);
 

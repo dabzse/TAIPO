@@ -6,15 +6,34 @@ const client = axios.create({
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-    }
+    },
+    withCredentials: true // Important for sending/receiving session cookies
 });
+
+// Add a response interceptor to handle global 401s
+client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error?.response?.status === 401) {
+            // If we get an unauthorized error and we're not already trying to login/check auth
+            const action = error.config?.data ? JSON.parse(error.config.data).action : '';
+            if (!['login', 'register', 'check_auth'].includes(action)) {
+                // Dispatch event so App.vue can log the user out visually
+                if (typeof globalThis !== 'undefined' && globalThis.window) {
+                    globalThis.window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
+                }
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 export const api = {
     async getKanbanTasks(project) {
         const url = project ? `/?project=${encodeURIComponent(project)}` : '/';
         const response = await client.get(url);
-        // Backend returns: { tasks: {...}, existingProjects: [...], ... }
-        return response.data.tasks;
+        // Backend returns: { tasks: {...}, existingProjects: [...], config: {...}, ... }
+        return response.data;
     },
 
     async addTask(project, title, description, priority = 0) {
@@ -60,6 +79,7 @@ export const api = {
 
     async generateTasks(projectName, prompt) {
         const response = await client.post('/', {
+            action: 'generate_project_tasks',
             project_name: projectName,
             ai_prompt: prompt
         });
@@ -75,9 +95,16 @@ export const api = {
         });
     },
 
+    async getProjectDefaults() {
+        const response = await client.post('/', {
+            action: 'get_project_defaults'
+        });
+        return response.data;
+    },
+
     async generateCode(taskId, description) {
         const response = await client.post('/', {
-            action: 'generate_java_code',
+            action: 'generate_code',
             task_id: taskId,
             description: description
         });
@@ -107,6 +134,14 @@ export const api = {
             action: 'create_project',
             name: name
         });
+    },
+
+    async createProjectFromSpec(specContent) {
+        const response = await client.post('/', {
+            action: 'create_project_from_spec',
+            spec: specContent
+        });
+        return response.data;
     },
 
     async renameProject(id, name) {
@@ -142,6 +177,57 @@ export const api = {
             action: 'query_task',
             task_id: taskId,
             query: query
+        });
+        return response.data;
+    },
+
+    async saveRequirement(projectName, content) {
+        return client.post('/', {
+            action: 'save_requirement',
+            project_name: projectName,
+            content: content
+        });
+    },
+
+    async getRequirements(projectName) {
+        const response = await client.get(`/?action=get_requirements&project_name=${encodeURIComponent(projectName)}`);
+        return response.data;
+    },
+
+    async getApiUsage() {
+        const response = await client.get(`/?action=get_api_usage`);
+        return response.data;
+    },
+
+    // Authentication
+    async login(username, password) {
+        const response = await client.post('/', {
+            action: 'login',
+            username: username,
+            password: password
+        });
+        return response.data;
+    },
+
+    async register(username, password) {
+        const response = await client.post('/', {
+            action: 'register',
+            username: username,
+            password: password
+        });
+        return response.data;
+    },
+
+    async logout() {
+        const response = await client.post('/', {
+            action: 'logout'
+        });
+        return response.data;
+    },
+
+    async checkAuth() {
+        const response = await client.post('/', {
+            action: 'check_auth'
         });
         return response.data;
     }

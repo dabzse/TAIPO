@@ -8,11 +8,11 @@
             'opacity-50': task.is_subtask,
         }"
         draggable="true"
-        class="card bg-base-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-move border-l-4"
+        class="card bg-base-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-move border-l-4 mt-4"
     >
         <div
-            @dblclick="enableEdit"
-            class="card-body p-3 border-b-4 border-azure-300 rounded-box"
+            @dblclick="enableView"
+            class="card-body p-2 border-b-4 border-azure-300 rounded-box"
         >
             <div class="flex justify-between items-start mb-2">
                 <!-- Priority Stars -->
@@ -109,10 +109,17 @@
                             <button
                                 @click.prevent="requestDelete"
                                 type="button"
-                                class="text-error"
+                                class="text-error border-b border-base-content/10 mb-1 pb-2"
                             >
                                 🗑️ Delete
                             </button>
+                        </li>
+                        <li class="px-2 pt-1 pb-0 line-clamp-2 leading-tight">
+                            <span
+                                class="text-[10px] text-warning px-0 cursor-default opacity-90 pointer-events-none hover:bg-transparent lowercase text-center"
+                            >
+                                *AI features send data to Gemini API. Avoid PII.
+                            </span>
                         </li>
                     </ul>
                 </div>
@@ -133,15 +140,17 @@
                 <p class="text-sm whitespace-pre-wrap">{{ task.description }}</p>
             </div>
 
-            <!-- PO Feedback -->
+            <!-- PO Feedback Signal -->
             <div
                 v-if="task.po_comments"
-                class="mt-2 text-xs bg-base-300 p-2 rounded border border-base-content/10"
+                class="mt-2 flex justify-end"
             >
-                <div class="font-bold mb-1 opacity-70">🤖 TAIPO Feedback</div>
                 <div
-                    v-html="formattedPoComments"
+                    @click.stop="enableView"
+                    class="badge badge-accent badge-sm animate-pulse-subtle cursor-pointer hover:scale-110 transition-transform"
+                    title="TAIPO Feedback available"
                 >
+                    🤖 Feedback
                 </div>
             </div>
 
@@ -171,6 +180,7 @@ const emit = defineEmits([
     "generate-code",
     "query-task",
     "request-edit",
+    "request-view",
 ]);
 
 const formattedPoComments = computed(() => {
@@ -228,5 +238,19 @@ const enableEdit = () => {
     emit("request-edit", props.task);
 };
 
-// saveEdit removed as logic moved to KanbanBoard/Modal
+const enableView = () => {
+    emit("request-view", props.task);
+};
+
 </script>
+
+<style scoped>
+@keyframes pulse-subtle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+</style>

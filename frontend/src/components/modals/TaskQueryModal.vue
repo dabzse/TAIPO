@@ -39,8 +39,8 @@
                 <textarea
                     v-model="query"
                     @keydown.enter.ctrl="submitQuery"
+                    :maxlength="maxQueryLength"
                     ref="queryInput"
-                    maxlength="1320"
                     id="task-query-input"
                     class="textarea h-28 w-full border-outline-cyan-400"
                     placeholder="e.g., How do I implement the login logic?"
@@ -52,12 +52,19 @@
             </div>
 
             <div class="modal-action justify-between items-center">
-                <span 
-                    :class="query.length >= 1320 ? 'text-error font-bold' : 'opacity-60'"
-                    class="text-green-400"
-                >
-                    {{ 1320 - query.length }} chars remaining
-                </span>
+                <div class="flex flex-col">
+                    <span
+                        :class="query.length >= maxQueryLength ? 'text-error font-bold' : 'opacity-60'"
+                        class="text-green-400 text-sm mb-1"
+                    >
+                        {{ maxQueryLength - query.length }} chars remaining
+                    </span>
+                    <span
+                        class="text-[10px] text-warning max-w-[200px] leading-tight"
+                    >
+                        Note: Prompts are sent to Google Gemini API. Avoid PII.
+                    </span>
+                </div>
                 <button
                     @click="submitQuery"
                     :disabled="loading || !query.trim()"
@@ -86,7 +93,10 @@
                     class="alert alert-error"
                 >
                     <p class="font-bold">{{ error.split(' - Response:')[0] }}</p>
-                    <div v-if="error.includes(' - Response:')" class="mt-2 text-xs opacity-75 font-mono break-all bg-black/10 p-2 rounded">
+                    <div
+                        v-if="error.includes(' - Response:')"
+                        class="mt-2 text-xs opacity-75 font-mono break-all bg-black/10 p-2 rounded"
+                    >
                         {{ error.split(' - Response:')[1] }}
                     </div>
                 </div>
@@ -113,6 +123,10 @@ const props = defineProps({
     loading: Boolean,
     answer: String,
     error: String,
+    maxQueryLength: {
+        type: Number,
+        default: 1320
+    }
 });
 
 const emit = defineEmits(['close', 'submit']);
@@ -135,11 +149,26 @@ const submitQuery = () => {
 };
 
 const templates = [
-    { label: "Explain this task", text: "Explain what this task is about and what needs to be done." },
-    { label: "Suggest implementation", text: "Suggest a technical implementation plan for this task." },
-    { label: "Generate test cases", text: "Generate a list of test cases for this task." },
-    { label: "Security check", text: "Identify potential security risks associated with this task." },
-    { label: "Code snippets", text: "Provide code snippets to help get started with this task." },
+    {
+        label: 'Explain this task',
+        text: 'Explain what this task is about and what needs to be done.',
+    },
+    {
+        label: 'Suggest implementation',
+        text: 'Suggest a technical implementation plan for this task.',
+    },
+    {
+        label: 'Generate test cases',
+        text: 'Generate a list of test cases for this task.',
+    },
+    {
+        label: 'Security check',
+        text: 'Identify potential security risks associated with this task.',
+    },
+    {
+        label: 'Code snippets',
+        text: 'Provide code snippets to help get started with this task.',
+    },
 ];
 
 const applyTemplate = (text) => {

@@ -5,12 +5,13 @@
     >
 
         <ProjectSidebar
+            v-if="isAuthenticated"
             v-model="drawerOpen"
             @project-selected="handleProjectSelected"
             @open-github-modal="showGithubModal = true"
         />
 
-        <div class="drawer-content flex flex-col">
+        <div v-if="isAuthenticated" class="drawer-content flex flex-col">
             <!-- Navbar -->
             <div class="navbar bg-base-100 shadow-md mb-8">
                 <div class="flex-none">
@@ -25,9 +26,23 @@
                 <!-- Brand -->
                 <div class="flex-none">
                     <a class="btn btn-ghost text-xl">
-                        <img src="./images/robot_head.svg" alt="App Logo" class="w-8 h-8 mr-2" />
-                        AI-Driven Kanban
+                        <img src="./images/robot_head.svg" alt="App Logo" class="w-8 h-8 mr-2">
+                        {{ appConfig.projectName }}
                     </a>
+                </div>
+
+                <!-- API Costs Button -->
+                <div class="flex-none ml-2 hidden sm:flex">
+                    <button
+                        @click="isApiCostModalOpen = true"
+                        class="btn btn-outline btn-sm btn-info gap-2"
+                        title="API Costs"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        API Costs
+                    </button>
                 </div>
 
                 <!-- Spacer & Centered Project Name -->
@@ -44,6 +59,31 @@
                     >
                         Select a project
                     </span>
+                </div>
+
+                <!-- Requirements Button -->
+                <div class="flex-none mr-2">
+                    <button
+                        v-if="currentProject"
+                        @click="isRequirementModalOpen = true"
+                        class="btn btn-ghost btn-circle"
+                        title="Project Requirements"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Logout Button -->
+                <div class="flex-none mr-2">
+                    <button
+                        @click="handleLogout"
+                        class="btn btn-ghost text-error"
+                        title="Logout"
+                    >
+                        Logout
+                    </button>
                 </div>
 
                 <!-- Theme Toggle -->
@@ -65,7 +105,7 @@
             </div>
 
             <!-- Main Content -->
-            <main class="container mx-auto px-4">
+            <main class="container mx-auto">
                 <div
                     v-if="loading"
                     class="flex justify-center p-10"
@@ -82,10 +122,13 @@
                     <span>Error: {{ error }}</span>
                 </div>
 
-                <KanbanBoard v-else-if="currentProject"
+                <KanbanBoard
+                    v-else-if="currentProject"
                     :columns="columns"
                     :tasks="tasks"
                     :current-project="currentProject"
+                    :max-title-length="appConfig.maxTitleLength"
+                    :max-description-length="appConfig.maxDescriptionLength"
                     @task-updated="refreshTasks"
                     @task-deleted="refreshTasks"
                     @task-added="refreshTasks"
@@ -111,8 +154,20 @@
             :loading="queryLoading"
             :answer="queryAnswer"
             :error="queryError"
+            :max-query-length="appConfig.maxQueryLength"
             @close="isQueryModalOpen = false"
             @submit="handleQueryTaskSubmit"
+        />
+
+        <RequirementModal
+            :is-open="isRequirementModalOpen"
+            :project-name="currentProject"
+            @close="isRequirementModalOpen = false"
+        />
+
+        <ApiCostModal
+            :is-open="isApiCostModalOpen"
+            @close="isApiCostModalOpen = false"
         />
 
         <!-- Global Toast Notification -->
@@ -126,30 +181,63 @@
                 <span>{{ notification.message }}</span>
                 <div
                     v-if="notification.details"
-                    class="text-xs opacity-80 mt-1 whitespace-pre-wrap">
+                    class="text-xs opacity-80 mt-1 whitespace-pre-wrap"
+                >
                     {{ notification.details }}
                 </div>
             </div>
         </div>
 
+        <!-- Login View (Shown when not authenticated) -->
+        <LoginView
+            v-if="!isAuthenticated"
+            :config="appConfig"
+            @auth-success="handleAuthSuccess"
+            @open-privacy-modal="isPrivacyModalOpen = true"
+        />
+
+        <CookieBanner
+            v-if="!isPrivacyModalOpen"
+            @open-privacy-modal="isPrivacyModalOpen = true"
+        />
+
+        <PrivacyModal
+            :is-open="isPrivacyModalOpen"
+            @close="isPrivacyModalOpen = false"
+        />
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import KanbanBoard from './components/KanbanBoard.vue';
 import ProjectSidebar from './components/ProjectSidebar.vue';
 import CodeGenerationModal from './components/modals/CodeGenerationModal.vue';
 import TaskQueryModal from './components/modals/TaskQueryModal.vue';
+import ApiCostModal from './components/modals/ApiCostModal.vue';
+import RequirementModal from './components/RequirementModal.vue';
+import PrivacyModal from './components/modals/PrivacyModal.vue';
+import LoginView from './components/LoginView.vue';
+import CookieBanner from './components/CookieBanner.vue';
 import { api } from './services/api';
 
-const loading = ref(false);
+const isAuthenticated = ref(false);
+const authUser = ref(null);
+const loading = ref(true); // Start loading while checking auth
 const error = ref(null);
 const tasks = ref({});
+const appConfig = ref({
+    projectName: "AI-Driven Kanban",
+    maxTitleLength: 42,
+    maxDescriptionLength: 512,
+    maxQueryLength: 1320
+});
 const currentProject = ref(null);
 const showGithubModal = ref(false);
 const drawerOpen = ref(false);
 const theme = ref('cupcake');
+
+const isPrivacyModalOpen = ref(false);
 
 const toggleTheme = () => {
     theme.value = theme.value === 'cupcake' ? 'light' : 'cupcake';
@@ -167,6 +255,12 @@ const queryLoading = ref(false);
 const queryAnswer = ref('');
 const queryError = ref('');
 const queryTaskTarget = ref(null);
+
+// Requirements Modal State
+const isRequirementModalOpen = ref(false);
+
+// API Cost Modal State
+const isApiCostModalOpen = ref(false);
 
 // Global Notification State
 const notification = ref(null);
@@ -186,19 +280,103 @@ const columns = ref({
     'DONE': 'success',
 });
 
+// Authentication Handlers
+const checkAuth = async () => {
+    try {
+        const res = await api.checkAuth();
+        if (res.config) {
+            appConfig.value = { ...appConfig.value, ...res.config };
+        }
+        if (res.success && res.authenticated) {
+            isAuthenticated.value = true;
+            authUser.value = res.user;
+            await refreshTasks();
+        } else {
+            isAuthenticated.value = false;
+        }
+    } catch (e) {
+        console.error("Auth check failed:", e);
+        isAuthenticated.value = false;
+    } finally {
+        loading.value = false;
+    }
+};
+
+const handleAuthSuccess = async (user) => {
+    isAuthenticated.value = true;
+    authUser.value = user;
+    await refreshTasks();
+};
+
+const handleLogout = async () => {
+    try {
+        await api.logout();
+        isAuthenticated.value = false;
+        authUser.value = null;
+        currentProject.value = null;
+    } catch (e) {
+        console.error("Logout failed:", e);
+    }
+};
+
+const handleUnauthorized = () => {
+    isAuthenticated.value = false;
+    authUser.value = null;
+    showNotification("Session expired. Please log in again.", "warning");
+};
+
+// Lifecycle Hooks
+onMounted(() => {
+    checkAuth();
+    if (typeof globalThis !== 'undefined' && globalThis.window) {
+        globalThis.window.addEventListener('taipo:unauthorized', handleUnauthorized);
+    }
+});
+
+onBeforeUnmount(() => {
+    if (typeof globalThis !== 'undefined' && globalThis.window) {
+        globalThis.window.removeEventListener('taipo:unauthorized', handleUnauthorized);
+    }
+});
+
 const handleProjectSelected = async (projectName) => {
     currentProject.value = projectName;
     await refreshTasks();
 };
 
 const refreshTasks = async () => {
-    if (!currentProject.value) return;
+    if (!isAuthenticated.value) return;
 
+    // If we have existing projects from DB, default to the first one if not selected
     try {
         loading.value = true;
-        const allTasks = await api.getKanbanTasks(currentProject.value);
-        tasks.value = allTasks;
+
+        let targetProject = currentProject.value;
+
+        // Fetch without project first to get existingProjects list if current is null
+        const data = await api.getKanbanTasks(targetProject);
+
+        if (data.authenticated === false) {
+            isAuthenticated.value = false;
+            return;
+        }
+
+        if (!targetProject && data.existingProjects && data.existingProjects.length > 0) {
+            targetProject = data.existingProjects[0];
+            currentProject.value = targetProject;
+            // Now refetch specifically for this project (though backend auto-resolves it too)
+        }
+
+        tasks.value = data.tasks || {};
+        if (data.config) {
+            appConfig.value = { ...appConfig.value, ...data.config };
+            if (data.config.projectName) {
+                document.title = data.config.projectName;
+            }
+        }
     } catch (e) {
+        // Interceptor might have already caught 401
+        console.error("Error fetching Kanban tasks:", e);
         error.value = e.response?.data?.error || e.message;
     } finally {
         loading.value = false;

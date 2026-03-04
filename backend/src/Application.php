@@ -9,10 +9,14 @@ use App\Service\GeminiService;
 use App\Controller\TaskController;
 use App\Controller\ProjectController;
 use App\Controller\SettingsController;
+use App\Controller\RequirementController;
+use App\Controller\AuthController;
 use App\Service\SettingsService;
+use App\Service\RequirementService;
+use App\Exception\GeminiApiException;
+use App\Exception\ProjectAlreadyExistsException;
 use App\Utils;
 use App\Config;
-use App\Core\View;
 use Exception;
 use App\Database;
 use Dotenv\Dotenv;
@@ -26,6 +30,9 @@ class Application
     private TaskController $taskController;
     private ProjectController $projectController;
     private SettingsController $settingsController;
+    private RequirementService $requirementService;
+    private RequirementController $requirementController;
+    private AuthController $authController;
 
     public function run()
     {
@@ -47,7 +54,19 @@ class Application
             exit;
         }
 
+        // Start session before any output
+        session_set_cookie_params([
+            'lifetime' => 86400 * 30, // 30 days
+            'path' => '/',
+            // Domain omitted to allow the browser to use the request host (fixes localhost Vite proxy issues)
+            'secure' => isset($_ENV['FORCE_HTTPS']) && $_ENV['FORCE_HTTPS'] === 'true', // Use environment variable for HTTPS
+            'httponly' => true,
+            'samesite' => 'Lax' // Or 'Strict' depending on cross-site needs
+        ]);
+        session_start();
+
         $this->initEnvAndInput();
+        $this->enforceHttps();
 
         $dbFile = __DIR__ . '/../kanban.sqlite';
 
@@ -63,89 +82,193 @@ class Application
 
         $action = $_POST['action'] ?? $_GET['action'] ?? null;
 
-        // Existing actions delegating to TaskController
+        // Existing actions delegating to Controllers
         if ($action) {
-            switch ($action) {
-                // Task Actions
-                case 'add_task':
-                    $this->taskController->handleAddTask();
-                    exit;
-                case 'delete_task':
-                    $this->taskController->handleDeleteTask();
-                    exit;
-                case 'toggle_importance':
-                    $this->taskController->handleToggleImportance();
-                    exit;
-                case 'update_status':
-                    $this->taskController->handleUpdateStatus();
-                    exit;
-                case 'reorder_tasks':
-                    $this->taskController->handleReorderTasks();
-                    exit;
-                case 'edit_task':
-                    $this->taskController->handleEditTask();
-                    exit;
-                    // Should it be `generate_source_code`? Why just "java"?
-                    // Give an option for few languages, like: python, php, rust, c, cpp, cs, java, typescript...
-                case 'generate_java_code':
-                    $this->taskController->handleGenerateJavaCode();
-                    exit;
-                case 'decompose_task':
-                    // We need project name here
-                    $this->taskController->handleDecomposeTask();
-                    exit;
-                case 'commit_to_github':
-                    $this->handleCommitToGithub();
-                    exit;
-                case 'query_task':
-                    $this->taskController->handleQueryTask();
-                    exit;
-
-                    // Project Actions
-                case 'create_project':
-                    $this->projectController->handleCreate();
-                    exit;
-                case 'list_projects':
-                    $this->projectController->handleList();
-                    exit;
-                case 'update_project':
-                    $this->projectController->handleUpdate();
-                    exit;
-                case 'delete_project':
-                    $this->projectController->handleDelete();
-                    exit;
-
-                    // Settings Actions
-                case 'get_setting':
-                    $key = $_GET['key'] ?? '';
-                    $this->settingsController->handleGetSetting($key);
-                    exit;
-                case 'save_setting':
-                    $this->settingsController->handleSaveSetting();
-                    exit;
-                default:
-                    // Fallthrough to main page or 404 if API?
-                    // For now break to allow rendering dashboard if action is unknown but page load is fine
-                    break;
-            }
+            $this->routeApiAction($action);
         }
-
-        // Handle Project Generation via POST (legacy)
-        $projectName = trim($_POST['project_name'] ?? '');
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($projectName) && !isset($_POST['action'])) {
-            // This is the "Generate Project" flow
-            $err = $this->handleProjectGeneration($projectName);
-            if ($err) {
-                $error = $err;
-            }
-        }
-
 
         // Default View Rendering
-        $this->renderDashboard($error);
+        $this->handleApiData($error);
     }
 
-    private function renderDashboard($error)
+    private function routeApiAction(string $action): void
+    {
+        // Public Actions (No Auth Required)
+        switch ($action) {
+            case 'login':
+                $this->authController->handleLogin();
+                exit;
+            case 'register':
+                $this->authController->handleRegister();
+                exit;
+            case 'check_auth':
+                $this->authController->handleCheckAuth();
+                exit;
+            default:
+                break;
+        }
+
+        // AUTHENTICATION CHECK
+        if (!isset($_SESSION['user_id'])) {
+            header(Config::APP_JSON, true, 401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized. Please log in.']);
+            exit;
+        }
+
+        // Protected Actions
+        switch ($action) {
+            case 'logout':
+                $this->authController->handleLogout();
+                exit;
+                // Task Actions
+            case 'add_task':
+                $this->taskController->handleAddTask();
+                exit;
+            case 'delete_task':
+                $this->taskController->handleDeleteTask();
+                exit;
+            case 'toggle_importance':
+                $this->taskController->handleToggleImportance();
+                exit;
+            case 'update_status':
+                $this->taskController->handleUpdateStatus();
+                exit;
+            case 'reorder_tasks':
+                $this->taskController->handleReorderTasks();
+                exit;
+            case 'edit_task':
+                $this->taskController->handleEditTask();
+                exit;
+            case 'generate_code':
+                $this->taskController->handleGenerateCode();
+                exit;
+            case 'generate_project_tasks':
+                $this->handleGenerateProjectTasks();
+                exit;
+
+            case 'decompose_task':
+                $this->taskController->handleDecomposeTask();
+                exit;
+            case 'commit_to_github':
+                $this->handleCommitToGithub();
+                exit;
+            case 'query_task':
+                $this->taskController->handleQueryTask();
+                exit;
+
+                // Project Actions
+            case 'create_project':
+                $this->projectController->handleCreate();
+                exit;
+            case 'list_projects':
+                $this->projectController->handleList();
+                exit;
+            case 'update_project':
+                $this->projectController->handleUpdate();
+                exit;
+            case 'delete_project':
+                $this->projectController->handleDelete();
+                exit;
+            case 'create_project_from_spec':
+                $this->projectController->handleCreateFromSpec();
+                exit;
+            case 'get_project_defaults':
+                $this->projectController->handleGetDefaults();
+                exit;
+
+                // Settings Actions
+            case 'get_setting':
+                $key = $_GET['key'] ?? '';
+                $this->settingsController->handleGetSetting($key);
+                exit;
+            case 'save_setting':
+                $this->settingsController->handleSaveSetting();
+                exit;
+
+                // Requirement Actions
+            case 'save_requirement':
+                $this->requirementController->handleSaveRequirement();
+                exit;
+            case 'get_requirements':
+                $this->requirementController->handleGetRequirements();
+                exit;
+
+                // API Cost Actions
+            case 'get_api_usage':
+                header(Config::APP_JSON);
+                try {
+                    $usageData = $this->geminiService->getAggregatedApiUsage();
+                    $costConfig = [];
+                    foreach ($usageData as $usageItem) {
+                        $model = $usageItem['model'];
+                        $costConfig[$model] = [
+                            'promptCostPerMillion' => Config::getModelPromptCost($model),
+                            'candidateCostPerMillion' => Config::getModelCandidateCost($model)
+                        ];
+                    }
+                    echo json_encode(['success' => true, 'data' => $usageData, 'config' => $costConfig]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => implode(" ", [$e->getMessage(), $e->getTraceAsString()])]);
+                }
+                exit;
+            default:
+                break;
+        }
+    }
+
+    private function enforceHttps(): void
+    {
+        if (Config::isOffline()) {
+            return;
+        }
+
+        $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+            (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+            (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+
+        if (!$isSecure) {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $uri = $_SERVER['REQUEST_URI'] ?? '/';
+            $redirectUrl = 'https://' . $host . $uri;
+            header("Location: $redirectUrl", true, 301);
+            exit;
+        }
+    }
+
+    private function handleGenerateProjectTasks(): void
+    {
+        $projectName = $_POST['project_name'] ?? '';
+        $aiPrompt = $_POST['ai_prompt'] ?? '';
+        if (empty($projectName) || empty($aiPrompt)) {
+            header(Config::APP_JSON, true, 400);
+            echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
+            return;
+        }
+
+        try {
+            $this->projectService->createProject($projectName);
+        } catch (ProjectAlreadyExistsException $e) {
+            // Project exists, we will replace tasks inside it
+            error_log("Project already exists: " . $e->getMessage());
+        }
+
+        try {
+            $this->taskService->generateProjectTasks($projectName, $aiPrompt);
+            echo json_encode(['success' => true]);
+        } catch (GeminiApiException $e) {
+            $code = $e->getCode() ?: 502;
+            header(Config::APP_JSON, true, $code);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        } catch (Exception $e) {
+            header(Config::APP_JSON, true, 500);
+            error_log("General error generating tasks: " . $e->getMessage());
+            echo json_encode(['success' => false, 'error' => "Server error: " . $e->getMessage()]);
+        }
+    }
+
+
+    private function handleApiData($error)
     {
         $columns = [
             'SPRINT BACKLOG' => 'info',
@@ -179,37 +302,31 @@ class Application
             $currentProjectName = $existingProjects[0];
         }
 
-        $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
-
-        // Check if client expects JSON (API mode general)
-        $isApiRequest = (
-            (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-            isset($_GET['api'])
-        );
-
-        if ($isApiRequest) {
-            header(Config::APP_JSON);
-            echo json_encode([
-                'currentProjectName' => $currentProjectName,
-                'existingProjects' => $existingProjects,
-                'projects' => $projectsData,
-                'error' => $error,
-                'columns' => array_keys($columns),
-                'tasks' => $kanbanTasks
-            ]);
-            exit;
+        $kanbanTasks = [];
+        // Only load tasks if authenticated
+        if (isset($_SESSION['user_id'])) {
+            $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
         }
 
-        $isServerConfigured = !empty($_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO')) && !empty($_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'));
-
-        View::render('index.view.php', [
+        header(Config::APP_JSON);
+        echo json_encode([
+            'authenticated' => isset($_SESSION['user_id']),
             'currentProjectName' => $currentProjectName,
             'existingProjects' => $existingProjects,
+            'projects' => $projectsData,
             'error' => $error,
-            'isServerConfigured' => $isServerConfigured,
-            'columns' => $columns,
-            'kanbanTasks' => $kanbanTasks
+            'columns' => array_keys($columns),
+            'tasks' => $kanbanTasks,
+            'config' => [
+                'projectName' => Config::getProjectName(),
+                'maxTitleLength' => Config::getMaxTitleLength(),
+                'maxDescriptionLength' => Config::getMaxDescriptionLength(),
+                'maxQueryLength' => Config::getMaxQueryLength(),
+                'minUsernameLength' => Config::getMinUsernameLength(),
+                'minPasswordLength' => Config::getMinPasswordLength(),
+            ]
         ]);
+        exit;
     }
 
     private function initEnvAndInput(): void
@@ -237,13 +354,17 @@ class Application
             $database = new Database($dbFile);
             $pdo = $database->getPdo();
 
-            $this->geminiService = new GeminiService();
+            $this->geminiService = new GeminiService($pdo);
             $this->taskService = new TaskService($pdo, $this->geminiService);
             $this->projectService = new ProjectService($pdo);
 
             $this->taskController = new TaskController($this->taskService);
-            $this->projectController = new ProjectController($this->projectService);
+            $this->projectController = new ProjectController($this->projectService, $this->taskService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
+
+            $this->requirementService = new RequirementService($pdo);
+            $this->requirementController = new RequirementController($this->requirementService);
+            $this->authController = new AuthController($pdo);
         } catch (Exception $e) {
             $error = $e->getMessage();
         }
@@ -303,66 +424,6 @@ class Application
         }
     }
 
-    private function handleProjectGeneration($projectName)
-    {
-        // This logic is bound to 'Start Project' AI generation that creates multiple tasks.
-        // It uses TaskService::replaceProjectTasks.
-
-        // We should also ensure the project exists in `projects` table!
-        try {
-            // Create project if not exists
-            try {
-                $this->projectService->createProject($projectName);
-            } catch (Exception $e) {
-                // Ignore if exists
-            }
-
-            // Logic from original handleProjectGeneration
-            $rawPrompt = trim($_POST['ai_prompt'] ?? '');
-
-            if (empty($rawPrompt)) {
-                return "Error: The AI prompt field cannot be empty.";
-            }
-
-            $prompt = str_replace('{{PROJECT_NAME}}', $projectName, $rawPrompt);
-            $rawText = $this->geminiService->askTaipo($prompt);
-
-            $lines = explode("\n", $rawText);
-            $newTasks = [];
-
-            foreach ($lines as $line) {
-                // ... (Parsing logic same as before)
-                $line = trim($line);
-                if (empty($line)) {
-                    continue;
-                }
-
-                $taskDescription = $line;
-                $finalStatus = 'SPRINTBACKLOG';
-
-                // "SPRINTBACKLOG" vs. "SPRINT BACKLOG"
-                if (preg_match('/^\[(SPRINTBACKLOG|IMPLEMENTATION|TESTING|REVIEW|DONE)\]:\s*(.*)/iu', $line, $matches)) {
-                    $taskDescription = trim($matches[2]);
-                    $finalStatus = strtoupper($matches[1]);
-                }
-
-                if (!empty($taskDescription) && strlen($taskDescription) > 5) {
-                    $newTasks[] = [
-                        'description' => $taskDescription,
-                        'status' => $finalStatus
-                    ];
-                }
-            }
-
-            // Replaces tasks in `tasks` table
-            $this->taskService->replaceProjectTasks($projectName, $newTasks);
-
-            header("Location: " . basename($_SERVER['SCRIPT_NAME']) . "?project=" . urlencode($projectName));
-            exit;
-        } catch (Exception $e) {
-            return "Error during Gemini API call/save: " . $e->getMessage();
-        }
-    }
 
     private function loadKanbanTasks(string $currentProjectName, array $columns, ?string &$error): array
     {
