@@ -183,6 +183,7 @@ class TaskController
         // Wait, the Service needs `projectName`.
         $currentProjectName = strip_tags(trim($_POST['current_project'] ?? ''));
         $desc = trim($_POST['description'] ?? '');
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
 
         if (empty($desc) || empty($currentProjectName)) {
             http_response_code(400);
@@ -191,7 +192,7 @@ class TaskController
         }
 
         try {
-            $count = $this->taskService->decomposeTask($desc, $currentProjectName);
+            $count = $this->taskService->decomposeTask($desc, $currentProjectName, $taskId);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'count' => $count]);
         } catch (GeminiApiException $e) {

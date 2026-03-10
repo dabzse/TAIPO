@@ -111,11 +111,12 @@ export const api = {
         return response.data;
     },
 
-    async decomposeTask(taskId, description) {
+    async decomposeTask(taskId, description, currentProject) {
         const response = await client.post('/', {
             action: 'decompose_task',
             task_id: taskId,
-            description: description
+            description: description,
+            current_project: currentProject
         });
         return response.data;
     },

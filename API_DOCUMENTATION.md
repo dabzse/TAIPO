@@ -54,10 +54,17 @@ Error Mockup:
 | `update_status` | `task_id`, `new_status`, `current_project` | Message string | Moves a task to a new Kanban column. |
 | `edit_task` | `task_id`, `title`, `description` | `success: true` | Updates the title and description of a task. |
 | `generate_code` | `description` | `code` (string) | Uses Gemini AI to generate source code for the task in the requested language. |
-| `decompose_task` | `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a large story into subtasks. |
+| `decompose_task` | `task_id`, `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a parent story into subtasks linked to that parent (`parent_id`). |
 | `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | `filePath` (string) | Commits the generated code to the configured GitHub repository. |
 | `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | `success: true` | Reorders tasks within a specific column/status. |
 | `query_task` | `task_id`, `query` | `answer` (string) | Uses Gemini AI to answer a question about a specific task. |
+
+`decompose_task` behavior notes:
+
+- Generated subtasks are created in `SPRINT BACKLOG`.
+- Generated subtasks are marked with `is_subtask = 1`.
+- Generated subtasks are linked to the source story via `parent_id = task_id`.
+- Generated subtasks include `po_comments` traceability text referencing the original story.
 
 ### 2. Project Management
 
@@ -95,6 +102,17 @@ Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` qu
 - `existingProjects`: Array - List of all project names.
 - `projects`: Array - Detailed project objects.
 - `tasks`: Object - Tasks grouped by status.
+- Task object fields include:
+  - `id`: Integer
+  - `title`: String
+  - `description`: String
+  - `status`: String
+  - `is_important`: Integer (`0-3`)
+  - `is_subtask`: Integer (`0` or `1`)
+  - `parent_id`: Integer or `null` (set for decomposed subtasks)
+  - `po_comments`: String or `null` (traceability and TAIPO notes)
+  - `generated_code`: String or `null`
+  - `position`: Integer
 - `config`: Object - System configuration:
   - `projectName`: String - The globally configured name of the application.
   - `maxTitleLength`: Integer - Maximum characters allowed for task titles.

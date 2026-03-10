@@ -31,7 +31,7 @@ class TaskService
 
     public function getTasksByProject(string $projectName): array
     {
-        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
+        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
         $stmt->execute([':projectName' => $projectName]);
         $tasks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -326,7 +326,7 @@ class TaskService
         ];
     }
 
-    public function decomposeTask(string $description, string $projectName): int
+    public function decomposeTask(string $description, string $projectName, ?int $parentId = null): int
     {
         $prompt = "Decompose this parent user story into 3-5 concrete, high-quality technical subtasks: '{$description}'.
 
@@ -344,7 +344,7 @@ class TaskService
         $lines = explode("\n", $rawTasks);
         $count = 0;
 
-        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_subtask, po_comments) VALUES (?, ?, ?, '" . self::STATUS_SPRINT_BACKLOG . "', 1, ?)");
+        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_subtask, po_comments, parent_id) VALUES (?, ?, ?, '" . self::STATUS_SPRINT_BACKLOG . "', 1, ?, ?)");
 
         $poFeedback = "TAIPO: Based on original story: \"{$description}\"";
 
@@ -363,7 +363,7 @@ class TaskService
                     $title = substr($line, 0, $maxLen) . (strlen($line) > $maxLen ? '...' : '');
                 }
 
-                $stmt->execute([$projectName, $title, $taskDesc, $poFeedback]);
+                $stmt->execute([$projectName, $title, $taskDesc, $poFeedback, $parentId]);
                 $count++;
             }
         }

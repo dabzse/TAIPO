@@ -368,6 +368,10 @@ const refreshTasks = async () => {
         }
 
         tasks.value = data.tasks || {};
+
+        // Enrich tasks with subtask counts
+        enrichTasksWithSubtaskInfo();
+
         if (data.config) {
             appConfig.value = { ...appConfig.value, ...data.config };
             if (data.config.projectName) {
@@ -383,12 +387,34 @@ const refreshTasks = async () => {
     }
 };
 
+// Enrich tasks with subtask count and parent information
+const enrichTasksWithSubtaskInfo = () => {
+    // Flatten all tasks to count subtasks per parent
+    const allTasks = Object.values(tasks.value).flat();
+    const subtaskCounts = {};
+
+    // Count subtasks for each parent
+    allTasks.forEach(task => {
+        if (task.parent_id) {
+            subtaskCounts[task.parent_id] = (subtaskCounts[task.parent_id] || 0) + 1;
+        }
+    });
+
+    // Add subtask count to each parent task
+    Object.keys(tasks.value).forEach(column => {
+        tasks.value[column] = tasks.value[column].map(task => ({
+            ...task,
+            subtaskCount: subtaskCounts[task.id] || 0
+        }));
+    });
+};
+
 const handleDecompose = async (task) => {
     if (!confirm(`Are you sure you want to decompose "${task.description}"?`)) return;
 
     loading.value = true;
     try {
-        await api.decomposeTask(task.id, task.description);
+        await api.decomposeTask(task.id, task.description, currentProject.value);
         await refreshTasks();
         showNotification("Task decomposed successfully!", "success");
     } catch (e) {

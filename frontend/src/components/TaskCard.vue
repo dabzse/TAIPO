@@ -128,9 +128,27 @@
             <!-- Technical Task Badge -->
             <div
                 v-if="task.is_subtask"
-                class="badge badge-neutral badge-xs mb-1"
+                class="flex flex-col gap-1 mb-1"
             >
-                Technical Task
+                <div class="badge badge-neutral badge-xs">
+                    Technical Task
+                </div>
+                <div
+                    v-if="task.parent_id"
+                    class="badge badge-info badge-xs"
+                    title="This task is a subtask"
+                >
+                    🔗 Subtask of #{{ task.parent_id }}
+                </div>
+            </div>
+
+            <!-- Parent Task Badge (shows subtask count) -->
+            <div
+                v-if="!task.is_subtask && task.subtaskCount > 0"
+                class="badge badge-success badge-xs mb-1"
+                title="This task has subtasks"
+            >
+                📋 {{ task.subtaskCount }} subtask{{ task.subtaskCount !== 1 ? 's' : '' }}
             </div>
 
             <!-- Description / Display Only -->
