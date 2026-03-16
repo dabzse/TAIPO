@@ -53,8 +53,8 @@ Error Mockup:
 | `toggle_importance` | `task_id`, `is_important` (0/1) | Message string | Toggles the importance flag (star) of a task. |
 | `update_status` | `task_id`, `new_status`, `current_project` | Message string | Moves a task to a new Kanban column. |
 | `edit_task` | `task_id`, `title`, `description` | `success: true` | Updates the title and description of a task. |
-| `generate_code` | `description` | `code` (string) | Uses Gemini AI to generate source code for the task in the requested language. |
-| `decompose_task` | `task_id`, `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a parent story into subtasks linked to that parent (`parent_id`). |
+| `generate_code` | `description`, `task_id` (opt) | `code` (string) | Uses Gemini AI to generate source code. If `task_id` is provided, the backend uses the latest description from the database to ensure resilience against manual modifications. |
+| `decompose_task` | `task_id`, `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a parent story. Prioritizes the database description for the parent `task_id`. |
 | `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | `filePath` (string) | Commits the generated code to the configured GitHub repository. |
 | `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | `success: true` | Reorders tasks within a specific column/status. |
 | `query_task` | `task_id`, `query` | `answer` (string) | Uses Gemini AI to answer a question about a specific task. |

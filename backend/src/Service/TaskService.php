@@ -328,7 +328,17 @@ class TaskService
 
     public function decomposeTask(string $description, string $projectName, ?int $parentId = null): int
     {
-        $prompt = "Decompose this parent user story into 3-5 concrete, high-quality technical subtasks: '{$description}'.
+        $finalDescription = $description;
+        if ($parentId !== null) {
+            $stmt = $this->pdo->prepare("SELECT description FROM tasks WHERE id = :id");
+            $stmt->execute([':id' => $parentId]);
+            $dbDesc = $stmt->fetchColumn();
+            if ($dbDesc !== false) {
+                $finalDescription = $dbDesc;
+            }
+        }
+
+        $prompt = "Decompose this parent user story into 3-5 concrete, high-quality technical subtasks: '{$finalDescription}'.
 
                     Quality Guidelines:
                     - Ensure subtasks are highly relevant to the parent story and represent actual actionable steps for implementation.
@@ -346,7 +356,7 @@ class TaskService
 
         $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_subtask, po_comments, parent_id) VALUES (?, ?, ?, '" . self::STATUS_SPRINT_BACKLOG . "', 1, ?, ?)");
 
-        $poFeedback = "TAIPO: Based on original story: \"{$description}\"";
+        $poFeedback = "TAIPO: Based on original story: \"{$finalDescription}\"";
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -436,11 +446,21 @@ class TaskService
         return $answer;
     }
 
-    public function generateCode(string $description): string
+    public function generateCode(string $description, ?int $taskId = null, bool $isUserLoggedIn = false): string
     {
-        $prompt = "Generate a **complete, but very concise** solution (code) to the task: '{$description}'. The code should be **functional**, but only include the necessary imports and logic. Do not generate long explanatory comments or introduction text! Use a single Markdown code block (```language ... ```). If the language is not specified, infer it from the context or use a popular one suitable for the task.";
+        $finalDescription = $description;
+        if ($taskId !== null) {
+            $stmt = $this->pdo->prepare("SELECT description FROM tasks WHERE id = :id");
+            $stmt->execute([':id' => $taskId]);
+            $dbDesc = $stmt->fetchColumn();
+            if ($dbDesc !== false) {
+                $finalDescription = $dbDesc;
+            }
+        }
+
+        $prompt = "Generate a **complete, but very concise** solution (code) to the task: '{$finalDescription}'. The code should be **functional**, but only include the necessary imports and logic. Do not generate long explanatory comments or introduction text! Use a single Markdown code block (```language ... ```). If the language is not specified, infer it from the context or use a popular one suitable for the task.";
 
         $rawText = $this->geminiService->askTaipo($prompt);
-        return Utils::formatCodeBlocks($rawText);
+        return Utils::formatCodeBlocks($rawText, $taskId, $finalDescription, $isUserLoggedIn);
     }
 }

@@ -153,6 +153,8 @@ class TaskController
     public function handleGenerateCode()
     {
         $description = trim($_POST['description'] ?? '');
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        $isLoggedIn = isset($_SESSION['user_id']);
 
         if (empty($description) || strlen($description) > Config::getMaxDescriptionLength() * 2) {
             http_response_code(400);
@@ -161,7 +163,7 @@ class TaskController
         }
 
         try {
-            $formattedCode = $this->taskService->generateCode($description);
+            $formattedCode = $this->taskService->generateCode($description, $taskId ?: null, $isLoggedIn);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'code' => $formattedCode]);
         } catch (GeminiApiException $e) {
