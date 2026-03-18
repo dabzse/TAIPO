@@ -150,7 +150,7 @@ class Application
                 $this->taskController->handleDecomposeTask();
                 exit;
             case 'commit_to_github':
-                $this->handleCommitToGithub();
+                $this->taskController->handleCommitToGitHub();
                 exit;
             case 'query_task':
                 $this->taskController->handleQueryTask();
@@ -378,51 +378,8 @@ class Application
         return $error;
     }
 
-    // Remaining methods (commit, generate, load tasks) kept here for now or moved partially.
-    // Ideally commit logic should also move to TaskController or GitHubController
-
-    private function handleCommitToGithub()
-    {
-        $taskId = $_POST['task_id'] ?? null;
-        $description = $_POST['description'] ?? null;
-        $code = $_POST['code'] ?? null;
-
-        $userToken = $_POST['user_token'] ?? null;
-        $userUsername = $_POST['user_username'] ?? null;
-
-        // Create a temporary GitHub service with user provided credentials if available
-        $token = $userToken ?: ($_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN'));
-        $username = $userUsername ?: ($_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'));
-        $repo = $_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO');
-
-        $ghService = new GitHubService($token, $username, $repo);
-
-        if (empty($taskId) || empty($code)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => "Error: Task ID or code is missing for the commit."]);
-            exit;
-        }
-
-        $safeDescription = preg_replace('/[^a-zA-Z0-9\s]/', '', $description);
-        $safeDescription = trim(substr($safeDescription, 0, 50));
-        $fileName = 'Task_' . $taskId . '_' . str_replace(' ', '_', $safeDescription) . '.java';
-        $filePath = 'src/main/java/' . $fileName;
-
-        $commitMessage = "feat: Adds task implementation for: " . substr($description, 0, 70) . '...';
-
-        try {
-            $result = $ghService->commitFile($filePath, $code, $commitMessage);
-            header(Config::APP_JSON);
-            echo json_encode($result);
-            exit;
-        } catch (Exception $e) {
-            $code = $e->getCode() ?: 500;
-            http_response_code($code);
-            error_log("GitHub commit error: HTTP {$code}. " . $e->getMessage());
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            exit;
-        }
-    }
+    // Remaining methods (generate, load tasks) kept here for now or moved partially.
+    // Ideally some logic should move to TaskController where appropriate.
 
 
     private function loadKanbanTasks(string $currentProjectName, array $columns, ?string &$error): array

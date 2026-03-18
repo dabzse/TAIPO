@@ -29,6 +29,14 @@ class TaskService
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
+    public function getTaskById(int $taskId): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM tasks WHERE id = :id");
+        $stmt->execute([':id' => $taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $task ?: null;
+    }
+
     public function getTasksByProject(string $projectName): array
     {
         $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
@@ -96,16 +104,17 @@ class TaskService
         return $status;
     }
 
-    public function toggleImportance(int $taskId, int $isImportant): void
+    public function toggleImportance(int $taskId, int $isImportant): int
     {
         $stmt = $this->pdo->prepare("UPDATE tasks SET is_important = :is_important WHERE id = :id");
         $stmt->execute([
             ':is_important' => $isImportant,
             ':id' => $taskId
         ]);
+        return $stmt->rowCount();
     }
 
-    public function updateTask(int $taskId, string $title, string $description): void
+    public function updateTask(int $taskId, string $title, string $description): int
     {
         $stmt = $this->pdo->prepare("UPDATE tasks SET title = :title, description = :description WHERE id = :id");
         $stmt->execute([
@@ -113,6 +122,7 @@ class TaskService
             ':description' => $description,
             ':id' => $taskId
         ]);
+        return $stmt->rowCount();
     }
 
     public function updateStatus(int $taskId, string $newStatus, string $projectName): void
@@ -132,10 +142,11 @@ class TaskService
             }
         }
 
-        $stmt = $this->pdo->prepare("UPDATE tasks SET status = :status WHERE id = :id");
+        $stmt = $this->pdo->prepare("UPDATE tasks SET status = :status WHERE id = :id AND project_name = :project_name");
         $stmt->execute([
             ':status' => $newStatus,
-            ':id' => $taskId
+            ':id' => $taskId,
+            ':project_name' => $projectName
         ]);
     }
 
