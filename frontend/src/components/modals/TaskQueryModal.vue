@@ -3,38 +3,39 @@
         :class="{ 'modal-open': isOpen }"
         class="modal modal-bottom sm:modal-middle"
     >
-        <div class="modal-box relative">
+        <div class="modal-box relative max-w-2xl bg-base-100 p-6">
             <button
                 @click="$emit('close')"
-                class="btn btn-sm btn-circle absolute right-2 top-2"
+                class="btn btn-sm btn-circle absolute right-4 top-4"
             >
                 ✕
             </button>
-            <h3 class="font-bold text-lg mb-4">Ask TAIPO about this task</h3>
+            <h3 class="font-bold text-xl mb-6">Ask TAIPO</h3>
 
             <div class="form-control w-full">
-                <div class="flex justify-between items-center mb-2">
-                    <label class="label" for="task-query-input">
-                        <span class="label-text">Your Question</span>
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <label class="label p-0" for="task-query-input">
+                        <span class="label-text font-semibold">Your Question</span>
                     </label>
-                    <div class="dropdown dropdown-end">
-                        <button type="button" class="btn btn-xs btn-ghost text-info">
+                    <details class="dropdown dropdown-end">
+                        <summary class="btn btn-xs btn-ghost text-info list-none">
                             ✨ Quick Prompts
-                        </button>
-                        <div tabindex="0" role="menu" class="dropdown-content z-[2] menu p-2 shadow bg-base-100 rounded-box w-52">
+                        </summary>
+                        <div class="dropdown-content z-[2] menu p-2 shadow bg-base-100 border border-base-200 rounded-box w-64 mt-2">
                             <div
                                 v-for="t in templates" :key="t.label"
-                                role="menuitem"
+                                class="w-full"
                             >
                                 <button
                                     @click="applyTemplate(t.text)"
                                     type="button"
+                                    class="btn btn-ghost btn-sm justify-start w-full font-normal"
                                 >
                                     {{ t.label }}
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </details>
                 </div>
                 <textarea
                     v-model="query"
@@ -42,33 +43,29 @@
                     :maxlength="maxQueryLength"
                     ref="queryInput"
                     id="task-query-input"
-                    class="textarea h-28 w-full border-outline-cyan-400"
+                    class="textarea h-32 w-full border-base-300 focus:border-info outline-none leading-relaxed"
                     placeholder="e.g., How do I implement the login logic?"
                 >
                 </textarea>
-                <div class="label mt-2">
-                    <span class="label-text-alt">Ctrl+Enter to submit</span>
+                <div class="flex justify-between mt-2 px-1">
+                    <span class="label-text-alt opacity-50 italic">Ctrl+Enter to submit</span>
+                    <span
+                        :class="query.length >= maxQueryLength ? 'text-error font-bold' : 'opacity-40'"
+                        class="text-[10px] font-mono"
+                    >
+                        {{ maxQueryLength - query.length }} chars
+                    </span>
                 </div>
             </div>
 
-            <div class="modal-action justify-between items-center">
-                <div class="flex flex-col">
-                    <span
-                        :class="query.length >= maxQueryLength ? 'text-error font-bold' : 'opacity-60'"
-                        class="text-green-400 text-sm mb-1"
-                    >
-                        {{ maxQueryLength - query.length }} chars remaining
-                    </span>
-                    <span
-                        class="text-[10px] text-warning max-w-[200px] leading-tight"
-                    >
-                        Note: Prompts are sent to Google Gemini API. Avoid PII.
-                    </span>
-                </div>
+            <div class="modal-action justify-between items-center mt-6">
+                <span class="text-[10px] opacity-40 italic max-w-[200px]">
+                    Note: Prompts are sent to Google Gemini API. Avoid PII.
+                </span>
                 <button
                     @click="submitQuery"
                     :disabled="loading || !query.trim()"
-                    class="btn btn-primary"
+                    class="btn btn-primary px-8"
                 >
                     <span
                         v-if="loading"
@@ -85,27 +82,37 @@
 
             <!-- Response Area -->
             <div
-                v-if="answer || error"
-                class="mt-6 border-t pt-4"
+                v-if="formattedAnswer || error || loading"
+                class="mt-8 border-t pt-6"
             >
                 <div
-                    v-if="error"
-                    class="alert alert-error"
+                    v-if="loading"
+                    class="flex flex-col items-center justify-center py-6"
                 >
-                    <p class="font-bold">{{ error.split(' - Response:')[0] }}</p>
-                    <div
-                        v-if="error.includes(' - Response:')"
-                        class="mt-2 text-xs opacity-75 font-mono break-all bg-black/10 p-2 rounded"
-                    >
-                        {{ error.split(' - Response:')[1] }}
+                    <span class="loading loading-spinner loading-md text-info"></span>
+                    <p class="mt-2 text-xs opacity-50">TAIPO is thinking...</p>
+                </div>
+
+                <div
+                    v-else-if="error"
+                    class="alert alert-error text-sm py-4"
+                >
+                    <div class="flex flex-col gap-1">
+                        <p class="font-bold">Error from AI</p>
+                        <p class="opacity-90 leading-tight">{{ error.split(' - Response:')[0] }}</p>
                     </div>
                 </div>
+
                 <div
-                    v-else
-                    class="prose"
+                    v-else-if="formattedAnswer"
+                    class="prose prose-sm prose-invert max-w-none bg-base-200/50 p-6 rounded-2xl border border-base-300"
                 >
-                    <h4 class="text-sm font-bold uppercase text-base-content/50">TAIPO Answer:</h4>
-                    <div class="bg-base-200 p-4 rounded-lg whitespace-pre-wrap text-sm">{{ answer }}</div>
+                    <h4 class="text-xs font-bold uppercase opacity-30 tracking-widest mb-4">TAIPO Answer:</h4>
+                    <div
+                        v-html="formattedAnswer"
+                        class="text-base-content leading-relaxed"
+                    >
+                    </div>
                 </div>
             </div>
         </div>
@@ -116,7 +123,8 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
+import { marked } from 'marked';
 
 const props = defineProps({
     isOpen: Boolean,
@@ -133,6 +141,11 @@ const emit = defineEmits(['close', 'submit']);
 
 const query = ref('');
 const queryInput = ref(null);
+
+const formattedAnswer = computed(() => {
+    if (!props.answer) return "";
+    return marked.parse(props.answer);
+});
 
 watch(() => props.isOpen, async (newVal) => {
     if (newVal) {
@@ -182,4 +195,18 @@ const applyTemplate = (text) => {
         queryInput.value?.focus();
     });
 };
+
+const handleEsc = (e) => {
+    if (e.key === 'Escape' && props.isOpen) {
+        emit('close');
+    }
+};
+
+onMounted(() => {
+    globalThis.addEventListener('keydown', handleEsc);
+});
+
+onUnmounted(() => {
+    globalThis.removeEventListener('keydown', handleEsc);
+});
 </script>

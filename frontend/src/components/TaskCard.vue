@@ -163,21 +163,25 @@
                 v-if="task.po_comments"
                 class="mt-2 flex justify-end"
             >
-                <div
+                <button
                     @click.stop="enableView"
+                    type="button"
                     class="badge badge-accent badge-sm animate-pulse-subtle cursor-pointer hover:scale-110 transition-transform"
                     title="TAIPO Feedback available"
                 >
                     🤖 Feedback
-                </div>
+                </button>
             </div>
 
-            <div
+            <button
                 v-if="task.generated_code"
-                class="mt-2 text-xs badge badge-ghost gap-1"
+                @click.stop="$emit('generate-code', task)"
+                type="button"
+                class="mt-2 text-[10px] badge badge-neutral gap-1 cursor-pointer hover:scale-105 transition-transform"
+                title="View generated implementation"
             >
                 🤖 Code Generated
-            </div>
+            </button>
         </div>
     </div>
 </template>

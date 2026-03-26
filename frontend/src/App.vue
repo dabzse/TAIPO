@@ -147,6 +147,7 @@
             :code="generatedCode"
             :error="codeError"
             @close="isCodeModalOpen = false"
+            @regenerate="handleRegenerateCode"
         />
 
         <TaskQueryModal
@@ -205,6 +206,15 @@
             :is-open="isPrivacyModalOpen"
             @close="isPrivacyModalOpen = false"
         />
+
+        <ConfirmationModal
+            :is-open="isDecomposeConfirmOpen"
+            :message="`Are you sure you want to break down '${taskToDecompose?.description}' into smaller sub-tasks?` "
+            @confirm="proceedDecompose"
+            @close="isDecomposeConfirmOpen = false"
+            confirm-text="Decompose"
+            title="Decompose Task?"
+        />
     </div>
 </template>
 
@@ -219,6 +229,7 @@ import RequirementModal from './components/RequirementModal.vue';
 import PrivacyModal from './components/modals/PrivacyModal.vue';
 import LoginView from './components/LoginView.vue';
 import CookieBanner from './components/CookieBanner.vue';
+import ConfirmationModal from './components/modals/ConfirmationModal.vue';
 import { api } from './services/api';
 
 const isAuthenticated = ref(false);
@@ -237,8 +248,6 @@ const showGithubModal = ref(false);
 const drawerOpen = ref(false);
 const theme = ref('cupcake');
 
-const isPrivacyModalOpen = ref(false);
-
 const toggleTheme = () => {
     theme.value = theme.value === 'cupcake' ? 'light' : 'cupcake';
 };
@@ -256,11 +265,14 @@ const queryAnswer = ref('');
 const queryError = ref('');
 const queryTaskTarget = ref(null);
 
-// Requirements Modal State
+// Local specialized modals
 const isRequirementModalOpen = ref(false);
-
-// API Cost Modal State
 const isApiCostModalOpen = ref(false);
+const isPrivacyModalOpen = ref(false);
+
+// Decomposition Confirmation State
+const isDecomposeConfirmOpen = ref(false);
+const taskToDecompose = ref(null);
 
 // Global Notification State
 const notification = ref(null);
@@ -325,17 +337,31 @@ const handleUnauthorized = () => {
     showNotification("Session expired. Please log in again.", "warning");
 };
 
+const handleGlobalEsc = (e) => {
+    if (e.key === "Escape") {
+        isCodeModalOpen.value = false;
+        isQueryModalOpen.value = false;
+        isRequirementModalOpen.value = false;
+        isApiCostModalOpen.value = false;
+        isPrivacyModalOpen.value = false;
+        isDecomposeConfirmOpen.value = false;
+        drawerOpen.value = false;
+    }
+};
+
 // Lifecycle Hooks
 onMounted(() => {
     checkAuth();
     if (typeof globalThis !== 'undefined' && globalThis.window) {
         globalThis.window.addEventListener('taipo:unauthorized', handleUnauthorized);
+        globalThis.window.addEventListener('keydown', handleGlobalEsc);
     }
 });
 
 onBeforeUnmount(() => {
     if (typeof globalThis !== 'undefined' && globalThis.window) {
         globalThis.window.removeEventListener('taipo:unauthorized', handleUnauthorized);
+        globalThis.window.removeEventListener('keydown', handleGlobalEsc);
     }
 });
 
@@ -409,8 +435,14 @@ const enrichTasksWithSubtaskInfo = () => {
     });
 };
 
-const handleDecompose = async (task) => {
-    if (!confirm(`Are you sure you want to decompose "${task.description}"?`)) return;
+const handleDecompose = (task) => {
+    taskToDecompose.value = task;
+    isDecomposeConfirmOpen.value = true;
+};
+
+const proceedDecompose = async () => {
+    const task = taskToDecompose.value;
+    if (!task) return;
 
     loading.value = true;
     try {
@@ -424,19 +456,44 @@ const handleDecompose = async (task) => {
         showNotification("Failed to decompose task: " + mainMsg, "error", details);
     } finally {
         loading.value = false;
+        isDecomposeConfirmOpen.value = false;
+        taskToDecompose.value = null;
     }
 };
 
 const handleGenerateCode = async (task) => {
     isCodeModalOpen.value = true;
+
+    // If we already have the code, don't generate again
+    if (task.generated_code) {
+        generatedCode.value = task.generated_code;
+        codeLoading.value = false;
+        codeError.value = '';
+        currentTaskForCode.value = task;
+        return;
+    }
+
+    currentTaskForCode.value = task;
+    await proceedGenerateCode(task);
+};
+
+const handleRegenerateCode = async () => {
+    if (!currentTaskForCode.value) return;
+    await proceedGenerateCode(currentTaskForCode.value);
+};
+
+const proceedGenerateCode = async (task) => {
     codeLoading.value = true;
     generatedCode.value = '';
     codeError.value = '';
 
     try {
         const res = await api.generateCode(task.id, task.description);
+        // Res.code now contains the raw Markdown from the backend
         if (res.success && res.code) {
             generatedCode.value = res.code;
+            // Update the local task object so it reflects the change immediately
+            task.generated_code = res.code;
         } else {
             codeError.value = res.error || "Failed to generate code.";
         }
@@ -444,7 +501,7 @@ const handleGenerateCode = async (task) => {
         codeError.value = e.response?.data?.error || e.message;
     } finally {
         codeLoading.value = false;
-        // Refresh to show robot icon
+        // Refresh to show robot icon if it was the first time
         await refreshTasks();
     }
 };

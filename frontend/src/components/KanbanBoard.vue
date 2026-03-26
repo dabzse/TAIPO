@@ -91,6 +91,14 @@
                 @close="isDeleteModalOpen = false"
                 @confirm="handleTaskDeleted"
             />
+            <ConfirmationModal
+                :is-open="isAlertOpen"
+                :title="alertTitle"
+                :message="alertMessage"
+                :is-danger="isAlertDanger"
+                is-alert
+                @close="isAlertOpen = false"
+            />
         </Teleport>
 
     </div>
@@ -102,6 +110,7 @@ import draggable from "vuedraggable";
 import TaskCard from "./TaskCard.vue";
 import TaskModal from "./modals/TaskModal.vue";
 import SafeDeleteModal from "./modals/SafeDeleteModal.vue";
+import ConfirmationModal from "./modals/ConfirmationModal.vue";
 import { api } from "../services/api";
 
 const props = defineProps({
@@ -165,7 +174,7 @@ const onDraggableChange = async (event, newStatus) => {
             emit("task-updated");
         } catch (e) {
             console.error("Failed to update status/order", e);
-            alert(e.response?.data?.error || "Failed to move/reorder task");
+            showAlert("Move Failed", (e.response?.data?.error || "Failed to move/reorder task"), true);
             emit("task-updated"); // Revert by refreshing from server
         }
     }
@@ -236,7 +245,7 @@ const handleSaveTask = async (payload) => {
             emit("task-added");
         }
     } catch (e) {
-        alert("Failed to save task: " + (e.response?.data?.error || e.message));
+        showAlert("Save Failed", (e.response?.data?.error || e.message), true);
     }
 };
 
@@ -264,6 +273,7 @@ onMounted(() => {
             "taipo:request-delete",
             handleGlobalDelete,
         );
+        globalThis.window.addEventListener("keydown", handleGlobalEsc);
     }
 });
 
@@ -273,8 +283,30 @@ onBeforeUnmount(() => {
             "taipo:request-delete",
             handleGlobalDelete,
         );
+        globalThis.window.removeEventListener("keydown", handleGlobalEsc);
     }
 });
+
+// Alert State
+const isAlertOpen = ref(false);
+const alertTitle = ref("Notification");
+const alertMessage = ref("");
+const isAlertDanger = ref(false);
+
+const showAlert = (title, message, isDanger = false) => {
+    alertTitle.value = title;
+    alertMessage.value = message;
+    isAlertDanger.value = isDanger;
+    isAlertOpen.value = true;
+};
+
+const handleGlobalEsc = (e) => {
+    if (e.key === "Escape") {
+        isTaskModalOpen.value = false;
+        isDeleteModalOpen.value = false;
+        isAlertOpen.value = false;
+    }
+};
 
 const handleTaskDeleted = async () => {
     if (!taskToDelete.value) return;
@@ -284,7 +316,7 @@ const handleTaskDeleted = async () => {
         emit("task-deleted", taskToDelete.value.id); // Or just trigger refresh
     } catch (e) {
         console.error("Failed to delete task", e);
-        alert("Failed to delete task: " + (e.response?.data?.error || e.message));
+        showAlert("Deletion Failed", (e.response?.data?.error || e.message), true);
     } finally {
         isDeleteModalOpen.value = false;
         taskToDelete.value = null;
