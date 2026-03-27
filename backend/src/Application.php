@@ -5,7 +5,9 @@ namespace App;
 use App\Service\TaskService;
 use App\Service\ProjectService;
 use App\Service\GitHubService;
+use App\Service\ApplicationService;
 use App\Service\GeminiService;
+use App\Config\GeminiConfig;
 use App\Controller\TaskController;
 use App\Controller\ProjectController;
 use App\Controller\SettingsController;
@@ -68,9 +70,8 @@ class Application
         $this->initEnvAndInput();
         $this->enforceHttps();
 
-        $dbFile = __DIR__ . '/../kanban.sqlite';
 
-        $error = $this->initServices($dbFile);
+        $error = $this->initServices();
 
         if ($error) {
             // If DB connection fails, we can't do much but show error
@@ -202,8 +203,8 @@ class Application
                     foreach ($usageData as $usageItem) {
                         $model = $usageItem['model'];
                         $costConfig[$model] = [
-                            'promptCostPerMillion' => Config::getModelPromptCost($model),
-                            'candidateCostPerMillion' => Config::getModelCandidateCost($model)
+                            'promptCostPerMillion' => GeminiConfig::getModelPromptCost($model),
+                            'candidateCostPerMillion' => GeminiConfig::getModelCandidateCost($model)
                         ];
                     }
                     echo json_encode(['success' => true, 'data' => $usageData, 'config' => $costConfig]);
@@ -324,6 +325,7 @@ class Application
                 'maxQueryLength' => Config::getMaxQueryLength(),
                 'minUsernameLength' => Config::getMinUsernameLength(),
                 'minPasswordLength' => Config::getMinPasswordLength(),
+                'registrationEnabled' => Config::isRegistrationEnabled(),
             ]
         ]);
         exit;
@@ -347,11 +349,11 @@ class Application
         }
     }
 
-    private function initServices(string $dbFile): ?string
+    private function initServices(): ?string
     {
         $error = null;
         try {
-            $database = new Database($dbFile);
+            $database = new Database();
             $pdo = $database->getPdo();
 
             $this->geminiService = new GeminiService($pdo);

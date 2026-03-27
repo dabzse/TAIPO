@@ -20,6 +20,12 @@ class AuthController
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
 
+        if (!Config::isRegistrationEnabled()) {
+            header(Config::APP_JSON, true, 403);
+            echo json_encode(['success' => false, 'error' => 'Registration is currently disabled.']);
+            return;
+        }
+
         if (empty($username) || empty($password)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Username and password are required.']);
@@ -49,8 +55,9 @@ class AuthController
     {
         $this->pdo->beginTransaction();
 
+        $prefix = Config::getTablePrefix();
         // Check if user already exists
-        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE username = :username");
+        $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}users WHERE username = :username");
         $stmt->execute([':username' => $username]);
 
         if ($stmt->fetch()) {
@@ -58,17 +65,19 @@ class AuthController
             http_response_code(409);
             echo json_encode(['success' => false, 'error' => 'Username already exists.']);
         } else {
+            $prefix = Config::getTablePrefix();
             // Secure Hash
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $this->pdo->prepare("INSERT INTO users (username, password_hash) VALUES (:username, :hash)");
+            $stmt = $this->pdo->prepare("INSERT INTO {$prefix}users (username, password_hash) VALUES (:username, :hash)");
             $stmt->execute([':username' => $username, ':hash' => $hash]);
             $userId = (int) $this->pdo->lastInsertId();
 
+            $prefix = Config::getTablePrefix();
             // If this is the FIRST user, assign all current projects to this user
-            $countStmt = $this->pdo->query("SELECT COUNT(*) FROM users");
+            $countStmt = $this->pdo->query("SELECT COUNT(*) FROM {$prefix}users");
             if ($countStmt->fetchColumn() == 1) {
                 // First user! Claim all projects and tasks.
-                $this->pdo->exec("UPDATE projects SET user_id = $userId WHERE user_id IS NULL");
+                $this->pdo->exec("UPDATE {$prefix}projects SET user_id = $userId WHERE user_id IS NULL");
                 // Tasks are queried by project, but if we need a direct relation in future, its handled globally
             }
 
@@ -95,7 +104,8 @@ class AuthController
         }
 
         try {
-            $stmt = $this->pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = :username");
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->prepare("SELECT id, username, password_hash FROM {$prefix}users WHERE username = :username");
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

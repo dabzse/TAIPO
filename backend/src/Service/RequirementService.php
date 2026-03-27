@@ -4,6 +4,7 @@ namespace App\Service;
 
 use PDO;
 use Exception;
+use App\Config;
 
 class RequirementService
 {
@@ -16,7 +17,8 @@ class RequirementService
 
     public function saveRequirement(string $projectName, string $content): void
     {
-        $stmt = $this->pdo->prepare("INSERT INTO requirements (project_name, content) VALUES (:project_name, :content)");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("INSERT INTO {$prefix}requirements (project_name, content) VALUES (:project_name, :content)");
         $stmt->execute([
             ':project_name' => $projectName,
             ':content' => $content
@@ -25,7 +27,8 @@ class RequirementService
 
     public function getRequirements(string $projectName): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM requirements WHERE project_name = :project_name ORDER BY created_at DESC");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT * FROM {$prefix}requirements WHERE project_name = :project_name ORDER BY created_at DESC");
         $stmt->execute([':project_name' => $projectName]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

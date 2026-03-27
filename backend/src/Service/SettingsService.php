@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use PDO;
+use App\Config;
 
 class SettingsService
 {
@@ -15,7 +16,8 @@ class SettingsService
 
     public function getSetting(string $key): ?string
     {
-        $stmt = $this->pdo->prepare("SELECT value FROM settings WHERE key = :key");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT value FROM {$prefix}settings WHERE key = :key");
         $stmt->execute([':key' => $key]);
         $result = $stmt->fetchColumn();
         return $result !== false ? $result : null;
@@ -23,20 +25,42 @@ class SettingsService
 
     public function saveSetting(string $key, string $value): void
     {
-        // Upsert (SQLite specific syntax for ON CONFLICT)
-        $stmt = $this->pdo->prepare("
-            INSERT INTO settings (key, value, updated_at)
-            VALUES (:key, :value, CURRENT_TIMESTAMP)
-            ON CONFLICT(key) DO UPDATE SET
-            value = excluded.value,
-            updated_at = CURRENT_TIMESTAMP
-        ");
+        $prefix = Config::getTablePrefix();
+        $dbType = $_ENV['DB_TYPE'] ?? 'sqlite';
+
+        if ($dbType === 'mysql' || $dbType === 'mariadb') {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO {$prefix}settings (`key`, `value`, updated_at)
+                VALUES (:key, :value, CURRENT_TIMESTAMP)
+                ON DUPLICATE KEY UPDATE
+                `value` = VALUES(`value`),
+                updated_at = CURRENT_TIMESTAMP
+            ");
+        } elseif ($dbType === 'pgsql') {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO {$prefix}settings (key, value, updated_at)
+                VALUES (:key, :value, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                value = EXCLUDED.value,
+                updated_at = CURRENT_TIMESTAMP
+            ");
+        } else {
+            // SQLite
+            $stmt = $this->pdo->prepare("
+                INSERT INTO {$prefix}settings (key, value, updated_at)
+                VALUES (:key, :value, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+            ");
+        }
         $stmt->execute([':key' => $key, ':value' => $value]);
     }
 
     public function deleteSetting(string $key): void
     {
-        $stmt = $this->pdo->prepare("DELETE FROM settings WHERE key = :key");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("DELETE FROM {$prefix}settings WHERE key = :key");
         $stmt->execute([':key' => $key]);
     }
 }

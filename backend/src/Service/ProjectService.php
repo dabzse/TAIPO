@@ -6,6 +6,7 @@ use PDO;
 use Exception;
 use App\Exception\ProjectNotFoundException;
 use App\Exception\ProjectAlreadyExistsException;
+use App\Config;
 
 class ProjectService
 {
@@ -18,34 +19,39 @@ class ProjectService
 
     public function getAllProjects(): array
     {
-        $stmt = $this->pdo->query("SELECT id, name, created_at FROM projects ORDER BY name ASC");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->query("SELECT id, name, created_at FROM {$prefix}projects ORDER BY name ASC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function createProject(string $name): int
     {
+        $prefix = Config::getTablePrefix();
         // Check if exists
-        $stmt = $this->pdo->prepare("SELECT id FROM projects WHERE name = :name");
+        $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}projects WHERE name = :name");
         $stmt->execute([':name' => $name]);
         if ($stmt->fetch()) {
             throw new ProjectAlreadyExistsException("Project '{$name}' already exists.");
         }
 
-        $stmt = $this->pdo->prepare("INSERT INTO projects (name) VALUES (:name)");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("INSERT INTO {$prefix}projects (name) VALUES (:name)");
         $stmt->execute([':name' => $name]);
         return (int) $this->pdo->lastInsertId();
     }
 
     public function updateProject(int $id, string $newName): void
     {
+        $prefix = Config::getTablePrefix();
         // Check if new name exists for other project
-        $stmt = $this->pdo->prepare("SELECT id FROM projects WHERE name = :name AND id != :id");
+        $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}projects WHERE name = :name AND id != :id");
         $stmt->execute([':name' => $newName, ':id' => $id]);
         if ($stmt->fetch()) {
             throw new ProjectAlreadyExistsException("Project '{$newName}' already exists.");
         }
 
-        $stmt = $this->pdo->prepare("UPDATE projects SET name = :name WHERE id = :id");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}projects SET name = :name WHERE id = :id");
         $stmt->execute([':name' => $newName, ':id' => $id]);
     }
 
@@ -56,8 +62,9 @@ class ProjectService
     {
         $this->pdo->beginTransaction();
         try {
+            $prefix = Config::getTablePrefix();
             // Get old name
-            $stmt = $this->pdo->prepare("SELECT name FROM projects WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT name FROM {$prefix}projects WHERE id = :id");
             $stmt->execute([':id' => $id]);
             $oldName = $stmt->fetchColumn();
 
@@ -65,19 +72,22 @@ class ProjectService
                 throw new ProjectNotFoundException("Project not found.");
             }
 
+            $prefix = Config::getTablePrefix();
             // Check duplicate
-            $stmt = $this->pdo->prepare("SELECT id FROM projects WHERE name = :name AND id != :id");
+            $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}projects WHERE name = :name AND id != :id");
             $stmt->execute([':name' => $newName, ':id' => $id]);
             if ($stmt->fetch()) {
                 throw new ProjectAlreadyExistsException("Project '{$newName}' already exists.");
             }
 
             // Update project
-            $stmt = $this->pdo->prepare("UPDATE projects SET name = :name WHERE id = :id");
+            $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}projects SET name = :name WHERE id = :id");
             $stmt->execute([':name' => $newName, ':id' => $id]);
 
+            $prefix = Config::getTablePrefix();
             // Update tasks
-            $stmt = $this->pdo->prepare("UPDATE tasks SET project_name = :newName WHERE project_name = :oldName");
+            $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET project_name = :newName WHERE project_name = :oldName");
             $stmt->execute([':newName' => $newName, ':oldName' => $oldName]);
 
             $this->pdo->commit();
@@ -93,8 +103,9 @@ class ProjectService
     {
         $this->pdo->beginTransaction();
         try {
+            $prefix = Config::getTablePrefix();
             // Get name to delete tasks
-            $stmt = $this->pdo->prepare("SELECT name FROM projects WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT name FROM {$prefix}projects WHERE id = :id");
             $stmt->execute([':id' => $id]);
             $name = $stmt->fetchColumn();
 
@@ -103,13 +114,15 @@ class ProjectService
             }
 
             if ($name) {
+                $prefix = Config::getTablePrefix();
                 // Delete tasks
-                $stmt = $this->pdo->prepare("DELETE FROM tasks WHERE project_name = :name");
+                $stmt = $this->pdo->prepare("DELETE FROM {$prefix}tasks WHERE project_name = :name");
                 $stmt->execute([':name' => $name]);
             }
 
+            $prefix = Config::getTablePrefix();
             // Delete project
-            $stmt = $this->pdo->prepare("DELETE FROM projects WHERE id = :id");
+            $stmt = $this->pdo->prepare("DELETE FROM {$prefix}projects WHERE id = :id");
             $stmt->execute([':id' => $id]);
 
             $this->pdo->commit();

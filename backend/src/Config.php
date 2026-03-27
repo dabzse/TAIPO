@@ -4,12 +4,16 @@ namespace App;
 
 class Config
 {
+    public static function getTablePrefix(): string
+    {
+        return $_ENV['TABLE_PREFIX'] ?? '';
+    }
+
     public static function getProjectName(): string
     {
         return $_ENV['PROJECT_NAME'];
     }
     public const APP_JSON = 'Content-Type: application/json';
-    public const GEMINI_API_KEY_HEADER = 'x-goog-api-key';
 
     public const SUPPORTED_LANGUAGES = [
         'Python',
@@ -23,72 +27,6 @@ class Config
         'TypeScript',
         'JavaScript'
     ];
-
-    public static function getGeminiBaseUrl(): string
-    {
-        return $_ENV['GEMINI_BASE_URL'] ?? $_ENV['GEMINI_FALLBACK_URL'];
-    }
-
-    public static function getGeminiModel(): string
-    {
-        return $_ENV['GEMINI_BASE_MODEL'] ?? $_ENV['GEMINI_FALLBACK_MODEL'];
-    }
-
-    public static function getGeminiApiKey(): string
-    {
-        return $_ENV['GEMINI_API_KEY'] ?? '';
-    }
-
-    public static function getGeminiApiKeyHeader(): string
-    {
-        return self::GEMINI_API_KEY_HEADER . ': ' . self::getGeminiApiKey();
-    }
-
-    public static function getGeminiFullUrl(): string
-    {
-        $baseUrl = self::getGeminiBaseUrl();
-        $model = self::getGeminiModel();
-
-        return "{$baseUrl}/models/{$model}:generateContent";
-    }
-
-    public static function getModelPromptCost(string $modelName): float
-    {
-        // returns a FAKE cost for the model if it is not set in the .env
-        if ($modelName === self::getGeminiModel()) {
-            return (float) ($_ENV['GEMINI_BASE_MODEL_PROMPT_COST_PER_MILLION'] ?? 0.075);
-        }
-        return (float) ($_ENV['GEMINI_FALLBACK_MODEL_PROMPT_COST_PER_MILLION'] ?? 0.075);
-    }
-
-    public static function getModelCandidateCost(string $modelName): float
-    {
-        // returns a FAKE cost for the model if it is not set in the .env
-        if ($modelName === self::getGeminiModel()) {
-            return (float) ($_ENV['GEMINI_BASE_MODEL_CANDIDATE_COST_PER_MILLION'] ?? 0.300);
-        }
-        return (float) ($_ENV['GEMINI_FALLBACK_MODEL_CANDIDATE_COST_PER_MILLION'] ?? 0.300);
-    }
-
-    public static function getGeminiTemperature(): float
-    {
-        return (float) ($_ENV['GEMINI_TEMPERATURE'] ?? 0.7);
-    }
-
-    public static function getGeminiTopK(): int
-    {
-        return (int) ($_ENV['GEMINI_TOP_K'] ?? 40);
-    }
-
-    public static function getGeminiTopP(): float
-    {
-        return (float) ($_ENV['GEMINI_TOP_P'] ?? 0.95);
-    }
-
-    public static function getGeminiMaxOutputTokens(): int
-    {
-        return (int) ($_ENV['GEMINI_MAX_OUTPUT_TOKENS'] ?? 4096);
-    }
 
     public static function getGithubUserAgent(): string
     {
@@ -120,9 +58,27 @@ class Config
         return (int) ($_ENV['MIN_PASSWORD_LENGTH'] ?? 6);
     }
 
+    public static function isRegistrationEnabled(): bool
+    {
+        return ($_ENV['REGISTRATION_ENABLED'] ?? 'true') === 'true';
+    }
+
     public static function isOffline(): bool
     {
         $rootDir = realpath(__DIR__ . '/../../');
         return is_dir($rootDir . '/__OFFLINE') || file_exists($rootDir . '/.offline');
+    }
+
+    public static function getDatabaseConfig(): array
+    {
+        return [
+            'sqlite_file' => $_ENV['SQLITE_FILE_NAME'] ?? null,
+            'type' => $_ENV['DB_TYPE'] ?? 'mysql',
+            'host' => $_ENV['DB_HOST'] ?? 'localhost',
+            'dbname' => $_ENV['DB_NAME'] ?? 'taipo',
+            'user' => $_ENV['DB_USER'] ?? 'root',
+            'password' => $_ENV['DB_PASS'] ?? '',
+            'port' => $_ENV['DB_PORT'] ?? '3306',
+        ];
     }
 }

@@ -25,13 +25,15 @@ class TaskService
 
     public function getProjects(): array
     {
-        $stmt = $this->pdo->query("SELECT DISTINCT project_name FROM tasks ORDER BY project_name ASC");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->query("SELECT DISTINCT project_name FROM {$prefix}tasks ORDER BY project_name ASC");
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
     public function getTaskById(int $taskId): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id, project_name, updated_at FROM tasks WHERE id = :id");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id, project_name, updated_at FROM {$prefix}tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
         return $task ?: null;
@@ -39,7 +41,8 @@ class TaskService
 
     public function getTasksByProject(string $projectName): array
     {
-        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id, updated_at FROM tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT id, title, description, status, is_important, generated_code, is_subtask, po_comments, position, parent_id, updated_at FROM {$prefix}tasks WHERE project_name = :projectName ORDER BY position ASC, id ASC");
         $stmt->execute([':projectName' => $projectName]);
         $tasks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -53,10 +56,11 @@ class TaskService
         try {
             $this->pdo->beginTransaction();
 
+            $prefix = Config::getTablePrefix();
             $priority = 0;
             foreach ($taskIds as $taskId) {
                 // Verify task belongs to project (security check)
-                $stmt = $this->pdo->prepare("UPDATE tasks SET status = :status, position = :position WHERE id = :id AND project_name = :project_name");
+                $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET status = :status, position = :position WHERE id = :id AND project_name = :project_name");
                 $stmt->execute([
                     ':status' => $status,
                     ':position' => $priority,
@@ -77,7 +81,8 @@ class TaskService
 
     public function addTask(string $projectName, string $title, string $description, int $isImportant = 0): int
     {
-        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, '" . self::STATUS_SPRINT_BACKLOG . "', :is_important)");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("INSERT INTO {$prefix}tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, '" . self::STATUS_SPRINT_BACKLOG . "', :is_important)");
         $stmt->execute([
             ':project_name' => $projectName,
             ':title' => $title,
@@ -89,8 +94,9 @@ class TaskService
 
     public function deleteTask(int $taskId): string
     {
+        $prefix = Config::getTablePrefix();
         // Get status before deleting
-        $statusStmt = $this->pdo->prepare("SELECT status FROM tasks WHERE id = :id");
+        $statusStmt = $this->pdo->prepare("SELECT status FROM {$prefix}tasks WHERE id = :id");
         $statusStmt->execute([':id' => $taskId]);
         $status = $statusStmt->fetchColumn();
 
@@ -98,7 +104,8 @@ class TaskService
             throw new TaskNotFoundException("Task not found.");
         }
 
-        $stmt = $this->pdo->prepare("DELETE FROM tasks WHERE id = :id");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("DELETE FROM {$prefix}tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
 
         return $status;
@@ -106,7 +113,8 @@ class TaskService
 
     public function toggleImportance(int $taskId, int $isImportant): int
     {
-        $stmt = $this->pdo->prepare("UPDATE tasks SET is_important = :is_important WHERE id = :id");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET is_important = :is_important WHERE id = :id");
         $stmt->execute([
             ':is_important' => $isImportant,
             ':id' => $taskId
@@ -116,7 +124,8 @@ class TaskService
 
     public function updateTask(int $taskId, string $title, string $description, ?string $lastUpdatedAt = null): int
     {
-        $query = "UPDATE tasks SET title = :title, description = :description, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+        $prefix = Config::getTablePrefix();
+        $query = "UPDATE {$prefix}tasks SET title = :title, description = :description, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
         $params = [
             ':title' => $title,
             ':description' => $description,
@@ -137,8 +146,9 @@ class TaskService
     {
         $wipLimit = Utils::getWIPLimit($newStatus);
 
+        $prefix = Config::getTablePrefix();
         if ($wipLimit !== null) {
-            $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM tasks WHERE project_name = :projectName AND status = :status");
+            $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM {$prefix}tasks WHERE project_name = :projectName AND status = :status");
             $countStmt->execute([
                 ':projectName' => $projectName,
                 ':status' => $newStatus
@@ -150,7 +160,8 @@ class TaskService
             }
         }
 
-        $stmt = $this->pdo->prepare("UPDATE tasks SET status = :status WHERE id = :id AND project_name = :project_name");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET status = :status WHERE id = :id AND project_name = :project_name");
         $stmt->execute([
             ':status' => $newStatus,
             ':id' => $taskId,
@@ -163,11 +174,12 @@ class TaskService
         try {
             $this->pdo->beginTransaction();
 
-            $stmt = $this->pdo->prepare("DELETE FROM tasks WHERE project_name = :projectName");
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->prepare("DELETE FROM {$prefix}tasks WHERE project_name = :projectName");
             $stmt->execute([':projectName' => $projectName]);
 
             $insertStmt = $this->pdo->prepare(
-                "INSERT INTO tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, :status, :is_important)"
+                "INSERT INTO {$prefix}tasks (project_name, title, description, status, is_important) VALUES (:project_name, :title, :description, :status, :is_important)"
             );
 
             $count = 0;
@@ -349,8 +361,9 @@ class TaskService
     public function decomposeTask(string $description, string $projectName, ?int $parentId = null): int
     {
         $finalDescription = $description;
+        $prefix = Config::getTablePrefix();
         if ($parentId !== null) {
-            $stmt = $this->pdo->prepare("SELECT description FROM tasks WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT description FROM {$prefix}tasks WHERE id = :id");
             $stmt->execute([':id' => $parentId]);
             $dbDesc = $stmt->fetchColumn();
             if ($dbDesc !== false) {
@@ -380,7 +393,8 @@ class TaskService
         $lines = explode("\n", $rawTasks);
         $count = 0;
 
-        $stmt = $this->pdo->prepare("INSERT INTO tasks (project_name, title, description, status, is_subtask, po_comments, parent_id) VALUES (?, ?, ?, '" . self::STATUS_SPRINT_BACKLOG . "', 1, ?, ?)");
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("INSERT INTO {$prefix}tasks (project_name, title, description, status, is_subtask, po_comments, parent_id) VALUES (?, ?, ?, '" . self::STATUS_SPRINT_BACKLOG . "', 1, ?, ?)");
 
         $poFeedback = "TAIPO: Based on original story: \"{$finalDescription}\"";
 
@@ -408,8 +422,9 @@ class TaskService
 
     public function queryTask(int $taskId, string $query): string
     {
+        $prefix = Config::getTablePrefix();
         // 1. Fetch current task details INCLUDING project_name
-        $stmt = $this->pdo->prepare("SELECT description, po_comments, project_name, status FROM tasks WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT description, po_comments, project_name, status FROM {$prefix}tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -456,7 +471,8 @@ class TaskService
         $newEntry = "**Q:** {$query}\n**A:** {$answer}";
         $newComments = $currentComments . $separator . $newEntry;
 
-        $updateStmt = $this->pdo->prepare("UPDATE tasks SET po_comments = :comments WHERE id = :id");
+        $prefix = Config::getTablePrefix();
+        $updateStmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET po_comments = :comments WHERE id = :id");
         $updateStmt->execute([':comments' => $newComments, ':id' => $taskId]);
 
         return $answer;
@@ -466,8 +482,9 @@ class TaskService
     {
         $summary = "Project: {$projectName}\n\n";
 
+        $prefix = Config::getTablePrefix();
         // Current Requirements
-        $reqStmt = $this->pdo->prepare("SELECT content FROM requirements WHERE project_name = :project_name ORDER BY created_at ASC");
+        $reqStmt = $this->pdo->prepare("SELECT content FROM {$prefix}requirements WHERE project_name = :project_name ORDER BY created_at ASC");
         $reqStmt->execute([':project_name' => $projectName]);
         $requirements = $reqStmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -479,9 +496,10 @@ class TaskService
             $summary .= "\n";
         }
 
+        $prefix = Config::getTablePrefix();
         // Current Board State
         $summary .= "Current Board Status:\n";
-        $stmt = $this->pdo->prepare("SELECT id, title, description, status FROM tasks WHERE project_name = :project_name ORDER BY status, id");
+        $stmt = $this->pdo->prepare("SELECT id, title, description, status FROM {$prefix}tasks WHERE project_name = :project_name ORDER BY status, id");
         $stmt->execute([':project_name' => $projectName]);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -500,8 +518,9 @@ class TaskService
         $finalDescription = $description;
         $projectName = '';
 
+        $prefix = Config::getTablePrefix();
         if ($taskId !== null) {
-            $stmt = $this->pdo->prepare("SELECT description, project_name FROM tasks WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT description, project_name FROM {$prefix}tasks WHERE id = :id");
             $stmt->execute([':id' => $taskId]);
             $dbTask = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($dbTask) {
@@ -524,8 +543,9 @@ class TaskService
         $rawText = trim($rawText);
 
         // Persist code if taskId provided
+        $prefix = Config::getTablePrefix();
         if ($taskId !== null) {
-            $stmt = $this->pdo->prepare("UPDATE tasks SET generated_code = :code WHERE id = :id");
+            $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET generated_code = :code WHERE id = :id");
             $stmt->execute([':code' => $rawText, ':id' => $taskId]);
         }
 

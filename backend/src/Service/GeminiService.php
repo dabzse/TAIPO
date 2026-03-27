@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Config;
+use App\Config\GeminiConfig;
 use App\Exception\GeminiApiException;
 use PDO;
 
@@ -13,7 +14,7 @@ class GeminiService
     public function __construct(?PDO $pdo = null)
     {
         $this->pdo = $pdo;
-        $apiKey = Config::getGeminiApiKey();
+        $apiKey = GeminiConfig::getGeminiApiKey();
 
         if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
             throw new GeminiApiException("Gemini API key is not set or invalid.");
@@ -22,9 +23,16 @@ class GeminiService
 
     public function askTaipo(string $prompt): string
     {
-        $url = Config::getGeminiFullUrl();
+        $url = GeminiConfig::getGeminiFullUrl();
+        $data = $this->buildRequestPayload($prompt);
+        $response = $this->makeRequest($url, $data);
 
-        $data = [
+        return $this->processResponse($response);
+    }
+
+    private function buildRequestPayload(string $prompt): array
+    {
+        return [
             'contents' => [
                 [
                     'parts' => [
@@ -33,14 +41,16 @@ class GeminiService
                 ]
             ],
             'generationConfig' => [
-                'temperature' => Config::getGeminiTemperature(),
-                'topK' => Config::getGeminiTopK(),
-                'topP' => Config::getGeminiTopP(),
-                'maxOutputTokens' => Config::getGeminiMaxOutputTokens(),
+                'temperature' => GeminiConfig::getGeminiTemperature(),
+                'topK' => GeminiConfig::getGeminiTopK(),
+                'topP' => GeminiConfig::getGeminiTopP(),
+                'maxOutputTokens' => GeminiConfig::getGeminiMaxOutputTokens(),
             ]
         ];
+    }
 
-        $response = $this->makeRequest($url, $data);
+    private function processResponse(array $response): string
+    {
         $body = $response['body'];
         $httpCode = $response['http_code'];
 
@@ -51,6 +61,14 @@ class GeminiService
             throw new GeminiApiException("Invalid JSON response. HTTP: {$httpCode}. Context: {$snippet}", $httpCode ?: 500);
         }
 
+        $this->handleApiErrors($result, $httpCode);
+        $this->logUsage($result);
+
+        return $result['candidates'][0]['content']['parts'][0]['text'];
+    }
+
+    private function handleApiErrors(array $result, int $httpCode): void
+    {
         if (isset($result['error'])) {
             $errorMessage = $result['error']['message'] ?? 'Unknown error';
             $errorCode = (int)($result['error']['code'] ?? $httpCode);
@@ -72,23 +90,25 @@ class GeminiService
             $blockReason = $result['candidates'][0]['finishReason'] ?? 'unknown';
             throw new GeminiApiException("API response blocked or invalid format. Reason: " . $blockReason, 502);
         }
+    }
 
+    private function logUsage(array $result): void
+    {
         $usageMetadata = $result['usageMetadata'] ?? null;
         if ($usageMetadata && $this->pdo) {
             $promptTokens = $usageMetadata['promptTokenCount'] ?? 0;
             $candidateTokens = $usageMetadata['candidatesTokenCount'] ?? 0;
             $totalTokens = $usageMetadata['totalTokenCount'] ?? 0;
-            $modelName = Config::getGeminiModel();
+            $modelName = GeminiConfig::getGeminiModel();
 
             try {
-                $stmt = $this->pdo->prepare("INSERT INTO api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens) VALUES (?, ?, ?, ?)");
+                $prefix = Config::getTablePrefix();
+                $stmt = $this->pdo->prepare("INSERT INTO {$prefix}api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$modelName, $promptTokens, $candidateTokens, $totalTokens]);
             } catch (\Exception $e) {
                 error_log("Failed to log API usage: " . $e->getMessage());
             }
         }
-
-        return $result['candidates'][0]['content']['parts'][0]['text'];
     }
 
     public function getAggregatedApiUsage(): array
@@ -98,7 +118,8 @@ class GeminiService
         }
 
         try {
-            $stmt = $this->pdo->query("SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM api_usage GROUP BY endpoint");
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->query("SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM {$prefix}api_usage GROUP BY endpoint");
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if ($results) {
@@ -152,7 +173,7 @@ class GeminiService
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             Config::APP_JSON,
-            Config::getGeminiApiKeyHeader()
+            GeminiConfig::getGeminiApiKeyHeader()
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
@@ -177,7 +198,7 @@ class GeminiService
         $options = [
             'http' => [
                 'header'  => Config::APP_JSON . "\r\n" .
-                    Config::getGeminiApiKeyHeader() . "\r\n",
+                    GeminiConfig::getGeminiApiKeyHeader() . "\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => 60,
@@ -201,8 +222,8 @@ class GeminiService
                 $msg = $error['message'];
                 // Sanitize key (both old URL query param style and header presence)
                 $msg = preg_replace('/key=[^&\s]+/', 'key=***', $msg);
-                if (Config::getGeminiApiKey() !== '') {
-                    $msg = str_replace(Config::getGeminiApiKey(), '***', $msg);
+                if (GeminiConfig::getGeminiApiKey() !== '') {
+                    $msg = str_replace(GeminiConfig::getGeminiApiKey(), '***', $msg);
                 }
                 $safeErrorMessage .= " Details: " . $msg;
             }
