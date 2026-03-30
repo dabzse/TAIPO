@@ -50,12 +50,12 @@ class Config
 
     public static function getMinUsernameLength(): int
     {
-        return (int) ($_ENV['MIN_USERNAME_LENGTH'] ?? 3);
+        return (int) ($_ENV['MIN_USERNAME_LENGTH'] ?? 4);
     }
 
     public static function getMinPasswordLength(): int
     {
-        return (int) ($_ENV['MIN_PASSWORD_LENGTH'] ?? 6);
+        return (int) ($_ENV['MIN_PASSWORD_LENGTH'] ?? 8);
     }
 
     public static function isRegistrationEnabled(): bool
