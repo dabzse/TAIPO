@@ -33,8 +33,8 @@ class DatabaseConfig
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'settings' => "CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'requirements' => "CREATE TABLE IF NOT EXISTS requirements (
