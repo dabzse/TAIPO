@@ -28,9 +28,9 @@
                             <input
                                 v-model="newTeamName"
                                 type="text"
-                                placeholder="New team name..."
                                 class="input input-bordered input-sm w-full"
-                            />
+                                placeholder="New team name..."
+                            >
                             <button
                                 @click="createTeam"
                                 :disabled="!newTeamName"
@@ -76,14 +76,56 @@
                     >
                         Select a team to view details.
                     </div>
-                    <div v-else>
-                        <h4 class="font-bold mb-4 text-xl">{{ selectedTeam.name }} Members</h4>
+                    <div
+                        v-else
+                    >
+                        <div class="flex items-center justify-between mb-4">
+                            <div
+                                v-if="!isEditingTeamName"
+                                class="flex items-center gap-2"
+                            >
+                                <h4 class="font-bold text-xl">{{ selectedTeam.name }} Members</h4>
+                                <button
+                                    @click="startEditingName"
+                                    class="btn btn-ghost btn-xs"
+                                    title="Rename Team"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div
+                                v-else
+                                class="flex items-center gap-2 w-full"
+                            >
+                                <input
+                                    v-model="editingTeamName"
+                                    @keyup.enter="renameTeam"
+                                    type="text"
+                                    class="input input-bordered input-sm flex-grow"
+                                    placeholder="Enter new team name..."
+                                >
+                                <button
+                                    @click="renameTeam"
+                                    class="btn btn-sm btn-primary"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    @click="isEditingTeamName = false"
+                                    class="btn btn-sm btn-ghost"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
 
                         <!-- Add Member Form -->
                         <div class="bg-base-200 p-4 rounded-lg mb-6 flex gap-2 items-end">
                             <div class="form-control w-1/3">
                                 <label class="label" for="assignUserIdInput">
-                                    <span class="label-text">User</span>
+                                    <span class="label-text font-semibold text-base">User</span>
                                 </label>
                                 <input
                                     v-model="assignUserId"
@@ -94,12 +136,12 @@
                                 />
                             </div>
                             <div class="form-control w-1/3">
-                                <label class="label" for="assignRoleIdSelect">
-                                    <span class="label-text">Role</span>
+                                <label class="label p-1" for="assignRoleIdSelect">
+                                    <span class="label-text font-semibold text-base">Role</span>
                                 </label>
                                 <select
-                                    id="assignRoleIdSelect"
                                     v-model="assignRoleId"
+                                    id="assignRoleIdSelect"
                                     class="select select-sm select-bordered w-full"
                                 >
                                     <option
@@ -138,7 +180,7 @@
                             class="table table-zebra w-full"
                         >
                             <thead>
-                                <tr>
+                                <tr class="text-base">
                                     <th>User ID</th>
                                     <th>Username</th>
                                     <th>Role</th>
@@ -156,12 +198,14 @@
                                     :key="user.user_id"
                                 >
                                     <td>{{ user.user_id }}</td>
-                                    <td>{{ user.username }}</td>
+                                    <td>
+                                        <div class="font-bold text-base">{{ user.username }}</div>
+                                    </td>
                                     <td>
                                         <select
                                             v-model="user.role_id"
                                             @change="changeRole(user.user_id, user.role_id)"
-                                            class="select select-bordered select-xs w-full max-w-xs"
+                                            class="select select-bordered select-xs w-full max-w-xs text-base"
                                         >
                                             <option
                                                 v-for="role in roles"
@@ -290,6 +334,8 @@ const selectedProjectToAssign = ref(null);
 
 const selectedTeam = ref(null);
 const newTeamName = ref('');
+const isEditingTeamName = ref(false);
+const editingTeamName = ref('');
 const assignUserId = ref('');
 const assignRoleId = ref('');
 
@@ -351,8 +397,26 @@ const createTeam = async () => {
 
 const selectTeam = async (team) => {
     selectedTeam.value = team;
+    isEditingTeamName.value = false;
     await fetchTeamUsers(team.id);
     updateTeamProjects();
+};
+
+const startEditingName = () => {
+    editingTeamName.value = selectedTeam.value.name;
+    isEditingTeamName.value = true;
+};
+
+const renameTeam = async () => {
+    if (!editingTeamName.value || !selectedTeam.value) return;
+    try {
+        await api.updateTeam(selectedTeam.value.id, editingTeamName.value);
+        selectedTeam.value.name = editingTeamName.value;
+        isEditingTeamName.value = false;
+        await fetchTeamsAndRoles();
+    } catch (e) {
+        showAlert("Failed to rename team: " + (e.response?.data?.error || e.message), true);
+    }
 };
 
 const fetchAllProjects = async () => {

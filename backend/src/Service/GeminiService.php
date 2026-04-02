@@ -10,6 +10,8 @@ use PDO;
 class GeminiService
 {
     private ?PDO $pdo;
+    private ?int $currentUserId = null;
+    private ?int $currentTeamId = null;
 
     public function __construct(?PDO $pdo = null)
     {
@@ -19,6 +21,12 @@ class GeminiService
         if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
             throw new GeminiApiException("Gemini API key is not set or invalid.");
         }
+    }
+
+    public function setContext(?int $userId, ?int $teamId = null): void
+    {
+        $this->currentUserId = $userId;
+        $this->currentTeamId = $teamId;
     }
 
     public function askTaipo(string $prompt): string
@@ -103,27 +111,56 @@ class GeminiService
 
             try {
                 $prefix = Config::getTablePrefix();
-                $stmt = $this->pdo->prepare("INSERT INTO {$prefix}api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$modelName, $promptTokens, $candidateTokens, $totalTokens]);
+                $stmt = $this->pdo->prepare("INSERT INTO {$prefix}api_usage (endpoint, prompt_tokens, candidate_tokens, total_tokens, user_id, team_id) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$modelName, $promptTokens, $candidateTokens, $totalTokens, $this->currentUserId, $this->currentTeamId]);
             } catch (\Exception $e) {
                 error_log("Failed to log API usage: " . $e->getMessage());
             }
         }
     }
 
-    public function getAggregatedApiUsage(): array
+    public function getAggregatedApiUsage(bool $isInstructor = false, ?int $userId = null, array $teamIds = []): array
     {
+        $aggregatedUsage = [];
         if (!$this->pdo) {
-            return [];
+            return $aggregatedUsage;
         }
 
         try {
             $prefix = Config::getTablePrefix();
-            $stmt = $this->pdo->query("SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM {$prefix}api_usage GROUP BY endpoint");
+            $query = "SELECT endpoint as model, SUM(prompt_tokens) as prompt_tokens, SUM(candidate_tokens) as candidate_tokens, SUM(total_tokens) as total_tokens FROM {$prefix}api_usage";
+            $params = [];
+
+            if (!$isInstructor) {
+                $conditions = [];
+                if ($userId !== null) {
+                    $conditions[] = "user_id = :user_id";
+                    $params[':user_id'] = $userId;
+                }
+                if (!empty($teamIds)) {
+                    $teamPlaceholders = implode(',', array_map(function ($i) {
+                        return ":team_id_$i";
+                    }, array_keys($teamIds)));
+                    $conditions[] = "team_id IN ($teamPlaceholders)";
+                    foreach ($teamIds as $i => $id) {
+                        $params[":team_id_$i"] = $id;
+                    }
+                }
+
+                if (!empty($conditions)) {
+                    $query .= " WHERE " . implode(" OR ", $conditions);
+                } else {
+                    return $aggregatedUsage;
+                }
+            }
+
+            $query .= " GROUP BY endpoint";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute($params);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if ($results) {
-                return array_map(function ($row) {
+                $aggregatedUsage = array_map(function ($row) {
                     return [
                         'model' => $row['model'],
                         'prompt_tokens' => (int) $row['prompt_tokens'],
@@ -136,7 +173,7 @@ class GeminiService
             error_log("Failed to get aggregated API usage: " . $e->getMessage());
         }
 
-        return [];
+        return $aggregatedUsage;
     }
 
     private function getContextualMessage(int $httpCode, string $errorStatus): ?string

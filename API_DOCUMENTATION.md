@@ -164,3 +164,4 @@ Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` qu
 | `list_team_users` | GET | `team_id` | Lists all users and their respective roles for a given team. |
 | `remove_team_user` | POST | `team_id`, `user_id` | Removes a user from a specific team. |
 | `update_team_user_role` | POST | `team_id`, `user_id`, `role_id` | Changes the role of a user within a team. |
+| `update_team` | POST | `team_id`, `name` | Renames an existing team. |

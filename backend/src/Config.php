@@ -14,6 +14,7 @@ class Config
         return $_ENV['PROJECT_NAME'];
     }
     public const APP_JSON = 'Content-Type: application/json';
+    public const ERROR_TASK_NOT_FOUND = "Task not found.";
 
     public const SUPPORTED_LANGUAGES = [
         'Python',

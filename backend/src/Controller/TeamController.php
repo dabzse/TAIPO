@@ -57,6 +57,28 @@ class TeamController
         }
     }
 
+    public function handleUpdateTeam(): void
+    {
+        $this->requireInstructor();
+        $teamId = (int)($_POST['team_id'] ?? 0);
+        $name = $_POST['name'] ?? null;
+
+        if (!$teamId || !$name) {
+            header(Config::APP_JSON, true, 400);
+            echo json_encode(['success' => false, 'error' => 'Team ID and new name are required.']);
+            return;
+        }
+
+        try {
+            $this->teamService->updateTeam($teamId, $name);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            header(Config::APP_JSON, true, 500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
     public function handleListRoles(): void
     {
         $this->requireInstructor();

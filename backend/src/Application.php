@@ -17,6 +17,7 @@ use App\Controller\TeamController;
 use App\Service\SettingsService;
 use App\Service\RequirementService;
 use App\Service\TeamService;
+use App\Service\TaskAiService;
 use App\Exception\GeminiApiException;
 use App\Exception\ProjectAlreadyExistsException;
 use App\Utils;
@@ -31,6 +32,7 @@ class Application
     private ProjectService $projectService;
     private GitHubService $githubService;
     private GeminiService $geminiService;
+    private TaskAiService $taskAiService;
     private TaskController $taskController;
     private ProjectController $projectController;
     private SettingsController $settingsController;
@@ -121,7 +123,7 @@ class Application
         if (in_array($action, [
             'add_task', 'delete_task', 'toggle_importance', 'update_status',
             'reorder_tasks', 'edit_task', 'generate_code', 'generate_project_tasks',
-            'decompose_task', 'commit_to_github', 'query_task'
+            'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec'
         ])) {
             $this->handleTaskAction($action);
             exit;
@@ -130,7 +132,7 @@ class Application
         // Protected Actions - Project Actions
         if (in_array($action, [
             'create_project', 'list_projects', 'update_project', 'delete_project',
-            'create_project_from_spec', 'get_project_defaults', 'set_project_team',
+            'get_project_defaults', 'set_project_team',
             'list_user_teams'
         ])) {
             $this->handleProjectAction($action);
@@ -140,7 +142,7 @@ class Application
         // Protected Actions - Team Actions
         if (in_array($action, [
             'list_team_users', 'remove_team_user', 'update_team_user_role',
-            'list_teams', 'create_team', 'list_roles', 'assign_team_user'
+            'list_teams', 'create_team', 'list_roles', 'assign_team_user', 'update_team'
         ])) {
             $this->handleTeamAction($action);
             exit;
@@ -166,7 +168,15 @@ class Application
             case 'get_api_usage':
                 header(Config::APP_JSON);
                 try {
-                    $usageData = $this->geminiService->getAggregatedApiUsage();
+                    $userId = $_SESSION['user_id'];
+                    $isInstructor = $_SESSION['is_instructor'] ?? false;
+                    $teamIds = [];
+                    if (!$isInstructor) {
+                        $userTeams = $this->teamService->listUserTeams($userId);
+                        $teamIds = array_column($userTeams, 'id');
+                    }
+
+                    $usageData = $this->geminiService->getAggregatedApiUsage($isInstructor, $userId, $teamIds);
                     $costConfig = [];
                     foreach ($usageData as $usageItem) {
                         $model = $usageItem['model'];
@@ -178,7 +188,7 @@ class Application
                     echo json_encode(['success' => true, 'data' => $usageData, 'config' => $costConfig]);
                 } catch (Exception $e) {
                     http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => implode(" ", [$e->getMessage(), $e->getTraceAsString()])]);
+                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
                 }
                 exit;
             default:
@@ -204,40 +214,6 @@ class Application
             exit;
         }
     }
-
-    private function handleGenerateProjectTasks(): void
-    {
-        $projectName = $_POST['project_name'] ?? '';
-        $aiPrompt = $_POST['ai_prompt'] ?? '';
-        if (empty($projectName) || empty($aiPrompt)) {
-            header(Config::APP_JSON, true, 400);
-            echo json_encode(['success' => false, 'error' => 'Project name and prompt are required.']);
-            return;
-        }
-
-        try {
-            $userId = $_SESSION['user_id'] ?? null;
-            $teamId = filter_var($_POST['team_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-            $this->projectService->createProject($projectName, $userId, $teamId);
-        } catch (ProjectAlreadyExistsException $e) {
-            // Project exists, we will replace tasks inside it
-            error_log("Project already exists: " . $e->getMessage());
-        }
-
-        try {
-            $this->taskService->generateProjectTasks($projectName, $aiPrompt);
-            echo json_encode(['success' => true]);
-        } catch (GeminiApiException $e) {
-            $code = $e->getCode() ?: 502;
-            header(Config::APP_JSON, true, $code);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-        } catch (Exception $e) {
-            header(Config::APP_JSON, true, 500);
-            error_log("General error generating tasks: " . $e->getMessage());
-            echo json_encode(['success' => false, 'error' => "Server error: " . $e->getMessage()]);
-        }
-    }
-
 
     private function handleApiData($error)
     {
@@ -330,10 +306,11 @@ class Application
 
             $this->geminiService = new GeminiService($pdo);
             $this->taskService = new TaskService($pdo, $this->geminiService);
+            $this->taskAiService = new TaskAiService($pdo, $this->geminiService, $this->taskService);
             $this->projectService = new ProjectService($pdo);
 
-            $this->taskController = new TaskController($this->taskService);
-            $this->projectController = new ProjectController($this->projectService, $this->taskService);
+            $this->taskController = new TaskController($this->taskService, $this->taskAiService, $this->projectService);
+            $this->projectController = new ProjectController($this->projectService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
 
             $this->requirementService = new RequirementService($pdo);
@@ -367,7 +344,9 @@ class Application
 
         if (!empty($currentProjectName) && !$error) {
             try {
-                $tasks = $this->taskService->getTasksByProject($currentProjectName);
+                $userId = $_SESSION['user_id'] ?? 0;
+                $isInstructor = $_SESSION['is_instructor'] ?? false;
+                $tasks = $this->taskService->getTasksByProject($currentProjectName, $userId, $isInstructor);
                 foreach ($tasks as $task) {
                     if (isset($kanbanTasks[$task['status']])) {
                         $kanbanTasks[$task['status']][] = $task;
@@ -389,6 +368,9 @@ class Application
                 break;
             case 'create_team':
                 $this->teamController->handleCreateTeam();
+                break;
+            case 'update_team':
+                $this->teamController->handleUpdateTeam();
                 break;
             case 'list_roles':
                 $this->teamController->handleListRoles();
@@ -420,10 +402,11 @@ class Application
             case 'reorder_tasks': $this->taskController->handleReorderTasks(); break;
             case 'edit_task': $this->taskController->handleEditTask(); break;
             case 'generate_code': $this->taskController->handleGenerateCode(); break;
-            case 'generate_project_tasks': $this->handleGenerateProjectTasks(); break;
+            case 'generate_project_tasks': $this->taskController->handleGenerateProjectTasks(); break;
             case 'decompose_task': $this->taskController->handleDecomposeTask(); break;
             case 'commit_to_github': $this->taskController->handleCommitToGitHub(); break;
             case 'query_task': $this->taskController->handleQueryTask(); break;
+            case 'create_project_from_spec': $this->taskController->handleCreateFromSpec(); break;
             default: break;
         }
     }
@@ -435,7 +418,6 @@ class Application
             case 'list_projects': $this->projectController->handleList(); break;
             case 'update_project': $this->projectController->handleUpdate(); break;
             case 'delete_project': $this->projectController->handleDelete(); break;
-            case 'create_project_from_spec': $this->projectController->handleCreateFromSpec(); break;
             case 'get_project_defaults':
                 $this->projectController->handleGetDefaults();
                 exit;break;

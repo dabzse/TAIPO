@@ -138,70 +138,76 @@ class Database
 
     private function init(): void
     {
-        $dbType = $this->getDbType();
         $prefix = Config::getTablePrefix();
-        $fullConfig = DatabaseConfig::get();
+        $dbType = $this->getDbType();
 
-        // 1. Create Tables from Schema
-        if (isset($fullConfig['schema'])) {
-            foreach ($fullConfig['schema'] as $tableName => $createSql) {
-                $prefixedTableName = $prefix . $tableName;
-                $createSql = preg_replace('/CREATE TABLE IF NOT EXISTS (\w+)/i', "CREATE TABLE IF NOT EXISTS $prefixedTableName", $createSql);
+        // 1. Handle specialized maintenance requests (Maintenance Mode)
+        $this->handleMaintenance($prefix);
 
-                // Driver-specific normalization
-                $createSql = $this->normalizeSchema($createSql, $dbType);
+        // 2. Create/Sync Schema
+        $this->syncSchema($dbType, $prefix);
 
-                $this->pdo->exec($createSql);
+        // 3. Independent Migrations and Column Checks
+        $this->runMigrations($prefix);
+
+        // 4. Seed Standard Data
+        $this->seedDefaultRoles($prefix);
+    }
+
+    private function handleMaintenance(string $prefix): void
+    {
+        // FORCED REBUILD FEATURE: Clear stale constraints
+        if (isset($_GET['rebuild_teams']) && $_GET['rebuild_teams'] === '1') {
+            try {
+                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+                $this->pdo->exec("DROP TABLE IF EXISTS {$prefix}team_users");
+                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+                echo "[REPAIR] ✅ Successfully dropped stale 'team_users' table.\n";
+            } catch (Exception $e) {
+                error_log("Maintenance error: " . $e->getMessage());
             }
         }
+    }
 
-        // 2. Run Migrations (Safe column additions)
-        $this->ensureColumnsExist($prefix . 'tasks', ['is_subtask', 'po_comments', 'generated_code', 'position', 'title', 'updated_at']);
+    private function syncSchema(string $dbType, string $prefix): void
+    {
+        $fullConfig = DatabaseConfig::get();
+        if (!isset($fullConfig['schema'])) {
+            return;
+        }
 
-        // 3. Data Migration: Split Description into Title/Description if Title is NULL
+        if ($dbType === 'mysql') {
+            $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+        }
+
+        $allTableNames = array_keys($fullConfig['schema']);
+        foreach ($fullConfig['schema'] as $createSql) {
+            // Apply Global Prefixing to all table references
+            foreach ($allTableNames as $tn) {
+                $createSql = preg_replace('/\b' . preg_quote($tn, '/') . '\b/i', $prefix . $tn, $createSql);
+            }
+
+            $createSql = $this->normalizeSchema($createSql, $dbType);
+            $this->pdo->exec($createSql);
+        }
+
+        if ($dbType === 'mysql') {
+            $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+        }
+    }
+
+    private function runMigrations(string $prefix): void
+    {
+        // Task migrations
+        $this->ensureColumnsExist($prefix . 'tasks', ['is_subtask', 'po_comments', 'generated_code', 'position', 'title', 'updated_at', 'parent_id']);
         $this->migrateTaskTitles();
 
-        // 4. Projects Migration (if tasks table has projects but projects table is empty)
-        try {
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM {$prefix}projects");
-            $count = $stmt->fetchColumn();
-            if ($count === false || (int)$count === 0) {
-                $ignoreKeyword = ($dbType === 'mysql') ? 'IGNORE' : 'OR IGNORE';
-                if ($dbType === 'pgsql') {
-                    $this->pdo->exec("
-                        INSERT INTO {$prefix}projects (name)
-                        SELECT DISTINCT project_name
-                        FROM {$prefix}tasks
-                        WHERE project_name IS NOT NULL AND project_name != ''
-                        ON CONFLICT (name) DO NOTHING
-                    ");
-                } elseif ($dbType === 'sqlsrv' || $dbType === 'oci') {
-                    // Manual check or specific syntax for SQLServer/Oracle
-                    // For simplicity in init, we skip the bulk copy if no easy IGNORE syntax exists
-                } else {
-                    $this->pdo->exec("
-                        INSERT $ignoreKeyword INTO {$prefix}projects (name)
-                        SELECT DISTINCT project_name
-                        FROM {$prefix}tasks
-                        WHERE project_name IS NOT NULL AND project_name != ''
-                    ");
-                }
-            }
-        } catch (Exception $e) {
-            // Table might not exist yet or specific driver error
-        }
-
-        // 5. Create users Table
-        $userTableSql = $this->getUserTableSql($dbType, $prefix);
-        $this->pdo->exec($userTableSql);
-        $this->ensureColumnsExist($prefix . 'users', ['is_instructor']);
-
-        // 6. Link projects to users and teams (Safe Migration)
+        // Project and Usage migrations
         $this->ensureColumnsExist($prefix . 'projects', ['user_id', 'team_id', 'is_archived']);
-        $this->ensureColumnsExist($prefix . 'tasks', ['parent_id']);
+        $this->ensureColumnsExist($prefix . 'api_usage', ['user_id', 'team_id']);
 
-        // 7. Seed Default Roles
-        $this->seedDefaultRoles($prefix);
+        // User migrations
+        $this->ensureColumnsExist($prefix . 'users', ['is_instructor']);
     }
 
     private function seedDefaultRoles(string $prefix): void
@@ -247,57 +253,6 @@ class Database
         return $sql;
     }
 
-    private function getUserTableSql(string $dbType, string $prefix): string
-    {
-        $tableName = "{$prefix}users";
-        $sql = "CREATE TABLE IF NOT EXISTS $tableName (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                is_instructor INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )";
-
-        if ($dbType === 'mysql') {
-            $sql = "CREATE TABLE IF NOT EXISTS $tableName (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(191) NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                is_instructor TINYINT(1) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
-        } elseif ($dbType === 'pgsql') {
-            $sql = "CREATE TABLE IF NOT EXISTS $tableName (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(191) NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                is_instructor SMALLINT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )";
-        } elseif ($dbType === 'sqlsrv') {
-            $sql = "IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='$tableName' AND xtype='U')
-                CREATE TABLE $tableName (
-                    id INT IDENTITY(1,1) PRIMARY KEY,
-                    username NVARCHAR(191) NOT NULL UNIQUE,
-                    password_hash NVARCHAR(MAX) NOT NULL,
-                    is_instructor BIT DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )";
-        } elseif ($dbType === 'oci') {
-            $sql = "BEGIN
-                EXECUTE IMMEDIATE 'CREATE TABLE $tableName (
-                    id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    username VARCHAR2(191) NOT NULL UNIQUE,
-                    password_hash CLOB NOT NULL,
-                    is_instructor NUMBER(1) DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )';
-                EXCEPTION WHEN OTHERS THEN IF SQLCODE = -955 THEN NULL; ELSE RAISE; END IF;
-            END;";
-        }
-
-        return $sql;
-    }
 
     private function ensureColumnsExist(string $tableName, array $columnsToCheck): void
     {

@@ -252,6 +252,14 @@ export const api = {
         });
         return response.data;
     },
+    async updateTeam(teamId, name) {
+        const response = await client.post('/', {
+            action: 'update_team',
+            team_id: teamId,
+            name: name
+        });
+        return response.data;
+    },
 
     async listRoles() {
         const response = await client.get('/?action=list_roles');
