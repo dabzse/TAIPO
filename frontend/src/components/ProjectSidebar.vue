@@ -65,8 +65,8 @@
                             ></textarea>
                             <div class="pt-1 pb-0">
                                 <span class="label-text-alt text-warning"
-                                    >Note: Prompts are sent to Google Gemini
-                                    API.<br />Do not include Personally
+                                    >Note:<br>Prompts are sent to Google Gemini
+                                    API.<br>Do not include Personally
                                     Identifiable Information (PII).</span
                                 >
                             </div>
