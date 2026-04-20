@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE = '/TAIPO/api';
+// const API_BASE = '/TAIPO/api';
+const API_BASE = 'http://localhost:8000';
 
 // Create axios instance with base URL pointing to the proxy or direct backend
 const client = axios.create({

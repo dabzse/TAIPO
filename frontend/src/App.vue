@@ -293,6 +293,7 @@ const isCodeModalOpen = ref(false);
 const codeLoading = ref(false);
 const generatedCode = ref('');
 const codeError = ref('');
+const currentTaskForCode = ref(null);
 
 // Query Modal State
 const isQueryModalOpen = ref(false);

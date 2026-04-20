@@ -105,6 +105,8 @@ class Application
             case 'login':
             case 'register':
             case 'check_auth':
+            case 'github_login':
+            case 'github_callback':
                 $this->handleAuthAction($action);
                 exit;
             default:
@@ -120,30 +122,33 @@ class Application
 
         // Protected Actions
         // Protected Actions - Task Actions
-        if (in_array($action, [
+        $taskActions = [
             'add_task', 'delete_task', 'toggle_importance', 'update_status',
             'reorder_tasks', 'edit_task', 'generate_code', 'generate_project_tasks',
             'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec'
-        ])) {
+        ];
+        if (in_array($action, $taskActions)) {
             $this->handleTaskAction($action);
             exit;
         }
 
         // Protected Actions - Project Actions
-        if (in_array($action, [
+        $projectActions = [
             'create_project', 'list_projects', 'update_project', 'delete_project',
             'get_project_defaults', 'set_project_team',
             'list_user_teams'
-        ])) {
+        ];
+        if (in_array($action, $projectActions)) {
             $this->handleProjectAction($action);
             exit;
         }
 
         // Protected Actions - Team Actions
-        if (in_array($action, [
+        $teamActions = [
             'list_team_users', 'remove_team_user', 'update_team_user_role',
             'list_teams', 'create_team', 'list_roles', 'assign_team_user', 'update_team'
-        ])) {
+        ];
+        if (in_array($action, $teamActions)) {
             $this->handleTeamAction($action);
             exit;
         }
@@ -198,6 +203,7 @@ class Application
 
     private function enforceHttps(): void
     {
+        return;
         if (Config::isOffline()) {
             return;
         }
@@ -279,24 +285,34 @@ class Application
         exit;
     }
 
+
+
     private function initEnvAndInput(): void
     {
-        try {
-            $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-            $dotenv->safeLoad();
-        } catch (Exception $e) {
-            Utils::loadEnv(__DIR__ . '/../.env');
+    // Megpróbáljuk betölteni a .env fájlt a backend mappából
+        $envPath = realpath(__DIR__ . '/../');
+
+        if (file_exists($envPath . '/.env')) {
+            try {
+                $dotenv = \Dotenv\Dotenv::createImmutable($envPath);
+                $dotenv->safeLoad();
+            } catch (\Exception $e) {
+                // Ha a Dotenv osztály nem elérhető, használjuk a saját Utils-t
+                \App\Utils::loadEnv($envPath . '/.env');
+            }
+        } else {
+            // HA NINCS .ENV FÁJL, AKKOR MANUÁLISAN BEÁLLÍTJUK A KRITIKUS ÉRTÉKEKET:
+            $_ENV['ALLOWED_ORIGINS'] = 'http://localhost:5173';
+            $_ENV['FORCE_HTTPS'] = 'false';
+            putenv("FORCE_HTTPS=false");
         }
 
-        if (
-            $_SERVER['REQUEST_METHOD'] === 'POST' &&
-            (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false)
-        ) {
-            $json_data = file_get_contents('php://input');
-            $_POST = array_merge($_POST, json_decode($json_data, true) ?? []);
+        // JSON bemenet kezelése (Vite/Axios-hoz kell)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) {
+            $json = file_get_contents('php://input');
+            $_POST = array_merge($_POST, json_decode($json, true) ?? []);
         }
     }
-
     private function initServices(): ?string
     {
         $error = null;
@@ -308,8 +324,9 @@ class Application
             $this->taskService = new TaskService($pdo, $this->geminiService);
             $this->taskAiService = new TaskAiService($pdo, $this->geminiService, $this->taskService);
             $this->projectService = new ProjectService($pdo);
+            $this->githubService = new GitHubService($_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN'), $_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'), $_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO'));
 
-            $this->taskController = new TaskController($this->taskService, $this->taskAiService, $this->projectService);
+            $this->taskController = new TaskController($this->taskService, $this->taskAiService, $this->projectService, $this->githubService);
             $this->projectController = new ProjectController($this->projectService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
 
@@ -395,32 +412,65 @@ class Application
     private function handleTaskAction(string $action): void
     {
         switch ($action) {
-            case 'add_task': $this->taskController->handleAddTask(); break;
-            case 'delete_task': $this->taskController->handleDeleteTask(); break;
-            case 'toggle_importance': $this->taskController->handleToggleImportance(); break;
-            case 'update_status': $this->taskController->handleUpdateStatus(); break;
-            case 'reorder_tasks': $this->taskController->handleReorderTasks(); break;
-            case 'edit_task': $this->taskController->handleEditTask(); break;
-            case 'generate_code': $this->taskController->handleGenerateCode(); break;
-            case 'generate_project_tasks': $this->taskController->handleGenerateProjectTasks(); break;
-            case 'decompose_task': $this->taskController->handleDecomposeTask(); break;
-            case 'commit_to_github': $this->taskController->handleCommitToGitHub(); break;
-            case 'query_task': $this->taskController->handleQueryTask(); break;
-            case 'create_project_from_spec': $this->taskController->handleCreateFromSpec(); break;
-            default: break;
+            case 'add_task':
+                $this->taskController->handleAddTask();
+                break;
+            case 'delete_task':
+                $this->taskController->handleDeleteTask();
+                break;
+            case 'toggle_importance':
+                $this->taskController->handleToggleImportance();
+                break;
+            case 'update_status':
+                $this->taskController->handleUpdateStatus();
+                break;
+            case 'reorder_tasks':
+                $this->taskController->handleReorderTasks();
+                break;
+            case 'edit_task':
+                $this->taskController->handleEditTask();
+                break;
+            case 'generate_code':
+                $this->taskController->handleGenerateCode();
+                break;
+            case 'generate_project_tasks':
+                $this->taskController->handleGenerateProjectTasks();
+                break;
+            case 'decompose_task':
+                $this->taskController->handleDecomposeTask();
+                break;
+            case 'commit_to_github':
+                $this->taskController->handleCommitToGitHub();
+                break;
+            case 'query_task':
+                $this->taskController->handleQueryTask();
+                break;
+            case 'create_project_from_spec':
+                $this->taskController->handleCreateFromSpec();
+                break;
+            default:
+                break;
         }
     }
 
     private function handleProjectAction(string $action): void
     {
         switch ($action) {
-            case 'create_project': $this->projectController->handleCreate(); break;
-            case 'list_projects': $this->projectController->handleList(); break;
-            case 'update_project': $this->projectController->handleUpdate(); break;
-            case 'delete_project': $this->projectController->handleDelete(); break;
+            case 'create_project':
+                $this->projectController->handleCreate();
+                break;
+            case 'list_projects':
+                $this->projectController->handleList();
+                break;
+            case 'update_project':
+                $this->projectController->handleUpdate();
+                break;
+            case 'delete_project':
+                $this->projectController->handleDelete();
+                break;
             case 'get_project_defaults':
                 $this->projectController->handleGetDefaults();
-                exit;break;
+                exit;
             case 'set_project_team':
                 $id = (int)($_POST['id'] ?? 0);
                 $teamId = (int)($_POST['team_id'] ?? 0) ?: null;
@@ -438,7 +488,8 @@ class Application
                 }
                 echo json_encode(['success' => true, 'data' => $teams]);
                 break;
-            default: break;
+            default:
+                break;
         }
     }
 
@@ -463,10 +514,23 @@ class Application
     private function handleAuthAction(string $action): void
     {
         switch ($action) {
-            case 'login': $this->authController->handleLogin(); break;
-            case 'register': $this->authController->handleRegister(); break;
-            case 'check_auth': $this->authController->handleCheckAuth(); break;
-            default: break;
+            case 'login':
+                $this->authController->handleLogin();
+                break;
+            case 'register':
+                $this->authController->handleRegister();
+                break;
+            case 'check_auth':
+                $this->authController->handleCheckAuth();
+                break;
+            case 'github_login':
+                $this->authController->handleGitHubLogin();
+                break;
+            case 'github_callback':
+                $this->authController->handleGitHubCallback();
+                break;
+            default:
+                break;
         }
     }
 }
