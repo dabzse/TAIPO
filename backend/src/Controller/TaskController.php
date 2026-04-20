@@ -19,6 +19,33 @@ class TaskController
     private TaskAiService $taskAiService;
     private ProjectService $projectService;
 
+    private const EXTENSION_MAP = [
+        'java' => 'java',
+        'python' => 'py',
+        'py' => 'py',
+        'php' => 'php',
+        'rust' => 'rs',
+        'rs' => 'rs',
+        'cpp' => 'cpp',
+        'c++' => 'cpp',
+        'csharp' => 'cs',
+        'cs' => 'cs',
+        'dart' => 'dart',
+        'go' => 'go',
+        'typescript' => 'ts',
+        'ts' => 'ts',
+        'javascript' => 'js',
+        'js' => 'js',
+        'sql' => 'sql',
+        'html' => 'html',
+        'css' => 'css',
+        'json' => 'json',
+        'yaml' => 'yaml',
+        'yml' => 'yaml',
+        'markdown' => 'md',
+        'md' => 'md'
+    ];
+
     public function __construct(TaskService $taskService, TaskAiService $taskAiService, ProjectService $projectService)
     {
         $this->taskService = $taskService;
@@ -382,13 +409,21 @@ class TaskController
             }
             $description = $dbTask['description'];
 
+            $langInfo = $this->detectLanguageAndCleanCode($code);
+            $extension = $langInfo['extension'];
+            $cleanCode = $langInfo['code'];
+
             $safeDescription = preg_replace('/[^a-zA-Z0-9\s]/', '', $description);
             $safeDescription = trim(substr($safeDescription, 0, 50));
-            $fileName = 'Task_' . $taskId . '_' . str_replace(' ', '_', $safeDescription) . '.java';
-            $filePath = 'src/main/java/' . $fileName;
+            $fileName = 'Task_' . $taskId . '_' . str_replace(' ', '_', $safeDescription) . '.' . $extension;
+
+            // Heuristic pathing
+            $filePath = ($langInfo['language'] === 'java')
+                ? 'src/main/java/' . $fileName
+                : 'src/' . $fileName;
 
             $commitMessage = "feat: Adds task implementation for: " . substr($description, 0, 70) . '...';
-            $result = $ghService->commitFile($filePath, $code, $commitMessage);
+            $result = $ghService->commitFile($filePath, $cleanCode, $commitMessage);
 
             $userId = $_SESSION['user_id'] ?? 0;
             $isInstructor = $_SESSION['is_instructor'] ?? false;
@@ -402,5 +437,28 @@ class TaskController
             error_log("GitHub commit error: HTTP {$code}. " . $e->getMessage());
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Detects language from markdown block and extracts the raw code.
+     */
+    private function detectLanguageAndCleanCode(string $rawCode): array
+    {
+        $extension = 'txt';
+        $code = $rawCode;
+        $language = 'text';
+
+        // Check for markdown code blocks: ```language code ```
+        if (preg_match('/^```(\w*)\n?(.*?)```/s', trim($rawCode), $matches)) {
+            $language = strtolower($matches[1] ?: 'text');
+            $code = trim($matches[2]);
+            $extension = self::EXTENSION_MAP[$language] ?? 'txt';
+        }
+
+        return [
+            'language' => $language,
+            'extension' => $extension,
+            'code' => $code
+        ];
     }
 }
