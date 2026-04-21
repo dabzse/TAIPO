@@ -34,14 +34,15 @@ To evaluate whether an AI-driven Product Owner simulation (TAIPO) can produce re
 | Temperature              | 0.7                                       |
 | Max Output Tokens        | 4096                                      |
 | WIP Limits               | Implementation: 3, Testing: 2, Review: 2  |
-| PO Comment Interval      | Every 2 hours (8 AM – 4 PM, Mon–Fri)      |
-| Change Request Interval  | Every 3 days                              |
+| PO Comment Interval      | Randomized (min: 2h, max: 3h) [1], [2]    |
+| Change Request Interval  | Randomized (min: 1d, max: 3d) [1], [2]    |
 
 > **Note**:
 >
-> - `master` branch used in `dabzse/TAIPO`
-> - `main` branch used in `szabojuci/AIKanban`
-> - `MariaDB` used as primary database at me (dabzse) for this project
+> - Evaluation based on the TAIPO repository [1] (modernized version).
+> - Comparison with the original AI-Kanban project [2].
+> - MariaDB used as the primary database for this evaluation.
+> - The application environment is provisioned via the official Docker image [3].
 
 ---
 
@@ -176,11 +177,21 @@ While the current implementation is a **proof of concept**, the results provide 
 
 1. **Multi-team empirical study** with pre/post surveys measuring learning outcomes
 2. **Conversation memory** for contextual continuity across PO interactions
-3. **Configurable simulation parameters** (comment frequency, CR complexity)
-4. **Integration with TAWOS dataset** for industry-grounded prompt enrichment
-5. **A/B comparison** between TAIPO-managed and human PO-managed student projects
+3. **Integration with TAWOS dataset** for industry-grounded prompt enrichment
+4. **A/B comparison** between TAIPO-managed and human PO-managed student projects
 
 ---
 
-*Study conducted as part of the TAIPO research project at Eszterházy Károly Catholic University.*  
-*Authors: Judit Szabó, Mihaly Nyilas — Supervised by Dr. Gábor Kusper*
+*Study conducted as part of the TAIPO research project at Eszterházy Károly Catholic University.*
+
+## 7. References
+
+[1] TAIPO Source Code (Modernized). GitHub: `https://github.com/dabzse/TAIPO`. Accessed: 2026-04-21.  
+[2] AI-Kanban Original Repository. GitHub: `https://github.com/szabojuci/AIKanban`. Accessed: 2026-04-21.  
+[3] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`.  
+[4] Google Gemini API Documentation. `https://ai.google.dev/gemini-api/docs`.  
+[5] Eszterházy Károly Catholic University, Institute of Mathematics and Informatics. `https://uni-eszterhazy.hu/matinf/`.
+
+---
+
+### Authors: Judit Szabó, Mihaly Nyilas — Supervised by Dr. Gábor Kusper

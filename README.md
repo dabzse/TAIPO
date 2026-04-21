@@ -18,17 +18,17 @@ For detailed API usage, please refer to the [Developer API Documentation](API_DO
 
 ### 1. Prepare Environment
 
-* **Web Server:** on Windows, install [WAMP](https://www.wampserver.com/).
+* **Web Server:** For Windows environments, we recommend utilizing WAMP Server [3].
 * **Project Files:** Place the project folder into your server's public directory (e.g., `C:\wamp64\www\[project_name]`).
-  * why WAMP? because it's free and easy to use, and it's the only one I know of that works on Windows with PHP 8.5 at the time of writing (2026-02-05).
-  * for updates visit [WAMP aviatechno](https://wampserver.aviatechno.net/) website.
+  * WAMP is recommended for its ease of use and compatibility with PHP 8.5 in Windows environments.
+  * For the latest updates, consult the WAMP aviatechno resource [4].
 
 ### 2. Obtain API Keys
 
-* **Google Gemini API:** Visit [Google AI Studio](https://aistudio.google.com/) and click **"Get API Key"**.
-  * to see which models are available, visit [Gemini API Models](https://ai.google.dev/gemini-api/docs/models)
-* **GitHub Personal Access Token (PAT):** - Go to your GitHub **Settings** > **Developer Settings** > **Personal Access Tokens** > **Tokens (classic)**.
-  * Generate a new token with the `repo` scope enabled.
+* **Google Gemini API:** Access the Google AI Studio [5] and retrieve your API key.
+  * A full list of supported models is available in the Gemini API documentation [6].
+* **GitHub Personal Access Token (PAT):** Navigate to your GitHub Settings > Developer Settings > Personal Access Tokens > Tokens (classic).
+  * Generate a token with the `repo` scope enabled [3].
 
 ### 3. Configuration
 
@@ -190,6 +190,13 @@ All configuration is passed via environment variables (see `.env.example`). Key 
 | `GEMINI_API_KEY`       | ✅       | Google Gemini API key                         |
 | `GITHUB_TOKEN`         | ✅       | GitHub PAT with `repo` scope                  |
 | `GITHUB_USERNAME`      | ✅       | GitHub username for commits                   |
+| `SIM_TIMEZONE`         | ❌       | Simulation timezone (default: `UTC`)          |
+| `SIM_MIN_ACTIVE_HOUR`  | ❌       | Start of working hours (default: `8`)         |
+| `SIM_MAX_ACTIVE_HOUR`  | ❌       | End of working hours (default: `16`)          |
+| `SIM_MIN_FEEDBACK_SEC` | ❌       | Min feedback interval (default: `7200`) [1]   |
+| `SIM_MAX_FEEDBACK_SEC` | ❌       | Max feedback interval (default: `10800`) [1]  |
+| `SIM_MIN_CR_SEC`       | ❌       | Min CR interval (default: `86400`) [1]        |
+| `SIM_MAX_CR_SEC`       | ❌       | Max CR interval (default: `259200`) [1]       |
 | `GITHUB_REPO`          | ✅       | Target repository name                        |
 | `PROJECT_NAME`         | ❌       | Display name (default: `TAIPO: AI-Kanban`)    |
 | `REGISTRATION_ENABLED` | ❌       | Allow new user registration (default: `true`) |
@@ -241,6 +248,18 @@ Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rend
 
 * [API Documentation](API_DOCUMENTATION.md)
 * [Database Schema](DATABASE_README.md)
+* [Docker Environment](DOCKER_README.md)
 * [Project Structure](PROJECT.md)
 * [Development Roadmap](DEVPLAN.md)
 * [Use Case Study](USE_CASE_STUDY.md)
+
+## 7. References
+
+[1] TAIPO Source Code (Modernized). GitHub: `https://github.com/dabzse/TAIPO`.  
+[2] AI-Kanban Original Repository. GitHub: `https://github.com/szabojuci/AIKanban`.  
+[3] GitHub Developer Documentation - Personal Access Tokens. `https://docs.github.com/en/authentication`.  
+[4] WAMP Server Official Site. `https://www.wampserver.com/`.  
+[5] WAMP aviatechno (Update Resource). `https://wampserver.aviatechno.net/`.  
+[6] Google AI Studio. `https://aistudio.google.com/`.  
+[7] Google Gemini API Models. `https://ai.google.dev/gemini-api/docs/models`.  
+[8] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`.
