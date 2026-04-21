@@ -64,6 +64,41 @@ class Config
         return ($_ENV['REGISTRATION_ENABLED'] ?? 'true') === 'true';
     }
 
+    public static function getSimTimezone(): string
+    {
+        return $_ENV['SIM_TIMEZONE'] ?? 'UTC';
+    }
+
+    public static function getSimMinActiveHour(): int
+    {
+        return (int) ($_ENV['SIM_MIN_ACTIVE_HOUR'] ?? 8);
+    }
+
+    public static function getSimMaxActiveHour(): int
+    {
+        return (int) ($_ENV['SIM_MAX_ACTIVE_HOUR'] ?? 16);
+    }
+
+    public static function getSimMinFeedbackInterval(): int
+    {
+        return (int) ($_ENV['SIM_MIN_FEEDBACK_SEC'] ?? 7200);
+    }
+
+    public static function getSimMaxFeedbackInterval(): int
+    {
+        return (int) ($_ENV['SIM_MAX_FEEDBACK_SEC'] ?? 10800);
+    }
+
+    public static function getSimMinCrInterval(): int
+    {
+        return (int) ($_ENV['SIM_MIN_CR_SEC'] ?? 86400);
+    }
+
+    public static function getSimMaxCrInterval(): int
+    {
+        return (int) ($_ENV['SIM_MAX_CR_SEC'] ?? 259200);
+    }
+
     public static function isOffline(): bool
     {
         $rootDir = realpath(__DIR__ . '/../../');

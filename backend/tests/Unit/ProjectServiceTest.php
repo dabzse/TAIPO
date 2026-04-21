@@ -72,6 +72,27 @@ class ProjectServiceTest extends TestCase
         // Instructor sees all projects
         $projects = $this->projectService->getAllProjects(1, true);
         $this->assertCount(2, $projects);
+        $this->assertEquals(1, $projects[0]['is_active']);
+    }
+
+    public function testToggleProjectActivity(): void
+    {
+        $name = 'ToggleMe';
+        $id = $this->projectService->createProject($name, 1);
+
+        // Default is active (1)
+        $projects = $this->projectService->getAllProjects(1, true);
+        $this->assertEquals(1, $projects[0]['is_active']);
+
+        // Toggle to inactive (0)
+        $this->projectService->toggleProjectActivity($id, false);
+        $projects = $this->projectService->getAllProjects(1, true);
+        $this->assertEquals(0, $projects[0]['is_active']);
+
+        // Toggle back to active (1)
+        $this->projectService->toggleProjectActivity($id, true);
+        $projects = $this->projectService->getAllProjects(1, true);
+        $this->assertEquals(1, $projects[0]['is_active']);
     }
 
     public function testGetAllProjectsForNonOwner(): void

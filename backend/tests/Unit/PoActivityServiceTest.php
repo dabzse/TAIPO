@@ -3,10 +3,10 @@
 namespace Tests\Unit;
 
 use PDO;
-use PHPUnit\Framework\TestCase;
-use App\Service\PoActivityService;
-use App\Service\GeminiService;
 use App\Configuration\DatabaseConfig;
+use App\Service\GeminiService;
+use App\Service\PoActivityService;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for PoActivityService: heartbeat timing, working hours check,
@@ -64,6 +64,42 @@ class PoActivityServiceTest extends TestCase
         $this->assertTrue(true);
     }
 
+    public function testTickDoesNothingIfProjectInactive(): void
+    {
+        $this->pdo->exec("INSERT INTO projects (name, is_active) VALUES ('InactiveProject', 0)");
+
+        $gemini = $this->createMock(GeminiService::class);
+        $gemini->expects($this->never())->method('askTaipo');
+
+        $service = new PoActivityService($this->pdo, $gemini, 'sqlite');
+        $service->tick('InactiveProject', 1);
+
+        $this->assertTrue(true);
+    }
+
+    public function testScheduleNextActivity(): void
+    {
+        $this->pdo->exec("INSERT INTO projects (name, is_active) VALUES ('ScheduleTest', 1)");
+        $projectId = (int) $this->pdo->lastInsertId();
+
+        $_ENV['SIM_MIN_FEEDBACK_SEC'] = 3600;
+        $_ENV['SIM_MAX_FEEDBACK_SEC'] = 3600; // Fixed 1h for testing
+
+        $gemini = new GeminiService(null);
+        $service = new PoActivityService($this->pdo, $gemini, 'sqlite');
+
+        $method = new \ReflectionMethod(PoActivityService::class, 'scheduleNextActivity');
+        $method->invoke($service, $projectId, 'comment');
+
+        $stmt = $this->pdo->query("SELECT next_comment_at FROM projects WHERE id = $projectId");
+        $nextAt = $stmt->fetchColumn();
+
+        $this->assertNotNull($nextAt);
+        $expected = date('Y-m-d H:i:s', time() + 3600);
+        // Allow 2 seconds difference for execution time
+        $this->assertLessThan(2, abs(strtotime($nextAt) - strtotime($expected)));
+    }
+
     public function testParseCrResponseWithValidInput(): void
     {
         $gemini = new GeminiService(null);
@@ -114,9 +150,24 @@ class PoActivityServiceTest extends TestCase
 
         $method = new \ReflectionMethod(PoActivityService::class, 'isWorkingHours');
 
-        // The result depends on when the test is run, so we just verify it returns a boolean
-        $result = $method->invoke($service);
-        $this->assertIsBool($result);
+        // Test with current time but different active ranges
+        $currentHour = (int)date('H');
+
+        // Ensure current hour is within range
+        $_ENV['SIM_MIN_ACTIVE_HOUR'] = $currentHour;
+        $_ENV['SIM_MAX_ACTIVE_HOUR'] = $currentHour + 1;
+
+        $dayOfWeek = (int)date('N');
+        if ($dayOfWeek <= 5) {
+            $this->assertTrue($method->invoke($service));
+        } else {
+            $this->assertFalse($method->invoke($service));
+        }
+
+        // Ensure current hour is OUTSIDE range
+        $_ENV['SIM_MIN_ACTIVE_HOUR'] = ($currentHour + 1) % 24;
+        $_ENV['SIM_MAX_ACTIVE_HOUR'] = ($currentHour + 2) % 24;
+        $this->assertFalse($method->invoke($service));
     }
 
     public function testAddPoCommentAppendsToExisting(): void

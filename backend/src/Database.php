@@ -141,8 +141,17 @@ class Database
         $prefix = Config::getTablePrefix();
         $dbType = $this->getDbType();
 
-        // 1. Handle specialized maintenance requests (Maintenance Mode)
-        $this->handleMaintenance($prefix);
+        // 1. Maintenance Mode - Clear stale constraints if requested
+        if (isset($_GET['rebuild_teams']) && $_GET['rebuild_teams'] === '1') {
+            try {
+                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+                $this->pdo->exec("DROP TABLE IF EXISTS {$prefix}team_users");
+                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+                echo "[REPAIR] ✅ Successfully dropped stale 'team_users' table.\n";
+            } catch (Exception $e) {
+                error_log("Maintenance error: " . $e->getMessage());
+            }
+        }
 
         // 2. Create/Sync Schema
         $this->syncSchema($dbType, $prefix);
@@ -154,20 +163,6 @@ class Database
         $this->seedDefaultRoles($prefix);
     }
 
-    private function handleMaintenance(string $prefix): void
-    {
-        // FORCED REBUILD FEATURE: Clear stale constraints
-        if (isset($_GET['rebuild_teams']) && $_GET['rebuild_teams'] === '1') {
-            try {
-                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
-                $this->pdo->exec("DROP TABLE IF EXISTS {$prefix}team_users");
-                $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
-                echo "[REPAIR] ✅ Successfully dropped stale 'team_users' table.\n";
-            } catch (Exception $e) {
-                error_log("Maintenance error: " . $e->getMessage());
-            }
-        }
-    }
 
     private function syncSchema(string $dbType, string $prefix): void
     {
@@ -203,7 +198,7 @@ class Database
         $this->migrateTaskTitles();
 
         // Project and Usage migrations
-        $this->ensureColumnsExist($prefix . 'projects', ['user_id', 'team_id', 'is_archived', 'last_comment_at', 'last_cr_at']);
+        $this->ensureColumnsExist($prefix . 'projects', ['user_id', 'team_id', 'is_archived', 'last_comment_at', 'last_cr_at', 'is_active', 'next_comment_at', 'next_cr_at']);
         $this->ensureColumnsExist($prefix . 'api_usage', ['user_id', 'team_id']);
 
         // User migrations
@@ -314,32 +309,45 @@ class Database
 
     private function getColumnDefinition(string $col, string $dbType): array
     {
-        $definitions = [
+        $definitions = $this->getDefinitionsLookup($dbType);
+
+        if (isset($definitions[$col])) {
+            return $definitions[$col];
+        }
+
+        // Fallback for unknown columns
+        return [
+            'type' => ($dbType === 'oci' ? 'VARCHAR2(255)' : 'TEXT'),
+            'default' => 'NULL'
+        ];
+    }
+
+    private function getDefinitionsLookup(string $dbType): array
+    {
+        $isTimeType = ($dbType === 'pgsql' || $dbType === 'oci');
+        $timeType = $isTimeType ? 'TIMESTAMP' : 'DATETIME';
+        $timeDefault = $isTimeType ? 'CURRENT_TIMESTAMP' : "'2026-03-16 13:20:00'";
+        $clobType = ($dbType === 'oci' ? 'CLOB' : 'TEXT');
+        $titleType = ($dbType === 'oci' ? 'VARCHAR2(255)' : 'VARCHAR(255)');
+
+        return [
             'is_subtask' => ['type' => 'INTEGER', 'default' => '0'],
             'position' => ['type' => 'INTEGER', 'default' => '0'],
             'user_id' => ['type' => 'INTEGER', 'default' => 'NULL'],
             'team_id' => ['type' => 'INTEGER', 'default' => 'NULL'],
             'parent_id' => ['type' => 'INTEGER', 'default' => 'NULL'],
-            'updated_at' => [
-                'type' => ($dbType === 'pgsql' || $dbType === 'oci' ? 'TIMESTAMP' : 'DATETIME'),
-                'default' => ($dbType === 'pgsql' || $dbType === 'oci' ? 'CURRENT_TIMESTAMP' : "'2026-03-16 13:20:00'")
-            ],
+            'updated_at' => ['type' => $timeType, 'default' => $timeDefault],
             'is_archived' => ['type' => 'INTEGER', 'default' => '0'],
-            'last_comment_at' => [
-                'type' => ($dbType === 'pgsql' || $dbType === 'oci' ? 'TIMESTAMP' : 'DATETIME'),
-                'default' => 'NULL'
-            ],
-            'last_cr_at' => [
-                'type' => ($dbType === 'pgsql' || $dbType === 'oci' ? 'TIMESTAMP' : 'DATETIME'),
-                'default' => 'NULL'
-            ],
-            'title' => ['type' => ($dbType === 'oci' ? 'VARCHAR2(255)' : 'VARCHAR(255)'), 'default' => 'NULL'],
-            'po_comments' => ['type' => ($dbType === 'oci' ? 'CLOB' : 'TEXT'), 'default' => 'NULL'],
-            'generated_code' => ['type' => ($dbType === 'oci' ? 'CLOB' : 'TEXT'), 'default' => 'NULL'],
+            'is_active' => ['type' => 'INTEGER', 'default' => '1'],
+            'last_comment_at' => ['type' => $timeType, 'default' => 'NULL'],
+            'next_comment_at' => ['type' => $timeType, 'default' => 'NULL'],
+            'last_cr_at' => ['type' => $timeType, 'default' => 'NULL'],
+            'next_cr_at' => ['type' => $timeType, 'default' => 'NULL'],
+            'title' => ['type' => $titleType, 'default' => 'NULL'],
+            'po_comments' => ['type' => $clobType, 'default' => 'NULL'],
+            'generated_code' => ['type' => $clobType, 'default' => 'NULL'],
             'is_instructor' => ['type' => 'INTEGER', 'default' => '0'],
         ];
-
-        return $definitions[$col] ?? ['type' => ($dbType === 'oci' ? 'VARCHAR2(255)' : 'TEXT'), 'default' => 'NULL'];
     }
 
     public function getDbType(): string

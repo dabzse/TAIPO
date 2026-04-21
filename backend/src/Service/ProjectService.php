@@ -4,9 +4,9 @@ namespace App\Service;
 
 use PDO;
 use Exception;
-use App\Exception\ProjectNotFoundException;
-use App\Exception\ProjectAlreadyExistsException;
 use App\Config;
+use App\Exception\ProjectAlreadyExistsException;
+use App\Exception\ProjectNotFoundException;
 
 class ProjectService
 {
@@ -22,11 +22,11 @@ class ProjectService
         $prefix = Config::getTablePrefix();
 
         if ($isInstructor) {
-            $stmt = $this->pdo->prepare("SELECT id, name, team_id, created_at FROM {$prefix}projects ORDER BY name ASC");
+            $stmt = $this->pdo->prepare("SELECT id, name, team_id, is_active, created_at FROM {$prefix}projects ORDER BY name ASC");
             $stmt->execute();
         } else {
             $stmt = $this->pdo->prepare("
-                SELECT DISTINCT p.id, p.name, p.team_id, p.created_at
+                SELECT DISTINCT p.id, p.name, p.team_id, p.is_active, p.created_at
                 FROM {$prefix}projects p
                 LEFT JOIN {$prefix}team_users tu ON p.team_id = tu.team_id
                 WHERE p.user_id = :user_id OR tu.user_id = :user_id
@@ -161,5 +161,12 @@ class ProjectService
             }
             throw $e;
         }
+    }
+
+    public function toggleProjectActivity(int $projectId, bool $isActive): void
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}projects SET is_active = :is_active WHERE id = :id");
+        $stmt->execute([':is_active' => $isActive ? 1 : 0, ':id' => $projectId]);
     }
 }

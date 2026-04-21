@@ -20,6 +20,10 @@ class PoActivityService
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
         $this->dbType = $dbType;
+
+        // Apply Timezone from Config
+        $timezone = Config::getSimTimezone();
+        date_default_timezone_set($timezone);
     }
 
     public function tick(string $projectName, ?int $userId = null): void
@@ -30,14 +34,14 @@ class PoActivityService
 
         $this->currentUserId = $userId;
 
-        // 1. Check if we are in "Working Hours" (8 AM - 4 PM, Weekdays)
-        if (!$this->isWorkingHours()) {
+        // 1. Fetch project simulation metadata
+        $project = $this->getProjectData($projectName);
+        if (!$project || !$project['is_active']) {
             return;
         }
 
-        // 2. Fetch project simulation metadata
-        $project = $this->getProjectData($projectName);
-        if (!$project) {
+        // 2. Check if we are in "Working Hours"
+        if (!$this->isWorkingHours()) {
             return;
         }
 
@@ -51,24 +55,33 @@ class PoActivityService
         $hour = (int)date('H');
         $dayOfWeek = (int)date('N'); // 1 (Mon) to 7 (Sun)
 
-        // Mon-Fri, 8:00 - 15:59
-        return ($dayOfWeek >= 1 && $dayOfWeek <= 5) && ($hour >= 8 && $hour < 16);
+        $minHour = Config::getSimMinActiveHour();
+        $maxHour = Config::getSimMaxActiveHour();
+
+        // Mon-Fri, within configured range
+        return ($dayOfWeek >= 1 && $dayOfWeek <= 5) && ($hour >= $minHour && $hour < $maxHour);
     }
 
     private function getProjectData(string $projectName): ?array
     {
         $prefix = Config::getTablePrefix();
-        $stmt = $this->pdo->prepare("SELECT id, name, team_id, last_comment_at, last_cr_at FROM {$prefix}projects WHERE name = :name");
+        $stmt = $this->pdo->prepare("SELECT id, name, team_id, is_active, last_comment_at, next_comment_at, last_cr_at, next_cr_at FROM {$prefix}projects WHERE name = :name");
         $stmt->execute([':name' => $projectName]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     private function processComments(array $project): void
     {
-        $lastAt = $project['last_comment_at'];
-        $interval = 2 * 3600; // 2 hours
+        $now = time();
+        $nextAt = $project['next_comment_at'] ? strtotime($project['next_comment_at']) : null;
 
-        if ($lastAt && (time() - strtotime($lastAt)) < $interval) {
+        // If next_comment_at is not set, schedule it now
+        if (!$nextAt) {
+            $this->scheduleNextActivity($project['id'], 'comment');
+            return;
+        }
+
+        if ($now < $nextAt) {
             return;
         }
 
@@ -76,6 +89,9 @@ class PoActivityService
         try {
             $task = $this->getRandomTaskForComment($project['name']);
             if (!$task) {
+                // If no task, we still mark as "done" for this cycle but maybe schedule sooner?
+                // For now, just reschedule normally.
+                $this->scheduleNextActivity($project['id'], 'comment');
                 return;
             }
 
@@ -86,7 +102,10 @@ class PoActivityService
             $comment = $this->geminiService->askTaipo($prompt);
 
             $this->addPoComment($task['id'], $comment);
+
+            // Update last_comment_at and schedule NEXT
             $this->updateProjectTimestamp($project['id'], 'last_comment_at');
+            $this->scheduleNextActivity($project['id'], 'comment');
         } catch (Exception $e) {
             error_log("PoActivityService error (Comment): " . $e->getMessage());
         }
@@ -94,10 +113,15 @@ class PoActivityService
 
     private function processChangeRequests(array $project): void
     {
-        $lastAt = $project['last_cr_at'];
-        $interval = 3 * 24 * 3600; // 3 days
+        $now = time();
+        $nextAt = $project['next_cr_at'] ? strtotime($project['next_cr_at']) : null;
 
-        if ($lastAt && (time() - strtotime($lastAt)) < $interval) {
+        if (!$nextAt) {
+            $this->scheduleNextActivity($project['id'], 'cr');
+            return;
+        }
+
+        if ($now < $nextAt) {
             return;
         }
 
@@ -114,10 +138,31 @@ class PoActivityService
             if ($crData) {
                 $this->addCrTask($project['name'], $crData['title'], $crData['story']);
                 $this->updateProjectTimestamp($project['id'], 'last_cr_at');
+                $this->scheduleNextActivity($project['id'], 'cr');
             }
         } catch (Exception $e) {
             error_log("PoActivityService error (CR): " . $e->getMessage());
         }
+    }
+
+    private function scheduleNextActivity(int $projectId, string $type): void
+    {
+        $prefix = Config::getTablePrefix();
+        $column = ($type === 'comment') ? 'next_comment_at' : 'next_cr_at';
+
+        if ($type === 'comment') {
+            $min = Config::getSimMinFeedbackInterval();
+            $max = Config::getSimMaxFeedbackInterval();
+        } else {
+            $min = Config::getSimMinCrInterval();
+            $max = Config::getSimMaxCrInterval();
+        }
+
+        $interval = rand($min, $max);
+        $nextAt = date('Y-m-d H:i:s', time() + $interval);
+
+        $stmt = $this->pdo->prepare("UPDATE {$prefix}projects SET $column = :next_at WHERE id = :id");
+        $stmt->execute([':next_at' => $nextAt, ':id' => $projectId]);
     }
 
     private function getRandomTaskForComment(string $projectName): ?array
