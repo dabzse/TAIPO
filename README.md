@@ -147,8 +147,13 @@ TAIPO now acts as a proactive Product Owner by simulating background activity.
 
 ### Database Errors
 
-The app creates `kanban.sqlite` automatically.  
-Make sure the folder has **write permissions**.
+The app creates a SQLite database automatically if no other database is configured.
+
+* **Non-Docker:** `kanban.sqlite`  
+* **Docker Prod:** `data/kanban.sqlite`  
+* **Docker Dev:** `data/kanban.sqlite`  
+
+Make sure the data folder has **write permissions**.
 
 ### GitHub 403 Forbidden
 
@@ -162,44 +167,86 @@ If the AI does not return tasks in the correct format, try refreshing the prompt
 
 ## 🐳 Docker Deployment
 
-The recommended way to deploy TAIPO for production or evaluation:
+TAIPO features a **modern, dual-stack Docker infrastructure** that supports multiple web servers and database engines.
 
 ### Quick Start
 
-1. Copy your `.env` file to the project root (or `backend/.env`):
+1. **Nginx + SQLite + PHP 8.5 (Alpine):**
 
     ```bash
-    cp backend/.env.example backend/.env
-    # Edit backend/.env with your API keys
+    docker compose -f docker-compose.nginx-sqlite.prod.yml up -d --build
     ```
 
-2. Build and run with Docker Compose:
+2. **Apache + MariaDB + PHP 8.5 (Alpine):**
 
     ```bash
-    docker compose up --build -d
+    docker compose -f docker-compose.apache-mariadb.prod.yml up -d --build
     ```
 
-3. Open `http://localhost:8080` in your browser.
+3. **All-in-one stack (Apache + Nginx + MariaDB + PostgreSQL + MySQL + SQLite support):**
 
-### Environment Variables
+    ```bash
+    docker compose --profile all up -d --build
+    ```
 
-All configuration is passed via environment variables (see `.env.example`). Key variables:
+4. **All-in-One + PHP 8.5 (Alpine) [PROD]:**
 
-| Variable               | Required | Description                                   |
-|------------------------|----------|-----------------------------------------------|
-| `GEMINI_API_KEY`       | ✅       | Google Gemini API key                         |
-| `GITHUB_TOKEN`         | ✅       | GitHub PAT with `repo` scope                  |
-| `GITHUB_USERNAME`      | ✅       | GitHub username for commits                   |
-| `SIM_TIMEZONE`         | ❌       | Simulation timezone (default: `UTC`)          |
-| `SIM_MIN_ACTIVE_HOUR`  | ❌       | Start of working hours (default: `8`)         |
-| `SIM_MAX_ACTIVE_HOUR`  | ❌       | End of working hours (default: `16`)          |
-| `SIM_MIN_FEEDBACK_SEC` | ❌       | Min feedback interval (default: `7200`) [1]   |
-| `SIM_MAX_FEEDBACK_SEC` | ❌       | Max feedback interval (default: `10800`) [1]  |
-| `SIM_MIN_CR_SEC`       | ❌       | Min CR interval (default: `86400`) [1]        |
-| `SIM_MAX_CR_SEC`       | ❌       | Max CR interval (default: `259200`) [1]       |
-| `GITHUB_REPO`          | ✅       | Target repository name                        |
-| `PROJECT_NAME`         | ❌       | Display name (default: `TAIPO: AI-Kanban`)    |
-| `REGISTRATION_ENABLED` | ❌       | Allow new user registration (default: `true`) |
+    ```bash
+    docker compose -f docker-compose.all-in-one.prod.yml up -d --build
+    ```
+
+5. **All-in-One + PHP 8.5 [DEV]:**
+
+    ```bash
+    docker compose -f docker-compose.all-in-one.dev.yml up --build
+    ```
+
+6. **Access:** `http://localhost:8080/TAIPO/` (Apache), `http://localhost:8081/TAIPO/` (Nginx), `http://localhost:8082/TAIPO/` (All-in-One)
+
+### 🛠️ Advanced Multi-Stack
+
+You can switch between **Nginx/Apache** and **MariaDB/Postgres/MySQL** using Docker Profiles:
+
+```bash
+# Example: Nginx + PostgreSQL
+DB_TYPE=pgsql DB_HOST=postgres SQLITE_FILE_NAME=None docker compose --profile nginx --profile postgres up -d --build
+```
+
+For detailed instructions on multi-stack configuration and persistence, see the **[Docker Documentation](DOCKER_README.md)**.
+
+### 🔐 Docker API Keys / Tokens
+
+When running in Docker, set API keys through an env file and pass it with `--env-file`:
+
+```bash
+# Create a dedicated env file in project root
+cat > .env.docker <<'EOF'
+GEMINI_API_KEY=your_real_gemini_api_key
+GITHUB_USERNAME=your_github_username
+GITHUB_REPO=your_repo_name
+GITHUB_TOKEN=your_github_token
+EOF
+
+# Recreate stack with env values
+docker compose --env-file .env.docker -f docker-compose.nginx-sqlite.prod.yml up -d --force-recreate
+
+# Or all-in-one prod
+docker compose --env-file .env.docker -f docker-compose.all-in-one.prod.yml up -d --force-recreate
+```
+
+### 🧑‍💻 Dev Presets
+
+**Nginx + SQLite Dev (includes frontend source + pnpm install + DEVPLAN + backend tests/tools/xml  configs):**
+
+```bash
+docker compose -f docker-compose.nginx-sqlite.dev.yml up --build
+```
+
+**Apache + MariaDB Dev (includes frontend source + pnpm install + DEVPLAN + backend tests/tools/xml configs):**
+
+```bash
+docker compose -f docker-compose.apache-mariadb.dev.yml up --build
+```
 
 ### Stopping
 
@@ -262,4 +309,4 @@ Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rend
 [5] WAMP aviatechno (Update Resource). `https://wampserver.aviatechno.net/`.  
 [6] Google AI Studio. `https://aistudio.google.com/`.  
 [7] Google Gemini API Models. `https://ai.google.dev/gemini-api/docs/models`.  
-[8] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`.
+[8] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`.  

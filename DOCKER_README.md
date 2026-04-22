@@ -1,68 +1,173 @@
-# TAIPO: Docker Environment Documentation
+# 🐳 TAIPO: Multi-Stack Docker Ecosystem
 
-This document explains the multi-container architecture of TAIPO and provides instructions for both production and development environments.
+Welcome to the premium containerization setup for **TAIPO**. This infrastructure is designed for maximum flexibility, supporting multiple web servers and database engines with ease.
 
-## 1. Architecture Overview
+---
 
-TAIPO uses a **dual-stack** architecture based on industry best practices for PHP applications. The setup is divided into three main services:
+## 📦 All-in-One Image (Single Container)
 
-- **Web (Apache)**: An Alpine-based Apache server (`httpd:2.4-alpine`) that serves static frontend assets and proxies PHP requests to the application server using `mod_proxy_fcgi`.
-- **App (PHP-FPM)**: A PHP 8.5.5 Application server (`php:8.5.5-fpm-alpine3.22`) that handles backend logic and database interactions.
-- **DB (MariaDB)**: A dedicated database service. The system also supports **SQLite** as a portable fallback.
-
-## 2. Environment Options
-
-### 2.1 Production Mode
-
-Designed for stability and minimal footprint. The frontend is built into static assets, and the PHP code is optimized with an opcache.
-
-**To start production:**
+If you prefer a single container with Apache and PHP bundled together:
 
 ```bash
-docker compose up --build
+docker build -t taipo-app .
+docker run -d -p 8080:80 --env-file .env taipo-app
 ```
 
-Access the application at: `http://localhost:8080/TAIPO/`
+---
 
-### 2.2 Development Mode
+## 🚀 Multi-Container Stack (Recommended)
 
-Designed for real-time coding. It includes a **Vite Dev Server** for the frontend with **Hot Module Replacement (HMR)** and uses bind mounts for the backend.
+The repository now ships with:
 
-**To start development:**
+- one universal profile-based base compose
+- two ready-to-run preset overrides
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Preset 1: Nginx + SQLite + PHP 8.5 (Alpine)
+docker compose -f docker-compose.nginx-sqlite.prod.yml up -d --build
+
+# Preset 2: Apache + MariaDB + PHP 8.5 (Alpine)
+docker compose -f docker-compose.apache-mariadb.prod.yml up -d --build
+
+# Preset 3: All-in-One + SQLite + PHP 8.5 (Alpine) [PROD]
+docker compose -f docker-compose.all-in-one.prod.yml up -d --build
+
+# Preset 4: All-in-One + SQLite + PHP 8.5 [DEV]
+docker compose -f docker-compose.all-in-one.dev.yml up --build
+
+# All-in-one: Apache + Nginx + MariaDB + PostgreSQL + MySQL (+ SQLite support in app)
+docker compose --profile all up -d --build
+```
+
+The application will be available at:
+
+- `http://localhost:8080/TAIPO/` for Apache
+- `http://localhost:8081/TAIPO/` for Nginx
+- `http://localhost:8082/TAIPO/` for All-in-One
+
+---
+
+## 🛠️ Customizing Your Stack
+
+TAIPO supports **Docker Profiles**, allowing you to mix and match your preferred technology stack from source.
+
+### 🌐 Web Servers
+
+| Server         | Command                                 | Default Port |
+| :--------------| :---------------------------------------| :------------|
+| **Apache**     | `docker compose --profile apache up`    | `8080`       |
+| **Nginx**      | `docker compose --profile nginx up`     | `8081`       |
+
+### 🗄️ Database Engines
+
+| Engine         | Command                                 | `DB_TYPE` (.env) |
+| :--------------| :---------------------------------------| :----------------|
+| **MariaDB**    | `docker compose --profile mariadb up`   | `mysql`          |
+| **MySQL**      | `docker compose --profile mysql up`     | `mysql`          |
+| **PostgreSQL** | `docker compose --profile postgres up`  | `pgsql`          |
+| **SQLite**     | *(No service needed)*                   | `sqlite`         |
+
+### 💡 Example: Nginx + PostgreSQL
+
+```bash
+DB_TYPE=pgsql DB_HOST=postgres SQLITE_FILE_NAME=None docker compose --profile nginx --profile postgres up -d --build
+
+# Example: Apache + MySQL
+DB_TYPE=mysql DB_HOST=mysql SQLITE_FILE_NAME=None docker compose --profile apache --profile mysql up -d --build
+
+# Example: Apache + SQLite
+DB_TYPE=sqlite DB_HOST=localhost SQLITE_FILE_NAME=data/kanban.sqlite docker compose --profile apache up -d --build
+```
+
+---
+
+## 🧑‍💻 Development Environment
+
+For real-time development with **Vite HMR** and PHP hot-reloading:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-Access the application at: `http://localhost:8080/TAIPO/`
+- **Backend (PHP 8.5):** Hot-reloaded via bind mounts.
+- **Frontend (Vue/Vite):** Accessible at `http://localhost:5173` (or proxied through Apache at `8080`).
 
-## 3. Customization & Extension
+### Dedicated Dev Presets
 
-### 3.1 PHP Extensions and Database Drivers
+```bash
+# Nginx + SQLite DEV
+docker compose -f docker-compose.nginx-sqlite.dev.yml up --build
 
-The `Dockerfile.php` uses a multi-stage build. You can customize the `base` stage to add your own drivers (e.g., Oracle, SQL Server, MongoDB).
+# Apache + MariaDB DEV
+docker compose -f docker-compose.apache-mariadb.dev.yml up --build
 
-To add a new extension:
+# All-in-One DEV
+docker compose -f docker-compose.all-in-one.dev.yml up --build
+```
 
-1. Search for the package on [Docker Hub](https://hub.docker.com/) or the [Alpine Packages Repository](https://pkgs.alpinelinux.org/packages).
-2. Add the required libraries via `apk add` in the `base` stage.
-3. Install the PHP extension using `docker-php-ext-install`.
+Both dedicated dev presets include:
 
-### 3.2 WSL2 and Git Support
-
-If you are developing on Windows, it is highly recommended to use **WSL2** (Windows Subsystem for Linux).
-
-- WSL2 provides a native Linux environment, ensuring maximum compatibility with Docker.
-- Git works natively within the WSL2 terminal. You can commit and push directly from your Linux environment.
-
-## 4. References
-
-[1] TAIPO Source Code (Modernized Version). GitHub: `https://github.com/dabzse/TAIPO`  
-[2] AI-Kanban (Original Repository). GitHub: `https://github.com/szabojuci/AIKanban`  
-[3] Official PHP Docker Images. `https://hub.docker.com/_/php`  
-[4] Official Apache Docker Images. `https://hub.docker.com/_/httpd`  
-[5] Official Node.js Docker Images. `https://hub.docker.com/_/node`  
-[6] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`  
+- full `frontend/` source bind-mounted
+- `pnpm install` inside the frontend dev container (`node_modules` stored in a container volume)
+- `DEVPLAN.md` mounted into app container
+- backend dev files available (`tests`, `tools`, `phpcs.xml`, `phpunit.xml`) via backend bind mount
 
 ---
-*Created as part of the TAIPO modernization project.*
+
+## ⚙️ Configuration (.env)
+
+Customize your deployment by editing the `.env` file:
+
+```ini
+# Database Selection
+DB_TYPE=mysql          # options: mysql, pgsql, sqlite
+DB_HOST=mariadb        # matches the selected DB service name
+DB_NAME=taipo
+DB_USER=taipo_user
+DB_PASSWORD=taipo_password
+SQLITE_FILE_NAME=None  # set to data/kanban.sqlite for SQLite mode
+
+# Ports
+PORT_APACHE=8080
+PORT_NGINX=8081
+```
+
+### 🔐 Passing API Keys in Docker
+
+For Docker deployments, the recommended approach is to pass secrets via a dedicated environment file instead of editing containers manually.
+
+```bash
+# 1) Create a dedicated docker env file in project root
+cat > .env.docker <<'EOF'
+GEMINI_API_KEY=your_real_gemini_api_key
+GITHUB_USERNAME=your_github_username
+GITHUB_REPO=your_repo_name
+GITHUB_TOKEN=your_github_token
+EOF
+
+# 2) Recreate the stack with this env file
+docker compose --env-file .env.docker -f docker-compose.nginx-sqlite.prod.yml up -d --force-recreate
+
+# 2b) Or all-in-one prod
+docker compose --env-file .env.docker -f docker-compose.all-in-one.prod.yml up -d --force-recreate
+
+# 3) Verify env variable inside the app container
+docker exec -it taipo-app-nginx-sqlite-prod sh -lc "printenv | grep GEMINI"
+```
+
+Notes:
+
+- `--env-file` is preferred over editing values inside a running container.
+- The same approach works for other stack files (for example `docker-compose.apache-mariadb.prod.yml`).
+
+---
+
+## 🏗️ Architecture
+
+- **PHP 8.5.x-FPM:** High-performance PHP service.
+- **Multi-Stage Builds:** Optimized production images.
+- **Dual-Stack Support:** Switch between Apache and Nginx at runtime.
+- **Persistence:** Volumes for database data and uploaded assets.
