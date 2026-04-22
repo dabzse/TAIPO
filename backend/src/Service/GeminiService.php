@@ -12,15 +12,13 @@ class GeminiService
     private ?PDO $pdo;
     private ?int $currentUserId = null;
     private ?int $currentTeamId = null;
+    private bool $isConfigured = false;
 
     public function __construct(?PDO $pdo = null)
     {
         $this->pdo = $pdo;
         $apiKey = GeminiConfig::getGeminiApiKey();
-
-        if (empty($apiKey) || strpos($apiKey, 'AIza') !== 0) {
-            throw new GeminiApiException("Gemini API key is not set or invalid.");
-        }
+        $this->isConfigured = !empty($apiKey) && strpos($apiKey, 'AIza') === 0;
     }
 
     public function setContext(?int $userId, ?int $teamId = null): void
@@ -31,6 +29,10 @@ class GeminiService
 
     public function askTaipo(string $prompt, bool $isFallback = false): string
     {
+        if (!$this->isConfigured) {
+            throw new GeminiApiException("Gemini API key is not set or invalid.");
+        }
+
         $baseUrl = $isFallback ? ($_ENV['GEMINI_FALLBACK_URL'] ?? '') : GeminiConfig::getGeminiBaseUrl();
         $model = $isFallback ? ($_ENV['GEMINI_FALLBACK_MODEL'] ?? '') : GeminiConfig::getGeminiModel();
 
