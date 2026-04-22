@@ -1,0 +1,45 @@
+# ======================================================================
+# TAIPO preset: All-in-One + SQLite + PHP 8.5 [DEV]
+# Includes frontend source + pnpm install, DEVPLAN, and backend dev/test tooling files.
+# Usage:
+#   docker compose -f docker-compose.all-in-one.dev.yml up --build
+# ======================================================================
+
+name: taipo-ai-kanban-dev
+
+services:
+  allinone:
+    build:
+      context: .
+      dockerfile: Dockerfile.all-in-one.dev
+    container_name: taipo-all-in-one-dev
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (dev)}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_HOST: "${DB_HOST:-localhost}"
+      DB_NAME: "${DB_NAME:-taipo_dev}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      TAIPO_OFFLINE: "true"
+    ports:
+      - "${PORT_ALLINONE:-8082}:80"
+    volumes:
+      - ./backend:/var/www/html/backend:rw
+      - ./frontend:/var/www/html/frontend:rw
+      - ./README.md:/var/www/html/README.md:ro
+      - ./API_DOCUMENTATION.md:/var/www/html/API_DOCUMENTATION.md:ro
+      - ./DATABASE_README.md:/var/www/html/DATABASE_README.md:ro
+      - ./PROJECT.md:/var/www/html/PROJECT.md:ro
+      - ./DEVPLAN.md:/var/www/html/DEVPLAN.md:ro
+      - taipo-data:/var/www/html/backend/data
+      - taipo-frontend-node-modules-allinone:/var/www/html/frontend/node_modules
+    restart: unless-stopped
+
+volumes:
+  taipo-data:
+  taipo-frontend-node-modules-allinone:

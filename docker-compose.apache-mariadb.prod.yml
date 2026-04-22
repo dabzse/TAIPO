@@ -1,0 +1,69 @@
+# ======================================================================
+# TAIPO preset: Apache + MariaDB + PHP 8.5 (Alpine) [PROD]
+# Usage:
+#   docker compose -f docker-compose.apache-mariadb.prod.yml up -d --build
+# ======================================================================
+
+name: taipo-ai-kanban-prod
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: taipo-app-apache-mariadb-prod
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (prod)}"
+      DB_TYPE: "${DB_TYPE:-mysql}"
+      DB_HOST: "${DB_HOST:-mariadb}"
+      DB_NAME: "${DB_NAME:-taipo}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-None}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - taipo-data:/var/www/html/backend/data
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  apache:
+    build:
+      context: .
+      dockerfile: Dockerfile.apache
+    container_name: taipo-web-apache-prod
+    ports:
+      - "${PORT_APACHE:-8080}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  mariadb:
+    image: mariadb:11.4-alpine
+    container_name: taipo-db-mariadb-prod
+    environment:
+      - MARIADB_DATABASE=${DB_NAME:-taipo}
+      - MARIADB_USER=${DB_USER:-taipo_user}
+      - MARIADB_PASSWORD=${DB_PASSWORD:-taipo_password}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_password}
+    volumes:
+      - taipo-mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-data:
+  taipo-mariadb-data:

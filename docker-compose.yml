@@ -1,0 +1,140 @@
+# ======================================================================
+# TAIPO: Multi-Stack Docker Compose Configuration
+# ======================================================================
+# This configuration supports multiple web servers and database engines.
+#
+# QUICK START PRESETS:
+#   Nginx + SQLite:
+#     docker compose -f docker-compose.nginx-sqlite.prod.yml up --build -d
+#   Apache + MariaDB:
+#     docker compose -f docker-compose.apache-mariadb.prod.yml up --build -d
+#
+# ALL-IN-ONE STACK (Apache + Nginx + MariaDB + PostgreSQL + MySQL):
+#   docker compose --profile all up --build -d
+#
+# CUSTOM STACK (e.g., Nginx + PostgreSQL backend):
+#   docker compose --profile nginx --profile postgres up --build -d
+# ======================================================================
+
+services:
+  # ------------------------------------------------------------
+  # PHP-FPM Backend Service (Required)
+  # ------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: taipo-app
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI-Kanban}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_HOST: "${DB_HOST:-localhost}"
+      DB_NAME: "${DB_NAME:-taipo}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - taipo-data:/var/www/html/backend/data
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # ------------------------------------------------------------
+  # WEB SERVERS
+  # ------------------------------------------------------------
+  
+  # Apache (Default)
+  apache:
+    profiles: ["apache", "all"]
+    build:
+      context: .
+      dockerfile: Dockerfile.apache
+    container_name: taipo-web-apache
+    ports:
+      - "${PORT_APACHE:-8080}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # Nginx
+  nginx:
+    profiles: ["nginx", "all"]
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: taipo-web-nginx
+    ports:
+      - "${PORT_NGINX:-8081}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # ------------------------------------------------------------
+  # DATABASE ENGINES
+  # ------------------------------------------------------------
+
+  # MariaDB (Default)
+  mariadb:
+    profiles: ["mariadb", "all"]
+    image: mariadb:11.4-alpine
+    container_name: taipo-db-mariadb
+    environment:
+      - MARIADB_DATABASE=${DB_NAME:-taipo}
+      - MARIADB_USER=${DB_USER:-taipo_user}
+      - MARIADB_PASSWORD=${DB_PASSWORD:-taipo_password}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_password}
+    volumes:
+      - taipo-mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # PostgreSQL
+  postgres:
+    profiles: ["postgres", "all"]
+    image: postgres:16-alpine
+    container_name: taipo-db-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME:-taipo}
+      - POSTGRES_USER=${DB_USER:-taipo_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-taipo_password}
+    volumes:
+      - taipo-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # MySQL
+  mysql:
+    profiles: ["mysql", "all"]
+    image: mysql:8.4
+    container_name: taipo-db-mysql
+    environment:
+      - MYSQL_DATABASE=${DB_NAME:-taipo}
+      - MYSQL_USER=${DB_USER:-taipo_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-taipo_password}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_password}
+    volumes:
+      - taipo-mysql-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-data:
+  taipo-mariadb-data:
+  taipo-postgres-data:
+  taipo-mysql-data:

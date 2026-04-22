@@ -1,0 +1,35 @@
+# ======================================================================
+# TAIPO preset: All-in-One + SQLite + PHP 8.5 (Alpine) [PROD]
+# Usage:
+#   docker compose -f docker-compose.all-in-one.prod.yml up -d --build
+# ======================================================================
+
+name: taipo-ai-kanban-prod
+
+services:
+  allinone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taipo-all-in-one-prod
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (prod)}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_HOST: "${DB_HOST:-localhost}"
+      DB_NAME: "${DB_NAME:-taipo}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      TAIPO_OFFLINE: "true"
+    ports:
+      - "${PORT_ALLINONE:-8082}:80"
+    volumes:
+      - taipo-data:/var/www/html/backend/data
+    restart: unless-stopped
+
+volumes:
+  taipo-data:

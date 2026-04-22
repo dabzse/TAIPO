@@ -1,0 +1,45 @@
+# ======================================================================
+# TAIPO: AI-Driven Kanban Board — All-in-One Dev Image (Alpine)
+# ======================================================================
+FROM php:8.5.5-fpm-alpine3.22
+
+# Install Apache2, Node.js and PHP extensions for local development
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+
+RUN apk add --no-cache apache2 apache2-utils apache2-proxy bash curl git nodejs npm && \
+    chmod +x /usr/local/bin/install-php-extensions && \
+    install-php-extensions gd pdo_mysql pdo_pgsql zip intl opcache mbstring bcmath
+
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Apache setup
+RUN mkdir -p /run/apache2 && \
+    sed -i 's/#LoadModule\ proxy_module/LoadModule\ proxy_module/' /etc/apache2/httpd.conf && \
+    sed -i 's/#LoadModule\ proxy_fcgi_module/LoadModule\ proxy_fcgi_module/' /etc/apache2/httpd.conf && \
+    sed -i 's/#LoadModule\ rewrite_module/LoadModule\ rewrite_module/' /etc/apache2/httpd.conf
+
+WORKDIR /var/www/html
+
+# Keep this minimal in dev because bind mounts provide source files.
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
+COPY README.md API_DOCUMENTATION.md DATABASE_README.md PROJECT.md DEVPLAN.md ./
+
+# Apache route to backend/public with PHP-FPM
+RUN echo 'ServerName localhost \n\
+DocumentRoot "/var/www/html/backend/public" \n\
+<Directory "/var/www/html/backend/public"> \n\
+    AllowOverride All \n\
+    Require all granted \n\
+</Directory> \n\
+ProxyPassMatch ^/(.*\.php(/.*)?)$ \
+    fcgi://127.0.0.1:9000/var/www/html/backend/public/$1' > /etc/apache2/conf.d/taipo.conf
+
+EXPOSE 80
+
+# In dev we install dependencies and build frontend at startup from mounted source.
+CMD ["sh", "-lc", "cd /var/www/html/frontend && pnpm install && pnpm build && php-fpm -D && httpd -D FOREGROUND"]

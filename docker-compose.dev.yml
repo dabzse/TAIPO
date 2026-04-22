@@ -1,0 +1,118 @@
+# ======================================================================
+# TAIPO: Development Docker Compose Configuration
+# ======================================================================
+# This configuration includes Vite hot-reloading and bind mounts.
+#
+# USAGE:
+#   docker compose -f docker-compose.dev.yml up --build
+# ======================================================================
+
+services:
+  # ------------------------------------------------------------
+  # PHP-FPM Backend (Dev)
+  # ------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+      target: development
+    container_name: taipo-app-dev
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI-Kanban Dev}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      DB_HOST: "db"
+      DB_NAME: "${DB_NAME:-taipo_dev}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - ./backend:/var/www/html/backend:rw
+      - ./README.md:/var/www/html/README.md:ro
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # ------------------------------------------------------------
+  # Vite Frontend Dev Server
+  # ------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend.dev
+    container_name: taipo-frontend-dev
+    volumes:
+      - ./frontend:/app/frontend:rw
+      - /app/frontend/node_modules
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # ------------------------------------------------------------
+  # Web Servers (Dev)
+  # ------------------------------------------------------------
+  
+  # Apache Dev
+  apache:
+    profiles: ["apache", "default"]
+    image: httpd:2.4-alpine
+    container_name: taipo-web-apache-dev
+    ports:
+      - "${PORT_APACHE:-8080}:80"
+    volumes:
+      - ./docker/apache/taipo.dev.conf:/usr/local/apache2/conf/extra/taipo.conf:ro
+      - ./backend/public:/usr/local/apache2/htdocs/backend/public:ro
+    command: >
+      sh -c "echo 'Include conf/extra/taipo.conf' >> /usr/local/apache2/conf/httpd.conf 
+      && httpd-foreground"
+    depends_on:
+      - app
+      - frontend
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # Nginx Dev (Proxy to Vite and FPM)
+  nginx:
+    profiles: ["nginx"]
+    image: nginx:1.27-alpine
+    container_name: taipo-web-nginx-dev
+    ports:
+      - "${PORT_NGINX:-8081}:80"
+    volumes:
+      - ./docker/nginx/taipo.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - frontend
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  # ------------------------------------------------------------
+  # Database Engines (Optional for Dev)
+  # ------------------------------------------------------------
+  db:
+    profiles: ["db"]
+    image: mariadb:11.4-alpine
+    container_name: taipo-db-dev
+    environment:
+      - MARIADB_DATABASE=${DB_NAME:-taipo_dev}
+      - MARIADB_USER=${DB_USER:-taipo_user}
+      - MARIADB_PASSWORD=${DB_PASSWORD:-taipo_password}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_password}
+    volumes:
+      - taipo-db-dev-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-db-dev-data:

@@ -1,0 +1,43 @@
+# ============================================================
+# TAIPO: AI-Driven Kanban Board — Apache Web Service
+# ============================================================
+
+# Stage 1: Build the Vue frontend
+FROM node:22.22.2-alpine3.22 AS frontend-build
+
+WORKDIR /app/frontend
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package manifests first for layer caching
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the frontend source
+COPY frontend/ ./
+
+# Build the production bundle
+RUN pnpm build
+
+# Stage 2: Apache production image
+FROM httpd:2.4-alpine AS web
+
+# Copy custom Apache configuration
+COPY docker/apache/taipo.conf /usr/local/apache2/conf/extra/taipo.conf
+RUN echo "Include conf/extra/taipo.conf" >> /usr/local/apache2/conf/httpd.conf
+
+# Set workdir
+WORKDIR /usr/local/apache2/htdocs
+
+# Copy frontend assets (built in Stage 1)
+COPY --from=frontend-build /app/frontend/dist ./frontend/
+
+# Copy backend static public files (like favicon, etc. if any)
+# We also need the backend/public/index.php for the rewrite rules to work correctly 
+# even though FPM will execute it.
+COPY backend/public/ ./backend/public/
+
+EXPOSE 80

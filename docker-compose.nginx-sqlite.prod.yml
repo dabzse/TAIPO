@@ -1,0 +1,52 @@
+# ======================================================================
+# TAIPO preset: Nginx + SQLite + PHP 8.5 (Alpine) [PROD]
+# Usage:
+#   docker compose -f docker-compose.nginx-sqlite.prod.yml up -d --build
+# ======================================================================
+
+name: taipo-ai-kanban-prod
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: taipo-app-nginx-sqlite-prod
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (prod)}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_HOST: "${DB_HOST:-localhost}"
+      DB_NAME: "${DB_NAME:-taipo}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - taipo-data:/var/www/html/backend/data
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: taipo-web-nginx-prod
+    ports:
+      - "${PORT_NGINX:-8081}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-data:

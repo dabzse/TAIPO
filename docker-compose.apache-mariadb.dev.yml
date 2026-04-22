@@ -1,0 +1,95 @@
+# ======================================================================
+# TAIPO preset: Apache + MariaDB + PHP 8.5 [DEV]
+# Includes frontend source, DEVPLAN, and backend dev/test tooling files.
+# Usage:
+#   docker compose -f docker-compose.apache-mariadb.dev.yml up --build
+# ======================================================================
+
+name: taipo-ai-kanban-dev
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+      target: development
+    container_name: taipo-app-apache-mariadb-dev
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (dev)}"
+      DB_TYPE: "${DB_TYPE:-mysql}"
+      DB_HOST: "${DB_HOST:-mariadb}"
+      DB_NAME: "${DB_NAME:-taipo_dev}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-None}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - ./backend:/var/www/html/backend:rw
+      - ./README.md:/var/www/html/README.md:ro
+      - ./API_DOCUMENTATION.md:/var/www/html/API_DOCUMENTATION.md:ro
+      - ./DATABASE_README.md:/var/www/html/DATABASE_README.md:ro
+      - ./PROJECT.md:/var/www/html/PROJECT.md:ro
+      - ./DEVPLAN.md:/var/www/html/DEVPLAN.md:ro
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend.dev
+    container_name: taipo-frontend-dev
+    command: >
+      sh -lc "pnpm install && pnpm dev --host"
+    volumes:
+      - ./frontend:/app/frontend:rw
+      - taipo-frontend-node-modules:/app/frontend/node_modules
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  apache:
+    image: httpd:2.4-alpine
+    container_name: taipo-web-apache-dev
+    ports:
+      - "${PORT_APACHE:-8080}:80"
+    volumes:
+      - ./docker/apache/taipo.dev.conf:/usr/local/apache2/conf/extra/taipo.conf:ro
+      - ./backend/public:/usr/local/apache2/htdocs/backend/public:ro
+    command: >
+      sh -c "echo 'Include conf/extra/taipo.conf' >> /usr/local/apache2/conf/httpd.conf
+      && httpd-foreground"
+    depends_on:
+      - app
+      - frontend
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  mariadb:
+    image: mariadb:11.4-alpine
+    container_name: taipo-db-mariadb-dev
+    environment:
+      - MARIADB_DATABASE=${DB_NAME:-taipo_dev}
+      - MARIADB_USER=${DB_USER:-taipo_user}
+      - MARIADB_PASSWORD=${DB_PASSWORD:-taipo_password}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_password}
+    volumes:
+      - taipo-db-dev-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-db-dev-data:
+  taipo-frontend-node-modules:

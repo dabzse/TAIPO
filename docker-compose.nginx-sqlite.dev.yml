@@ -1,0 +1,74 @@
+# ======================================================================
+# TAIPO preset: Nginx + SQLite + PHP 8.5 [DEV]
+# Includes frontend source, DEVPLAN, and backend dev/test tooling files.
+# Usage:
+#   docker compose -f docker-compose.nginx-sqlite.dev.yml up --build
+# ======================================================================
+
+name: taipo-ai-kanban-dev
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+      target: development
+    container_name: taipo-app-nginx-sqlite-dev
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GITHUB_USERNAME: "${GITHUB_USERNAME}"
+      GITHUB_REPO: "${GITHUB_REPO}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      PROJECT_NAME: "${PROJECT_NAME:-TAIPO: AI Kanban (dev)}"
+      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_HOST: "${DB_HOST:-localhost}"
+      DB_NAME: "${DB_NAME:-taipo_dev}"
+      DB_USER: "${DB_USER:-taipo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-taipo_password}"
+      SQLITE_FILE_NAME: "${SQLITE_FILE_NAME:-data/kanban.sqlite}"
+      TAIPO_OFFLINE: "true"
+    volumes:
+      - ./backend:/var/www/html/backend:rw
+      - ./README.md:/var/www/html/README.md:ro
+      - ./API_DOCUMENTATION.md:/var/www/html/API_DOCUMENTATION.md:ro
+      - ./DATABASE_README.md:/var/www/html/DATABASE_README.md:ro
+      - ./PROJECT.md:/var/www/html/PROJECT.md:ro
+      - ./DEVPLAN.md:/var/www/html/DEVPLAN.md:ro
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend.dev
+    container_name: taipo-frontend-dev
+    command: >
+      sh -lc "pnpm install && pnpm dev --host"
+    volumes:
+      - ./frontend:/app/frontend:rw
+      - taipo-frontend-node-modules:/app/frontend/node_modules
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: taipo-web-nginx-dev
+    ports:
+      - "${PORT_NGINX:-8081}:80"
+    volumes:
+      - ./docker/nginx/taipo.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - frontend
+    restart: unless-stopped
+    networks:
+      - taipo-network
+
+networks:
+  taipo-network:
+    driver: bridge
+
+volumes:
+  taipo-frontend-node-modules:
