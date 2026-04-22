@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.nginx-sqlite.prod.yml up -d --build
 # ======================================================================
 
-name: taipo-ai-kanban-prod
+name: taipo-ai-kanban-nginx-sqlite-prod
 
 services:
   app:

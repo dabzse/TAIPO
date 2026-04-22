@@ -5,7 +5,7 @@
 #   docker compose -f docker-compose.nginx-sqlite.dev.yml up --build
 # ======================================================================
 
-name: taipo-ai-kanban-dev
+name: taipo-ai-kanban-nginx-sqlite-dev
 
 services:
   app:
@@ -42,7 +42,7 @@ services:
     build:
       context: ./frontend
       dockerfile: ../Dockerfile.frontend.dev
-    container_name: taipo-frontend-dev
+    container_name: taipo-frontend-nginx-sqlite-dev
     command: >
       sh -lc "pnpm install && pnpm dev --host"
     volumes:
