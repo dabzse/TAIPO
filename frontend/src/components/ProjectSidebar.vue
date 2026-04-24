@@ -179,20 +179,19 @@
 
                 <div class="divider"></div>
 
-                <!-- GitHub Login -->
-                <li>
-                    <button
-                        @click="$emit('open-github-modal')"
-                        class="btn btn-outline gap-2 w-full bg-zinc-400"
-                    >
-                        <img
-                            src="../images/github.svg"
-                            alt="GitHub"
-                            class="w-6 h-6"
-                        >
-                        GitHub Login
-                    </button>
-                </li>
+              <li>
+    <a
+        href="http://localhost:8000/?action=github_login"
+        class="btn btn-outline gap-2 w-full bg-zinc-400 flex items-center justify-center"
+    >
+        <img
+            src="../images/github.svg"
+            alt="GitHub"
+            class="w-6 h-6"
+        >
+        GitHub Login
+    </a>
+</li>
             </ul>
         </div>
 

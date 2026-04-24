@@ -191,4 +191,69 @@ class AuthController
             echo json_encode(['success' => true, 'authenticated' => false, 'config' => $config]);
         }
     }
+    public function handleGitHubLogin()
+    {
+        // Közvetlenül a környezeti változóból fűzzük össze az URL-t, változók nélkül
+        header("Location: https://github.com/login/oauth/authorize?client_id=" .
+            ($_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN')) .
+            "&redirect_uri=http://localhost:8000/?action=github_callback&scope=repo,user");
+        exit;
+    }
+
+    public function handleGitHubCallback()
+    {
+        // 1. Kód kinyerése az URL-ből
+        $code = $_GET['code'] ?? null;
+        if (!$code) {
+            header("Location: http://localhost:5173/?error=no_code");
+            exit;
+        }
+
+        // 2. Token kérése a GitHub-tól (CURL-lel)
+        $ch = curl_init("https://github.com/login/oauth/access_token");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+            'client_id'     => $_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN'),
+            'client_secret' => $_ENV['GITHUB_CLIENT_SECRET'] ?? getenv('GITHUB_CLIENT_SECRET'),
+            'code'          => $code,
+        ]));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+        $authData = json_decode(curl_exec($ch), true);
+        $accessToken = $authData['access_token'] ?? null;
+
+        if (!$accessToken) {
+            header("Location: http://localhost:5173/?error=auth_failed");
+            exit;
+        }
+
+        // 3. Felhasználói adatok lekérése a Token segítségével
+        curl_setopt($ch, CURLOPT_URL, "https://api.github.com/user");
+        curl_setopt($ch, CURLOPT_POST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $accessToken,
+            'User-Agent: AI-Kanban-App'
+        ]);
+
+        $userData = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        // 4. Beléptetés a Sessionbe, ha megvan a GitHub login név
+        if (isset($userData['login'])) {
+            // Megakadályozzuk a session fixation támadást
+            session_regenerate_id(true);
+
+            $_SESSION['user_id'] = 999; // Ideiglenes ID, amíg nincs DB-be mentve
+            $_SESSION['username'] = $userData['login'];
+            $_SESSION['is_instructor'] = false;
+
+            // 5. VISSZAIRÁNYÍTÁS A FRONTENDRE
+            header("Location: http://localhost:5173");
+            exit;
+        }
+
+        header("Location: http://localhost:5173/?error=user_data_failed");
+        exit;
+    }
 }

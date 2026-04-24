@@ -104,9 +104,11 @@
     </div>
 </template>
 
+
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { marked } from 'marked';
+import axios from 'axios';
 
 const props = defineProps({
     isOpen: Boolean,
@@ -117,6 +119,34 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'regenerate', 'commit']);
+
+const isCommitting = ref(false);
+
+const commitToGithub = async () => {
+    if (!props.code) return;
+    isCommitting.value = true;
+    try {
+        const formData = new FormData();
+        formData.append('action', 'commit_to_github');
+        formData.append('task_id', props.task?.id || '');
+        formData.append('code', props.code);
+
+        const response = await axios.post('http://localhost:8000/', formData, {
+            withCredentials: true
+        });
+
+        if (response.data.success) {
+            alert('🚀 Siker! A kód feltöltve és a feladat DONE állapotba került.');
+            emit('close');
+        } else {
+            alert('❌ Hiba: ' + response.data.error);
+        }
+    } catch (err) {
+        // ... hibakezelés marad ...
+    } finally {
+        isCommitting.value = false;
+    }
+};
 
 const formattedCode = computed(() => {
     if (!props.code) return '';
