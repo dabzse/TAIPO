@@ -128,6 +128,7 @@ TAIPO now acts as a proactive Product Owner by simulating background activity.
 * **Check-in Comments**: Every **2 hours** (during working hours), TAIPO will pick a task and add a professional, Jira-style comment asking for progress or offering guidance.
 * **Change Requests**: Approximately every **3 days**, TAIPO will generate a realistic, unforeseen **Change Request** and add it to the *Sprint Backlog* to simulate project dynamics.
 * **Working Hours**: The simulation is active between **8:00 AM and 4:00 PM** (Mon-Fri) to reflect a standard industrial environment.
+* **TAWOS Data Grounding**: The simulation is enriched with real-world agile patterns from the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022). A curated subset of 458K+ Jira issues is used to calibrate comment tone and change request realism. See [LICENCE.md](LICENCE.md) for full attribution.
 
 ---
 
@@ -301,6 +302,7 @@ Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rend
 * [Project Structure](PROJECT.md)
 * [Development Roadmap](DEVPLAN.md)
 * [Use Case Study](USE_CASE_STUDY.md)
+* [Licences & Attributions](LICENCE.md)
 
 ## 7. References
 
@@ -312,3 +314,4 @@ Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rend
 [6] Google AI Studio. `https://aistudio.google.com/`.  
 [7] Google Gemini API Models. `https://ai.google.dev/gemini-api/docs/models`.  
 [8] TAIPO Official Docker Image. `docker.io/dabzse/taipo:latest`.  
+[9] TAWOS Dataset (Tawosi et al., MSR 2022). GitHub: `https://github.com/SOLAR-group/TAWOS`. DOI: `10.5522/04/21308124`.  

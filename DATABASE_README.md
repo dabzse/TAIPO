@@ -56,3 +56,27 @@ The application features **on-the-fly SQL normalization** and will automatically
 - **Schema Inspections**: Runs driver-specific column checks natively depending on the configured `DB_TYPE` (`SHOW COLUMNS`, `information_schema.columns`, `USER_TAB_COLUMNS`, or `PRAGMA table_info`).
 
 > **NOTE**_ MAKE SURE YOU HAVE THE APPROPRIATE DRIVER INSTALLED ON YOUR SYSTEM and you have rights to use the database.
+
+---
+
+## 3. TAWOS Dataset Table
+
+TAIPO includes a `tawos_issues` table that stores a curated subset of the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022). This data is auto-seeded on first boot from `backend/data/tawos_seed.csv`.
+
+| Column             | Type         | Description                                            |
+| ------------------ | ------------ | ------------------------------------------------------ |
+| `id`               | INTEGER (PK) | Auto-increment primary key                             |
+| `issue_key`        | VARCHAR(64)  | TAWOS issue identifier (e.g., `PROJ-101`)              |
+| `title`            | VARCHAR(512) | Issue title/summary                                    |
+| `description_text` | TEXT         | Natural language description (code snippets removed)   |
+| `type`             | VARCHAR(64)  | Issue type: `Story`, `Bug`, `Task`                     |
+| `priority`         | VARCHAR(64)  | Priority level: `Critical`, `Major`, `Minor`           |
+| `status`           | VARCHAR(64)  | Workflow status: `Open`, `In Progress`, `Closed`       |
+| `resolution`       | VARCHAR(64)  | Resolution: `Done`, `Fixed`, `Unresolved`              |
+| `story_point`      | REAL         | Story point estimate (nullable)                        |
+| `comment_text`     | TEXT         | Representative PO/developer comment (nullable)         |
+| `project_name`     | VARCHAR(256) | Source project name                                    |
+| `created_at`       | DATETIME     | Record creation timestamp                              |
+
+The TAWOS data is used internally by `PoActivityService` to enrich AI-generated comments and change requests with real-world agile patterns. See [LICENCE.md](LICENCE.md) for dataset attribution and terms of use.
+

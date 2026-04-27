@@ -5,6 +5,7 @@ This project is separated into two main components: a **PHP** backend (**API**) 
 ## Directory Structure
 
 - `backend/`: Contains the PHP application, database, and Composer dependencies.
+  - `backend/data/`: Contains seed data files (e.g., `tawos_seed.csv` for TAWOS dataset integration).
 - `frontend/`: Contains the Vue 3 application, Vite config, and Node dependencies.
 
 ## Prerequisites
@@ -94,13 +95,13 @@ OR in Linux without root:
 
 ## Main Commands
 
-| Component | Action | Command |
-| --------- | ------ | ------- |
-| **Backend** | Start Server | `php -S localhost:8000` (inside `backend/`) |
-| **Backend** | Update Deps | `composer update` |
-| **Frontend** | Start Dev | `pnpm dev` OR `npm run dev` OR `npx pnpm dev` (inside `frontend/`) |
-| **Frontend** | Build Prod | `pnpm build` |
-| **Frontend** | Install Deps | `pnpm install` |
+| Component     | Action       | Command                                                            | Description                                                                    |
+| ------------- | ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **Backend**   | Start Server | `php -S localhost:8000` (inside `backend/`)                        | Start PHP server                                                               |
+| **Backend**   | Update Deps  | `composer update`                                                  | Update dependencies                                                            |
+| **Frontend**  | Start Dev    | `pnpm dev` OR `npm run dev` OR `npx pnpm dev` (inside `frontend/`) | Start Vue dev server (if you use `npx pnpm dev`, you need internet connection) |
+| **Frontend**  | Build Prod   | `pnpm build`                                                       | Build for production                                                           |
+| **Frontend**  | Install Deps | `pnpm install`                                                     | Install dependencies                                                           |
 
 $ ~ $
 

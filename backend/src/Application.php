@@ -10,6 +10,13 @@ use Exception;
 
 use App\Configuration\GeminiConfig;
 
+use App\Controller\AuthController;
+use App\Controller\ProjectController;
+use App\Controller\RequirementController;
+use App\Controller\SettingsController;
+use App\Controller\TaskController;
+use App\Controller\TeamController;
+
 use App\Exception\GeminiApiException;
 use App\Exception\ProjectAlreadyExistsException;
 
@@ -22,32 +29,27 @@ use App\Service\RequirementService;
 use App\Service\SettingsService;
 use App\Service\TaskAiService;
 use App\Service\TaskService;
+use App\Service\TawosService;
 use App\Service\TeamService;
-
-use App\Controller\AuthController;
-use App\Controller\ProjectController;
-use App\Controller\RequirementController;
-use App\Controller\SettingsController;
-use App\Controller\TaskController;
-use App\Controller\TeamController;
 
 
 class Application
 {
-    private TaskService $taskService;
-    private ProjectService $projectService;
-    private GitHubService $githubService;
+    private AuthController $authController;
     private GeminiService $geminiService;
+    private GitHubService $githubService;
+    private PoActivityService $poActivityService;
+    private ProjectController $projectController;
+    private ProjectService $projectService;
+    private RequirementController $requirementController;
+    private RequirementService $requirementService;
+    private SettingsController $settingsController;
     private TaskAiService $taskAiService;
     private TaskController $taskController;
-    private ProjectController $projectController;
-    private SettingsController $settingsController;
-    private RequirementService $requirementService;
-    private RequirementController $requirementController;
-    private AuthController $authController;
+    private TaskService $taskService;
+    private TawosService $tawosService;
     private TeamController $teamController;
     private TeamService $teamService;
-    private PoActivityService $poActivityService;
 
     public function run()
     {
@@ -206,6 +208,28 @@ class Application
             default:
                 break;
         }
+
+        // TAWOS Dataset Actions
+        if (in_array($action, ['get_tawos_stats', 'get_tawos_sample'])) {
+            $this->handleTawosAction($action);
+            exit;
+        }
+    }
+
+    private function handleTawosAction(string $action): void
+    {
+        header(Config::APP_JSON);
+        try {
+            if ($action === 'get_tawos_stats') {
+                echo json_encode(['success' => true, 'data' => $this->tawosService->getStats()]);
+            } elseif ($action === 'get_tawos_sample') {
+                $limit = (int)($_GET['limit'] ?? 5);
+                echo json_encode(['success' => true, 'data' => $this->tawosService->getSample(min($limit, 20))]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
     }
 
     private function enforceHttps(): void
@@ -331,7 +355,11 @@ class Application
             $this->authController = new AuthController($pdo);
             $this->teamService = new TeamService($pdo);
             $this->teamController = new TeamController($this->teamService);
-            $this->poActivityService = new PoActivityService($pdo, $this->geminiService, $database->getDbType());
+
+            $this->tawosService = new TawosService($pdo, $database->getDbType());
+            $this->tawosService->autoSeed();
+
+            $this->poActivityService = new PoActivityService($pdo, $this->geminiService, $database->getDbType(), $this->tawosService);
         } catch (Exception $e) {
             $error = $e->getMessage();
         }

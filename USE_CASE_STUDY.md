@@ -36,6 +36,7 @@ To evaluate whether an AI-driven Product Owner simulation (TAIPO) can produce re
 | WIP Limits               | Implementation: 3, Testing: 2, Review: 2  |
 | PO Comment Interval      | Randomized (min: 2h, max: 3h) [1], [2]    |
 | Change Request Interval  | Randomized (min: 1d, max: 3d) [1], [2]    |
+| TAWOS Seed Data          | ~100 curated records (auto-seeded)        |
 
 > **Note**:
 >
@@ -177,7 +178,7 @@ While the current implementation is a **proof of concept**, the results provide 
 
 1. **Multi-team empirical study** with pre/post surveys measuring learning outcomes
 2. **Conversation memory** for contextual continuity across PO interactions
-3. **Integration with TAWOS dataset** for industry-grounded prompt enrichment
+3. ~~Integration with TAWOS dataset~~ ✅ **Implemented** — TAWOS data now enriches PO simulation prompts with real-world agile patterns (see [LICENCE.md](LICENCE.md))
 4. **A/B comparison** between TAIPO-managed and human PO-managed student projects
 
 ---

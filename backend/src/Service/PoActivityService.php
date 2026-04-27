@@ -7,19 +7,22 @@ use Exception;
 use App\Config;
 use App\Prompts;
 use App\Service\GeminiService;
+use App\Service\TawosService;
 
 class PoActivityService
 {
     private PDO $pdo;
     private GeminiService $geminiService;
+    private ?TawosService $tawosService;
     private ?int $currentUserId;
     private string $dbType;
 
-    public function __construct(PDO $pdo, GeminiService $geminiService, string $dbType = 'sqlite')
+    public function __construct(PDO $pdo, GeminiService $geminiService, string $dbType = 'sqlite', ?TawosService $tawosService = null)
     {
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
         $this->dbType = $dbType;
+        $this->tawosService = $tawosService;
 
         // Apply Timezone from Config
         $timezone = Config::getSimTimezone();
@@ -96,7 +99,10 @@ class PoActivityService
             }
 
             $context = $this->getProjectSummary($project['name']);
-            $prompt = Prompts::getPoCheckInPrompt($task['title'], $task['description'], $context);
+
+            // Enrich prompt with real TAWOS data
+            $tawosComment = $this->tawosService?->getRandomComment('Story');
+            $prompt = Prompts::getPoCheckInPrompt($task['title'], $task['description'], $context, $tawosComment);
 
             $this->geminiService->setContext($this->currentUserId, $project['team_id']);
             $comment = $this->geminiService->askTaipo($prompt);
@@ -129,7 +135,10 @@ class PoActivityService
         try {
             $requirements = $this->getRequirements($project['name']);
             $boardStatus = $this->getProjectSummary($project['name']);
-            $prompt = Prompts::getChangeRequestPrompt($project['name'], $requirements, $boardStatus);
+
+            // Enrich prompt with real TAWOS change pattern
+            $tawosPattern = $this->tawosService?->getSampleChangePattern();
+            $prompt = Prompts::getChangeRequestPrompt($project['name'], $requirements, $boardStatus, $tawosPattern);
 
             $this->geminiService->setContext($this->currentUserId, $project['team_id']);
             $rawCr = $this->geminiService->askTaipo($prompt);

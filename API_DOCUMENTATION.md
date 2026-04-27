@@ -47,18 +47,18 @@ Error Mockup:
 
 **Action Parameter:** `action` (in POST body)
 
-| Action | Required Fields | Returns | Description |
-| :--- | :--- | :--- | :--- |
-| `add_task` | `title`, `description`, `current_project`, `is_important` (0/1) | `id`, `title`, `description`, `is_important` | Creates a new task in the specified project. |
-| `delete_task` | `task_id` | `status` | Deletes a task by ID. |
-| `toggle_importance` | `task_id`, `is_important` (0/1) | Message string | Toggles the importance flag (star) of a task. |
-| `update_status` | `task_id`, `new_status`, `current_project` | Message string | Moves a task to a new Kanban column. |
-| `edit_task` | `task_id`, `title`, `description`, `last_updated_at` (opt) | `success: true` | Updates the title and description of a task. Uses `last_updated_at` for optimistic locking to prevent overwriting concurrent edits. |
-| `generate_code` | `description`, `task_id` (opt) | `code` (string) | Uses Gemini AI to generate source code. If `task_id` is provided, the backend uses the latest description from the database to ensure resilience against manual modifications. |
-| `decompose_task` | `task_id`, `description`, `current_project` | `count` (int) | Uses Gemini AI to break down a parent story. Prioritizes the database description for the parent `task_id`. |
-| `commit_to_github` | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt) | `filePath` (string) | Commits the generated code to the configured GitHub repository. |
-| `reorder_tasks` | `project_name`, `status`, `task_ids` (array) | `success: true` | Reorders tasks within a specific column/status. |
-| `query_task` | `task_id`, `query` | `answer` (string) | Uses Gemini AI to answer a question about a specific task. |
+| Action                | Required Fields                                                              | Returns                                      | Description                                                                                                                                                                    |
+| :-------------------- | :--------------------------------------------------------------------------- | :------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `add_task`            | `title`, `description`, `current_project`, `is_important` (0/1)              | `id`, `title`, `description`, `is_important` | Creates a new task in the specified projec  t.                                                                                                                                 |
+| `delete_task`         | `task_id`                                                                    | `status`                                     | Deletes a    task by ID.                                                                                                                                                       |
+| `toggle_importance`   | `task_id`, `is_important` (0/1)                                              | Message string                               | Toggles the importance flag (star) of a task.                                                                                                                                  |
+| `update_status`       | `task_id`, `new_status`, `current_project`                                   | Message string                               | Moves a task to a new Kanban column.                                                                                                                                           |
+| `edit_task`           | `task_id`, `title`, `description`, `last_updated_at` (opt)                   | `success: true`                              | Updates the title and description of a task. Uses `last_updated_at` for optimistic locking to prevent overwriting concurrent edits.                                            |
+| `generate_code`       | `description`, `task_id` (opt)                                               | `code` (string)                              | Uses Gemini AI to generate source code. If `task_id` is provided, the backend uses the latest description from the database to ensure resilience against manual modifications. |
+| `decompose_task`      | `task_id`, `description`, `current_project`                                  | `count` (int)                                | Uses Gemini AI to break down a parent story. Prioritizes the database description for the parent `task_id`.                                                                    |
+| `commit_to_github`    | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt)  | `filePath` (string)                          | Commits the generated code to the configured GitHub repository.                                                                                                                |
+| `reorder_tasks`       | `project_name`, `status`, `task_ids` (array)                                 | `success: true`                              | Reorders tasks within a specific column/status.                                                                                                                                |
+| `query_task`          | `task_id`, `query`                                                           | `answer` (string)                            | Uses Gemini AI to answer a question about a specific task.                                                                                                                     |
 
 `decompose_task` behavior notes:
 
@@ -71,27 +71,27 @@ Error Mockup:
 
 **Action Parameter:** `action` (in POST body)
 
-| Action | Required Fields | Description |
-| :--- | :--- | :--- |
-| `create_project` | `name`, `team_id` (opt) | Creates a new empty project. |
-| `list_projects` | None | Returns a list of all available projects. |
-| `update_project` | `id`, `name` | Renames an existing project. |
-| `delete_project` | `id` | Deletes a project and all its tasks. |
-| `toggle_project_activity` | `id`, `is_active` (0/1) | Enables or disables the Autonomous PO Simulation for a specific project. |
-| `create_project_from_spec` | `spec` (string), `team_id` (opt) | Uses Gemini AI to automatically create a project and tasks from a text specification. |
-| `get_project_defaults` | None | Returns supported programming `languages` and their default `prompts`. |
-| `set_project_team` | `id` (project), `team_id` (null to unassign) | Assigns/Unassigns a project to a specific team. |
-| `list_user_teams` | None | Returns a list of teams associated with the current user. If the user is an **Instructor**, returns **all** teams. |
+| Action                     | Required Fields                              | Description                                                                                                        |
+| :------------------------- | :------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| `create_project`           | `name`, `team_id` (opt)                      | Creates a new empty project.                                                                                       |
+| `list_projects`            | None                                         | Returns a list of all available projects.                                                                          |
+| `update_project`           | `id`, `name`                                 | Renames an existing project.                                                                                       |
+| `delete_project`           | `id`                                         | Deletes a project and all its tasks.                                                                               |
+| `toggle_project_activity`  | `id`, `is_active` (0/1)                      | Enables or disables the Autonomous PO Simulation for a specific project.                                           |
+| `create_project_from_spec` | `spec` (string), `team_id` (opt)             | Uses Gemini AI to automatically create a project and tasks from a text specification.                              |
+| `get_project_defaults`     | None                                         | Returns supported programming `languages` and their default `prompts`.                                             |
+| `set_project_team`         | `id` (project), `team_id` (null to unassign) | Assigns/Unassigns a project to a specific team.                                                                    |
+| `list_user_teams`          | None                                         | Returns a list of teams associated with the current user. If the user is an **Instructor**, returns **all** teams. |
 
 ### 3. Project Generation
 
 **Action Parameter:** `action` = `generate_project_tasks`
 
-| Field | Description |
-| :--- | :--- |
-| `project_name` | Name of the new project to create. |
-| `ai_prompt` | Prompt instructions for Gemini AI to generate initial tasks. |
-| `team_id` | (Optional) Team to assign the project to upon creation. |
+| Field          | Description                                                  |
+| :------------- | :----------------------------------------------------------- |
+| `project_name` | Name of the new project to create.                           |
+| `ai_prompt`    | Prompt instructions for Gemini AI to generate initial tasks. |
+| `team_id`      | (Optional) Team to assign the project to upon creation.      |
 
 This request triggers the **AI Brainstorming** flow, creating the project and populating the Sprint Backlog with AI-generated tasks.
 
@@ -132,40 +132,53 @@ Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` qu
 
 **Action Parameter:** `action` (in GET or POST)
 
-| Action | Method | Required Fields | Description |
-| :--- | :--- | :--- | :--- |
-| `get_setting` | GET | `key` | Retrieves a system setting by key. |
-| `save_setting` | POST | `key`, `value` | Saves or updates a system setting. |
+| Action         | Method | Required Fields | Description                        |
+| :------------- | :----- | :-------------- | :--------------------------------- |
+| `get_setting`  | GET    | `key`           | Retrieves a system setting by key. |
+| `save_setting` | POST   | `key`, `value`  | Saves or updates a system setting. |
 
 ### 6. Requirement Management
 
 **Action Parameter:** `action` (in GET or POST)
 
-| Action | Method | Required Fields | Description |
-| :--- | :--- | :--- | :--- |
-| `save_requirement` | POST | `project_name`, `content` | Saves a new requirement for a project. |
-
-| `get_requirements` | GET | `project_name` | Retrieves all requirements for a specific project (ordered by newest). |
+| Action             | Method | Required Fields           | Description                                                            |
+| :----------------- | :----- | :------------------------ | :--------------------------------------------------------------------- |
+| `save_requirement` | POST   | `project_name`, `content` | Saves a new requirement for a project.                                 |
+| `get_requirements` | GET    | `project_name`            | Retrieves all requirements for a specific project (ordered by newest). |
 
 ### 7. API Usage Management
 
 **Action Parameter:** `action` (in GET)
 
-| Action | Method | Required Fields | Description |
-| :--- | :--- | :--- | :--- |
-| `get_api_usage` | GET | None | Retrieves token usage statistics (prompt, candidate, total) and cost configuration for the Gemini API. |
+| Action             | Method | Required Fields | Description                                                                                            |
+| :----------------- | :----- | :-------------- | :----------------------------------------------------------------------------------------------------- |
+| `get_api_usage`    | GET    | None            | Retrieves token usage statistics (prompt, candidate, total) and cost configuration for the Gemini API. |
 
 ### 8. Team Management
 
 **Action Parameter:** `action` (in POST or GET)
 
-| Action | Method | Required Fields | Description |
-| :--- | :--- | :--- | :--- |
-| `list_teams` | GET/POST | None | Retrieve a list of all teams. |
-| `create_team` | POST | `name` | Creates a new group/team of students. |
-| `list_roles` | GET/POST | None | Retrieve available system roles (e.g., Instructor, Student, PO). |
-| `assign_team_user` | POST | `team_id`, `user_id`, `role_id` | Assigns a user (by ID or exact username) to a team mapped to a specific role. |
-| `list_team_users` | GET | `team_id` | Lists all users and their respective roles for a given team. |
-| `remove_team_user` | POST | `team_id`, `user_id` | Removes a user from a specific team. |
-| `update_team_user_role` | POST | `team_id`, `user_id`, `role_id` | Changes the role of a user within a team. |
-| `update_team` | POST | `team_id`, `name` | Renames an existing team. |
+| Action                  | Method   | Required Fields                  | Description                                                                   |
+| :---------------------- | :------- | :------------------------------- | :---------------------------------------------------------------------------- |
+| `list_teams`            | GET/POST | None                             | Retrieve a list of all teams.                                                 |
+| `create_team`           | POST     | `name`                           | Creates a new group/team of students.                                         |
+| `list_roles`            | GET/POST | None                             | Retrieve available system roles (e.g., Instructor, Student, PO).              |
+| `assign_team_user`      | POST     | `team_id`, `user_id`, `role_id`  | Assigns a user (by ID or exact username) to a team mapped to a specific role. |
+| `list_team_users`       | GET      | `team_id`                        | Lists all users and their respective roles for a given team.                  |
+| `remove_team_user`      | POST     | `team_id`, `user_id`             | Removes a user from a specific team.                                          |
+| `update_team_user_role` | POST     | `team_id`, `user_id`, `role_id`  | Changes the role of a user within a team.                                     |
+| `update_team`           | POST     | `team_id`, `name`                | Renames an existing team.                                                     |
+
+### 9. TAWOS Dataset
+
+**Action Parameter:** `action` (in GET)
+
+TAIPO ships a curated subset of the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022) containing real-world agile issue patterns from Jira repositories. The data auto-seeds on first boot from `backend/data/tawos_seed.csv`.
+
+| Action             | Method | Required Fields                    | Description                                                                        |
+| :----------------- | :----- | :----------------------------------| :--------------------------------------------------------------------------------- |
+| `get_tawos_stats`  | GET    | None                               | Returns dataset statistics: total record count, type breakdown, and project names. |
+| `get_tawos_sample` | GET    | `limit` (opt, default: 5, max: 20) | Returns a random sample of TAWOS records for debug/demo purposes.                  |
+
+> [!NOTE]
+> TAWOS data is primarily used internally to enrich the Autonomous PO Simulation prompts with real-world agile feedback tone and change request patterns. The API endpoints above are provided for transparency and debugging.
