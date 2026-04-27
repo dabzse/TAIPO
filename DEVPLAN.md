@@ -5,12 +5,12 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 ## EPICS
 
 [X] Epic 1: Core Kanban Board Infrastructure  
-[ ] Epic 2: AI-Powered Product Owner Assistant  
-[ ] Epic 3: Project Simulation Capabilities  
-[ ] Epic 4: Backend and Integration  
-[ ] Epic 5: Quality and Safety Features  
+[/] Epic 2: AI-Powered Product Owner Assistant  
+[/] Epic 3: Project Simulation Capabilities  
+[/] Epic 4: Backend and Integration  
+[/] Epic 5: Quality and Safety Features  
 [ ] Epic 6: Educational Use Cases  
-[ ] Epic 7: Technical Debt and Infrastructure  
+[/] Epic 7: Technical Debt and Infrastructure  
 
 ---
 
@@ -125,7 +125,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 5
 
-## [/] Story 3.1: Automated Comment Generation (Priority: MEDIUM)
+## [X] Story 3.1: Automated Comment Generation (Priority: MEDIUM)
 
 **As an** instructor  
 **I want** TAIPO to automatically add comments to cards at configured intervals  
@@ -136,12 +136,12 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [X] TAIPO generates comments every 2 hours during working hours (8AM-4PM, weekdays)  
 [X] Comments use TAWOS database and current board context  
 [X] Comments are contextually relevant to card content  
-[ ] Comment frequency is configurable  
+[X] Comment frequency is configurable  
 [X] Generated comments simulate realistic PO feedback  
 
 **Story Points:** 8
 
-## [/] Story 3.2: Simulated Requirement Changes (Priority: MEDIUM)
+## [X] Story 3.2: Simulated Requirement Changes (Priority: MEDIUM)
 
 **As an** instructor  
 **I want** TAIPO to generate new requirements and change requests periodically  
@@ -152,7 +152,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [X] TAIPO generates new requirements/stories/CRs approximately every 3 days  
 [X] Generated changes are based on TAWOS data patterns  
 [X] Changes simulate realistic project scenarios  
-[ ] Frequency is configurable  
+[X] Frequency is configurable (.env only, plan: dashboard)
 [X] New items are added to appropriate board sections  
 
 **Story Points:** 8
@@ -375,4 +375,4 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [/] Epic 3: Story 3.3 (Multi-team support)  
 [/] Deployment optimization (Story 7.1)  
 
-**Approximately 66%** of the whole project is done.
+**Approximately 69%** of the whole project is done.
