@@ -9,7 +9,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [/] Epic 3: Project Simulation Capabilities  
 [X] Epic 4: Backend and Integration  
 [/] Epic 5: Quality and Safety Features  
-[ ] Epic 6: Educational Use Cases  
+[/] Epic 6: Educational Use Cases  
 [/] Epic 7: Technical Debt and Infrastructure  
 
 ---
@@ -302,7 +302,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 8
 
-## [ ] Story 6.3: Instructor Dashboard (Priority: LOW)
+## [/] Story 6.3: Instructor Dashboard (Priority: LOW)
 
 **As an** instructor  
 **I want** visibility into all student team activities  
@@ -310,7 +310,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Acceptance Criteria:**
 
-[ ] Dashboard shows status of all active projects  
+[X] Dashboard shows status of all active projects  
 [ ] Key metrics are visible (velocity, completion rates)  
 [ ] Instructor can view any team's board  
 [ ] Alerts flag teams with blocked or stalled work  
