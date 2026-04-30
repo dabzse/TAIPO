@@ -195,19 +195,33 @@
                 <!-- Tab: Projects -->
                 <div
                     v-if="activeTab === 'projects'"
-                    class="max-h-[60vh] overflow-y-auto"
+                    class="max-h-[60vh] overflow-y-auto relative"
                 >
+                    <div class="flex justify-between items-center mb-4 sticky top-0 bg-base-100 z-10 py-2 border-b border-base-200">
+                        <h4 class="font-bold">Managed Projects</h4>
+                        <button
+                            @click="exportProjectsCsv"
+                            class="btn btn-sm btn-outline btn-primary gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Export CSV
+                        </button>
+                    </div>
+                    
                     <table
                         v-if="dashboardData.projects?.length"
                         class="table table-zebra w-full"
                     >
                         <thead>
                             <tr class="text-base">
-                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Team</th>
-                                <th>Simulation Active</th>
-                                <th>Created</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                                <th>Alerts</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -215,8 +229,9 @@
                                 v-for="project in dashboardData.projects"
                                 :key="project.id"
                             >
-                                <td class="font-mono text-xs">{{ project.id }}</td>
-                                <td class="font-bold">{{ project.name }}</td>
+                                <td class="font-bold whitespace-nowrap">
+                                    {{ project.name }}
+                                </td>
                                 <td>
                                     <span
                                         v-if="project.team_id"
@@ -230,15 +245,44 @@
                                     >—</span>
                                 </td>
                                 <td>
+                                    <div v-if="project.metrics" class="flex flex-col gap-1 w-32">
+                                        <div class="flex justify-between text-xs">
+                                            <span>{{ project.metrics.completion_rate }}%</span>
+                                            <span class="opacity-70">{{ project.metrics.done_tasks }}/{{ project.metrics.total_tasks }}</span>
+                                        </div>
+                                        <progress class="progress progress-success w-full" :value="project.metrics.completion_rate" max="100"></progress>
+                                    </div>
+                                    <span v-else class="opacity-40">—</span>
+                                </td>
+                                <td>
                                     <input
                                         :checked="project.is_active == 1"
                                         @change="toggleProjectActivity(project, $event)"
                                         type="checkbox"
                                         class="toggle toggle-sm toggle-success"
+                                        title="Toggle Simulation Activity"
                                     >
                                 </td>
-                                <td class="text-xs opacity-60">
-                                    {{ formatDate(project.created_at) }}
+                                <td>
+                                    <div
+                                        v-if="project.metrics?.stalled"
+                                        class="badge badge-error badge-sm gap-1 cursor-help"
+                                        title="No task updates in the last 3 days"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Stalled
+                                    </div>
+                                    <span v-else class="opacity-40">—</span>
+                                </td>
+                                <td>
+                                    <button 
+                                        @click="viewBoard(project.name)"
+                                        class="btn btn-xs btn-outline btn-secondary"
+                                    >
+                                        View Board
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -275,7 +319,7 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'view-board']);
 
 const loading = ref(false);
 const error = ref(null);
@@ -355,6 +399,38 @@ const toggleProjectActivity = async (project, event) => {
         event.target.checked = !isActive;
         console.error('Failed to toggle project activity:', e);
     }
+};
+
+const exportProjectsCsv = () => {
+    if (!dashboardData.value.projects || !dashboardData.value.projects.length) return;
+    
+    const headers = ['Name', 'Team ID', 'Total Tasks', 'Done Tasks', 'Completion %', 'Stalled', 'Simulation Active', 'Created At'];
+    
+    const rows = dashboardData.value.projects.map(p => [
+        `"${p.name.replace(/"/g, '""')}"`,
+        p.team_id || '',
+        p.metrics?.total_tasks || 0,
+        p.metrics?.done_tasks || 0,
+        p.metrics?.completion_rate || 0,
+        p.metrics?.stalled ? 'Yes' : 'No',
+        p.is_active ? 'Yes' : 'No',
+        p.created_at
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `taipo_projects_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+const viewBoard = (projectName) => {
+    emit('view-board', projectName);
 };
 
 const closeModal = () => {

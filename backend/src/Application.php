@@ -343,6 +343,37 @@ class Application
             $userId = $_SESSION['user_id'] ?? 0;
             $projects = $this->projectService->getAllProjects($userId, true);
 
+            // Attach metrics
+            $metrics = $this->projectService->getProjectMetrics();
+            foreach ($projects as &$project) {
+                $name = $project['name'];
+                $projectMetrics = $metrics[$name] ?? [
+                    'total_tasks' => 0,
+                    'done_tasks' => 0,
+                    'last_wip_update' => null
+                ];
+                
+                $stalled = false;
+                if ($projectMetrics['total_tasks'] > 0 && $projectMetrics['done_tasks'] < $projectMetrics['total_tasks']) {
+                    if ($projectMetrics['last_wip_update']) {
+                        $lastUpdate = new \DateTime($projectMetrics['last_wip_update']);
+                        $now = new \DateTime();
+                        $diff = $now->diff($lastUpdate);
+                        if ($diff->days >= 3) {
+                            $stalled = true;
+                        }
+                    }
+                }
+                
+                $project['metrics'] = [
+                    'total_tasks' => (int)$projectMetrics['total_tasks'],
+                    'done_tasks' => (int)$projectMetrics['done_tasks'],
+                    'completion_rate' => $projectMetrics['total_tasks'] > 0 ? round(($projectMetrics['done_tasks'] / $projectMetrics['total_tasks']) * 100) : 0,
+                    'stalled' => $stalled
+                ];
+            }
+            unset($project); // break reference
+
             echo json_encode([
                 'success' => true,
                 'config' => $config,

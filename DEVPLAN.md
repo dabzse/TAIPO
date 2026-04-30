@@ -302,7 +302,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 8
 
-## [/] Story 6.3: Instructor Dashboard (Priority: LOW)
+## [X] Story 6.3: Instructor Dashboard (Priority: LOW)
 
 **As an** instructor  
 **I want** visibility into all student team activities  
@@ -311,10 +311,10 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 **Acceptance Criteria:**
 
 [X] Dashboard shows status of all active projects  
-[ ] Key metrics are visible (velocity, completion rates)  
-[ ] Instructor can view any team's board  
-[ ] Alerts flag teams with blocked or stalled work  
-[ ] Export functionality for assessment purposes  
+[X] Key metrics are visible (velocity, completion rates)  
+[X] Instructor can view any team's board  
+[X] Alerts flag teams with blocked or stalled work  
+[X] Export functionality for assessment purposes  
 
 **Story Points:** 8
 
@@ -375,4 +375,4 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [/] Epic 3: Story 3.3 (Multi-team support)  
 [/] Deployment optimization (Story 7.1)  
 
-**Approximately 74%** of the whole project is done.
+**Approximately 76%** of the whole project is done.

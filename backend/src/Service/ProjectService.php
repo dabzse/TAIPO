@@ -38,6 +38,17 @@ class ProjectService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getProjectMetrics(): array
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->query("SELECT project_name, COUNT(id) as total_tasks, SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) as done_tasks, MAX(CASE WHEN status != 'DONE' AND status != 'SPRINT BACKLOG' THEN updated_at ELSE NULL END) as last_wip_update FROM {$prefix}tasks GROUP BY project_name");
+        $metrics = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $metrics[$row['project_name']] = $row;
+        }
+        return $metrics;
+    }
+
     public function createProject(string &$name, ?int $userId = null, ?int $teamId = null): int
     {
         $prefix = Config::getTablePrefix();

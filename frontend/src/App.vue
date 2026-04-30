@@ -230,6 +230,7 @@
         <DashboardModal
             :is-open="isDashboardOpen"
             @close="isDashboardOpen = false"
+            @view-board="handleViewBoard"
         />
 
         <!-- Global Toast Notification -->
@@ -445,6 +446,11 @@ onBeforeUnmount(() => {
 const handleProjectSelected = async (projectName) => {
     currentProject.value = projectName;
     await refreshTasks();
+};
+
+const handleViewBoard = async (projectName) => {
+    isDashboardOpen.value = false;
+    await handleProjectSelected(projectName);
 };
 
 const refreshTasks = async () => {
