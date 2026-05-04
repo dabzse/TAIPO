@@ -209,7 +209,7 @@
                             Export CSV
                         </button>
                     </div>
-                    
+
                     <table
                         v-if="dashboardData.projects?.length"
                         class="table table-zebra w-full"
@@ -237,7 +237,7 @@
                                         v-if="project.team_id"
                                         class="badge badge-info badge-sm"
                                     >
-                                        Team #{{ project.team_id }}
+                                        {{ project.team_name || ('Team #' + project.team_id) }}
                                     </span>
                                     <span
                                         v-else
@@ -346,10 +346,10 @@ const fetchDashboard = async () => {
         const res = await api.getDashboard();
         if (res.success) {
             dashboardData.value = res;
-            // Expand the first group by default
+            // All groups closed by default
             const groups = Object.keys(res.config || {});
-            groups.forEach((g, i) => {
-                expandedGroups[g] = i === 0;
+            groups.forEach((g) => {
+                expandedGroups[g] = false;
             });
         } else {
             error.value = res.error || 'Failed to load dashboard data.';
@@ -403,12 +403,12 @@ const toggleProjectActivity = async (project, event) => {
 
 const exportProjectsCsv = () => {
     if (!dashboardData.value.projects || !dashboardData.value.projects.length) return;
-    
-    const headers = ['Name', 'Team ID', 'Total Tasks', 'Done Tasks', 'Completion %', 'Stalled', 'Simulation Active', 'Created At'];
-    
+
+    const headers = ['Name', 'Team', 'Total Tasks', 'Done Tasks', 'Completion %', 'Stalled', 'Simulation Active', 'Created At'];
+
     const rows = dashboardData.value.projects.map(p => [
-        `"${p.name.replace(/"/g, '""')}"`,
-        p.team_id || '',
+        `"${p.name.replaceAll('"', '""')}"`,
+        p.team_name || p.team_id || '',
         p.metrics?.total_tasks || 0,
         p.metrics?.done_tasks || 0,
         p.metrics?.completion_rate || 0,
@@ -416,9 +416,9 @@ const exportProjectsCsv = () => {
         p.is_active ? 'Yes' : 'No',
         p.created_at
     ]);
-    
+
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -426,7 +426,7 @@ const exportProjectsCsv = () => {
     link.setAttribute('download', `taipo_projects_export_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
 };
 
 const viewBoard = (projectName) => {

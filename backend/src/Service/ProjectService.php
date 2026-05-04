@@ -22,13 +22,19 @@ class ProjectService
         $prefix = Config::getTablePrefix();
 
         if ($isInstructor) {
-            $stmt = $this->pdo->prepare("SELECT id, name, team_id, is_active, created_at FROM {$prefix}projects ORDER BY name ASC");
+            $stmt = $this->pdo->prepare("
+                SELECT p.id, p.name, p.team_id, p.is_active, p.created_at, t.name as team_name
+                FROM {$prefix}projects p
+                LEFT JOIN {$prefix}teams t ON p.team_id = t.id
+                ORDER BY p.name ASC
+            ");
             $stmt->execute();
         } else {
             $stmt = $this->pdo->prepare("
-                SELECT DISTINCT p.id, p.name, p.team_id, p.is_active, p.created_at
+                SELECT DISTINCT p.id, p.name, p.team_id, p.is_active, p.created_at, t.name as team_name
                 FROM {$prefix}projects p
                 LEFT JOIN {$prefix}team_users tu ON p.team_id = tu.team_id
+                LEFT JOIN {$prefix}teams t ON p.team_id = t.id
                 WHERE p.user_id = :user_id OR tu.user_id = :user_id
                 ORDER BY p.name ASC
             ");
