@@ -16,12 +16,14 @@ class TaskAiService
 
     private GeminiService $geminiService;
     private TaskService $taskService;
+    private HistoryService $historyService;
 
-    public function __construct(PDO $pdo, GeminiService $geminiService, TaskService $taskService)
+    public function __construct(PDO $pdo, GeminiService $geminiService, TaskService $taskService, HistoryService $historyService)
     {
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
         $this->taskService = $taskService;
+        $this->historyService = $historyService;
     }
 
     public function generateProjectTasks(string $projectName, string $rawPrompt, ?int $userId = null, bool $isInstructor = false): int
@@ -146,7 +148,14 @@ class TaskAiService
                   "Do not include statuses.";
 
         $rawTasks = $this->geminiService->askTaipo($prompt);
-        return $this->insertSubtasks($projectName, $parentId, $finalDescription, $rawTasks);
+        $count = $this->insertSubtasks($projectName, $parentId, $finalDescription, $rawTasks);
+
+        if ($parentId !== null) {
+            $this->historyService->setContext($userId);
+            $this->historyService->log($parentId, 'ai_decompose', null, null, "Story decomposed into $count subtasks.");
+        }
+
+        return $count;
     }
 
     private function getFinalDescription(string $description, ?int $parentId): string
@@ -223,6 +232,10 @@ class TaskAiService
 
         $answer = $this->geminiService->askTaipo($prompt);
         $this->persistQueryAnswer($taskId, $query, $answer, $task['po_comments'] ?? '');
+
+        $this->historyService->setContext($userId);
+        $this->historyService->log($taskId, 'ai_query', $query, $answer);
+
         return $answer;
     }
 
@@ -287,6 +300,9 @@ class TaskAiService
         if ($taskId !== null) {
             $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET generated_code = :code WHERE id = :id");
             $stmt->execute([':code' => $rawText, ':id' => $taskId]);
+
+            $this->historyService->setContext($userId);
+            $this->historyService->log($taskId, 'ai_code_gen', null, null, "Code generated for task.");
         }
 
         return $rawText;

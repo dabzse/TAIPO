@@ -19,11 +19,13 @@ class TaskService
     public const STATUS_SPRINT_BACKLOG = 'SPRINT BACKLOG';
 
     private GeminiService $geminiService;
+    private HistoryService $historyService;
 
-    public function __construct(PDO $pdo, GeminiService $geminiService)
+    public function __construct(PDO $pdo, GeminiService $geminiService, HistoryService $historyService)
     {
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
+        $this->historyService = $historyService;
     }
 
     public function getProjects(): array
@@ -104,7 +106,12 @@ class TaskService
             ':description' => $description,
             ':is_important' => $isImportant
         ]);
-        return (int) $this->pdo->lastInsertId();
+        $taskId = (int) $this->pdo->lastInsertId();
+
+        $this->historyService->setContext($userId);
+        $this->historyService->log($taskId, 'create_task', null, self::STATUS_SPRINT_BACKLOG, "Task created: $title");
+
+        return $taskId;
     }
 
     public function deleteTask(int $taskId, int $userId = 0, bool $isInstructor = false): string
@@ -122,6 +129,9 @@ class TaskService
         if (!$this->isAuthorized($info['project_name'], $userId, $isInstructor)) {
             throw new ProjectUnauthorizedException($info['project_name']);
         }
+
+        $this->historyService->setContext($userId);
+        $this->historyService->log($taskId, 'delete_task', $info['status'], null, "Task deleted by user.");
 
         $stmt = $this->pdo->prepare("DELETE FROM {$prefix}tasks WHERE id = :id");
         $stmt->execute([':id' => $taskId]);
@@ -181,7 +191,14 @@ class TaskService
 
         $stmt = $this->pdo->prepare($query);
         $stmt->execute($params);
-        return $stmt->rowCount();
+
+        $rowCount = $stmt->rowCount();
+        if ($rowCount > 0) {
+            $this->historyService->setContext($userId);
+            $this->historyService->log($taskId, 'edit_content', null, null, "Title or description updated.");
+        }
+
+        return $rowCount;
     }
 
     public function updateStatus(int $taskId, string $newStatus, string $projectName, int $userId = 0, bool $isInstructor = false): void
@@ -213,6 +230,11 @@ class TaskService
             ':id' => $taskId,
             ':project_name' => $projectName
         ]);
+
+        if ($stmt->rowCount() > 0) {
+            $this->historyService->setContext($userId);
+            $this->historyService->log($taskId, 'status_change', null, $newStatus);
+        }
     }
 
     public function replaceProjectTasks(string $projectName, array $newTasks, int $userId = 0, bool $isInstructor = false): int

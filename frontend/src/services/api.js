@@ -213,6 +213,10 @@ export const api = {
         });
         return response.data;
     },
+    async getTaskHistory(taskId) {
+        const response = await client.get(`/?action=get_task_history&task_id=${taskId}`);
+        return response.data;
+    },
 
     async saveRequirement(projectName, content) {
         return client.post('/', {

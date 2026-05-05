@@ -107,6 +107,18 @@ class DatabaseConfig
                     comment_text TEXT DEFAULT NULL,
                     project_name VARCHAR(256),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )",
+                'task_history' => "CREATE TABLE IF NOT EXISTS task_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id INTEGER NOT NULL,
+                    user_id INTEGER DEFAULT NULL,
+                    team_id INTEGER DEFAULT NULL,
+                    action VARCHAR(64) NOT NULL,
+                    old_value TEXT DEFAULT NULL,
+                    new_value TEXT DEFAULT NULL,
+                    details TEXT DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
                 )"
             ]
         ];

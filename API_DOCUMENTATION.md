@@ -59,6 +59,7 @@ Error Mockup:
 | `commit_to_github`    | `task_id`, `code`, `description`, `user_token` (opt), `user_username` (opt)  | `filePath` (string)                          | Commits the generated code to the configured GitHub repository.                                                                                                                |
 | `reorder_tasks`       | `project_name`, `status`, `task_ids` (array)                                 | `success: true`                              | Reorders tasks within a specific column/status.                                                                                                                                |
 | `query_task`          | `task_id`, `query`                                                           | `answer` (string)                            | Uses Gemini AI to answer a question about a specific task.                                                                                                                     |
+| `get_task_history`    | `task_id`                                                                    | `data` (array)                               | Returns the full audit trail for a task, including status changes, edits, and AI interactions.                                                                                 |
 
 `decompose_task` behavior notes:
 

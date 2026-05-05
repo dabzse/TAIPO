@@ -23,6 +23,7 @@ use App\Exception\ProjectAlreadyExistsException;
 use App\Service\ApplicationService;
 use App\Service\GeminiService;
 use App\Service\GitHubService;
+use App\Service\HistoryService;
 use App\Service\PoActivityService;
 use App\Service\ProjectService;
 use App\Service\RequirementService;
@@ -181,7 +182,8 @@ class Application
             'handleTaskAction' => [
                 'add_task', 'delete_task', 'toggle_importance', 'update_status',
                 'reorder_tasks', 'edit_task', 'generate_code', 'generate_project_tasks',
-                'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec'
+                'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec',
+                'get_task_history'
             ],
             'handleProjectAction' => [
                 'create_project', 'list_projects', 'update_project', 'delete_project',
@@ -400,12 +402,13 @@ class Application
             $pdo = $database->getPdo();
 
             $this->geminiService = new GeminiService($pdo);
-            $this->taskService = new TaskService($pdo, $this->geminiService);
-            $this->taskAiService = new TaskAiService($pdo, $this->geminiService, $this->taskService);
+            $historyService = new HistoryService($pdo);
+            $this->taskService = new TaskService($pdo, $this->geminiService, $historyService);
+            $this->taskAiService = new TaskAiService($pdo, $this->geminiService, $this->taskService, $historyService);
             $this->projectService = new ProjectService($pdo);
             $this->githubService = new GitHubService($_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN'), $_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'), $_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO'));
 
-            $this->taskController = new TaskController($this->taskService, $this->taskAiService, $this->projectService);
+            $this->taskController = new TaskController($this->taskService, $this->taskAiService, $this->projectService, $historyService);
             $this->projectController = new ProjectController($this->projectService);
             $this->settingsController = new SettingsController(new SettingsService($pdo));
 
@@ -418,7 +421,7 @@ class Application
             $this->tawosService = new TawosService($pdo, $database->getDbType());
             $this->tawosService->autoSeed();
 
-            $this->poActivityService = new PoActivityService($pdo, $this->geminiService, $database->getDbType(), $this->tawosService);
+            $this->poActivityService = new PoActivityService($pdo, $this->geminiService, $historyService, $database->getDbType(), $this->tawosService);
         } catch (Exception $e) {
             $error = $e->getMessage();
         }
@@ -530,6 +533,9 @@ class Application
                 break;
             case 'create_project_from_spec':
                 $this->taskController->handleCreateFromSpec();
+                break;
+            case 'get_task_history':
+                $this->taskController->handleGetTaskHistory();
                 break;
             default:
                 break;

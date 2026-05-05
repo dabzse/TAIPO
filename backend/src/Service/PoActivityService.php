@@ -14,13 +14,15 @@ class PoActivityService
     private PDO $pdo;
     private GeminiService $geminiService;
     private ?TawosService $tawosService;
+    private HistoryService $historyService;
     private ?int $currentUserId;
     private string $dbType;
 
-    public function __construct(PDO $pdo, GeminiService $geminiService, string $dbType = 'sqlite', ?TawosService $tawosService = null)
+    public function __construct(PDO $pdo, GeminiService $geminiService, HistoryService $historyService, string $dbType = 'sqlite', ?TawosService $tawosService = null)
     {
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
+        $this->historyService = $historyService;
         $this->dbType = $dbType;
         $this->tawosService = $tawosService;
 
@@ -109,6 +111,9 @@ class PoActivityService
 
             $this->addPoComment($task['id'], $comment);
 
+            $this->historyService->setContext(null, $project['team_id']);
+            $this->historyService->log($task['id'], 'ai_comment', null, $comment);
+
             // Update last_comment_at and schedule NEXT
             $this->updateProjectTimestamp($project['id'], 'last_comment_at');
             $this->scheduleNextActivity($project['id'], 'comment');
@@ -145,7 +150,11 @@ class PoActivityService
 
             $crData = $this->parseCrResponse($rawCr);
             if ($crData) {
-                $this->addCrTask($project['name'], $crData['title'], $crData['story']);
+                $taskId = $this->addCrTask($project['name'], $crData['title'], $crData['story']);
+
+                $this->historyService->setContext(null, $project['team_id']);
+                $this->historyService->log($taskId, 'ai_change_request', null, $crData['title'], $crData['story']);
+
                 $this->updateProjectTimestamp($project['id'], 'last_cr_at');
                 $this->scheduleNextActivity($project['id'], 'cr');
             }
@@ -239,7 +248,7 @@ class PoActivityService
         $update->execute([':comments' => $newComments, ':id' => $taskId]);
     }
 
-    private function addCrTask(string $projectName, string $title, string $description): void
+    private function addCrTask(string $projectName, string $title, string $description): int
     {
         $prefix = Config::getTablePrefix();
         $stmt = $this->pdo->prepare("INSERT INTO {$prefix}tasks (project_name, title, description, status, is_important, po_comments)
@@ -249,6 +258,7 @@ class PoActivityService
             ':title' => $title,
             ':desc' => $description
         ]);
+        return (int) $this->pdo->lastInsertId();
     }
 
     private function updateProjectTimestamp(int $projectId, string $column): void

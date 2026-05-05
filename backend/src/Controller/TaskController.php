@@ -2,22 +2,27 @@
 
 namespace App\Controller;
 
-use App\Service\TaskService;
-use App\Service\TaskAiService;
-use App\Service\ProjectService;
 use App\Config;
-use App\Exception\WipLimitExceededException;
-use App\Exception\ProjectAlreadyExistsException;
 use App\Utils;
-use App\Exception\GeminiApiException;
-use App\Exception\TaskNotFoundException;
 use Exception;
+
+use App\Exception\GeminiApiException;
+use App\Exception\ProjectAlreadyExistsException;
+use App\Exception\TaskNotFoundException;
+use App\Exception\WipLimitExceededException;
+
+use App\Service\HistoryService;
+use App\Service\ProjectService;
+use App\Service\TaskAiService;
+use App\Service\TaskService;
+
 
 class TaskController
 {
     private TaskService $taskService;
     private TaskAiService $taskAiService;
     private ProjectService $projectService;
+    private HistoryService $historyService;
 
     private const EXTENSION_MAP = [
         'java' => 'java',
@@ -46,11 +51,12 @@ class TaskController
         'md' => 'md'
     ];
 
-    public function __construct(TaskService $taskService, TaskAiService $taskAiService, ProjectService $projectService)
+    public function __construct(TaskService $taskService, TaskAiService $taskAiService, ProjectService $projectService, HistoryService $historyService)
     {
         $this->taskService = $taskService;
         $this->taskAiService = $taskAiService;
         $this->projectService = $projectService;
+        $this->historyService = $historyService;
     }
 
     public function handleAddTask()
@@ -460,5 +466,24 @@ class TaskController
             'extension' => $extension,
             'code' => $code
         ];
+    }
+
+    public function handleGetTaskHistory()
+    {
+        $taskId = filter_var($_GET['task_id'] ?? $_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$taskId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => "Task ID is required."]);
+            return;
+        }
+
+        try {
+            $history = $this->historyService->getTaskHistory($taskId);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true, 'data' => $history]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
     }
 }
