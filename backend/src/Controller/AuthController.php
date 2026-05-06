@@ -93,7 +93,8 @@ class AuthController
             echo json_encode(['success' => true, 'user' => [
                 'id' => $userId,
                 'username' => $username,
-                'is_instructor' => $isInstructor
+                'is_instructor' => $isInstructor,
+                'last_active_project' => null
             ]]);
         }
     }
@@ -111,7 +112,7 @@ class AuthController
 
         try {
             $prefix = Config::getTablePrefix();
-            $stmt = $this->pdo->prepare("SELECT id, username, password_hash, is_instructor FROM {$prefix}users WHERE username = :username");
+            $stmt = $this->pdo->prepare("SELECT id, username, password_hash, is_instructor, last_active_project FROM {$prefix}users WHERE username = :username");
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -127,7 +128,8 @@ class AuthController
                 echo json_encode(['success' => true, 'user' => [
                     'id' => $user['id'],
                     'username' => $user['username'],
-                    'is_instructor' => (bool)$user['is_instructor']
+                    'is_instructor' => (bool)$user['is_instructor'],
+                    'last_active_project' => $user['last_active_project']
                 ]]);
             } else {
                 http_response_code(401);
@@ -183,13 +185,46 @@ class AuthController
                 'user' => [
                     'id' => $_SESSION['user_id'],
                     'username' => $_SESSION['username'],
-                    'is_instructor' => $isInstructor
+                    'is_instructor' => $isInstructor,
+                    'last_active_project' => $this->getLastActiveProject($_SESSION['user_id'])
                 ],
                 'config' => $config
             ]);
         } else {
             echo json_encode(['success' => true, 'authenticated' => false, 'config' => $config]);
         }
+    }
+
+    public function handleUpdateActiveProject()
+    {
+        $userId = $_SESSION['user_id'] ?? null;
+        $projectName = trim($_POST['project_name'] ?? '');
+
+        if (!$userId) {
+            header(Config::APP_JSON, true, 401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        try {
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->prepare("UPDATE {$prefix}users SET last_active_project = :project WHERE id = :id");
+            $stmt->execute([':project' => $projectName ?: null, ':id' => $userId]);
+
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function getLastActiveProject(int $userId): ?string
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT last_active_project FROM {$prefix}users WHERE id = :id");
+        $stmt->execute([':id' => $userId]);
+        return $stmt->fetchColumn() ?: null;
     }
     public function handleGitHubLogin()
     {

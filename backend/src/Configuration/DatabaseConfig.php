@@ -35,6 +35,7 @@ class DatabaseConfig
                     username VARCHAR(191) NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
                     is_instructor INTEGER DEFAULT 0,
+                    last_active_project VARCHAR(191) DEFAULT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'projects' => "CREATE TABLE IF NOT EXISTS projects (

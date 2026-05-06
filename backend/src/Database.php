@@ -202,7 +202,7 @@ class Database
         $this->ensureColumnsExist($prefix . 'api_usage', ['user_id', 'team_id']);
 
         // User migrations
-        $this->ensureColumnsExist($prefix . 'users', ['is_instructor']);
+        $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project']);
     }
 
     private function seedDefaultRoles(string $prefix): void
@@ -347,6 +347,7 @@ class Database
             'po_comments' => ['type' => $clobType, 'default' => 'NULL'],
             'generated_code' => ['type' => $clobType, 'default' => 'NULL'],
             'is_instructor' => ['type' => 'INTEGER', 'default' => '0'],
+            'last_active_project' => ['type' => $titleType, 'default' => 'NULL'],
         ];
     }
 

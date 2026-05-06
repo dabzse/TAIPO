@@ -136,6 +136,10 @@ class ProjectService
             $stmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET project_name = :newName WHERE project_name = :oldName");
             $stmt->execute([':newName' => $newName, ':oldName' => $oldName]);
 
+            // Update user last active project
+            $stmt = $this->pdo->prepare("UPDATE {$prefix}users SET last_active_project = :newName WHERE last_active_project = :oldName");
+            $stmt->execute([':newName' => $newName, ':oldName' => $oldName]);
+
             $this->pdo->commit();
         } catch (Exception $e) {
             if ($this->pdo->inTransaction()) {
@@ -170,6 +174,10 @@ class ProjectService
             // Delete project
             $stmt = $this->pdo->prepare("DELETE FROM {$prefix}projects WHERE id = :id");
             $stmt->execute([':id' => $id]);
+
+            // Clear user last active project if it matches
+            $stmt = $this->pdo->prepare("UPDATE {$prefix}users SET last_active_project = NULL WHERE last_active_project = :name");
+            $stmt->execute([':name' => $name]);
 
             $this->pdo->commit();
         } catch (Exception $e) {

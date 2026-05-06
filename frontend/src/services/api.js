@@ -269,6 +269,13 @@ export const api = {
         return response.data;
     },
 
+    async saveActiveProject(projectName) {
+        return client.post('/', {
+            action: 'save_active_project',
+            project_name: projectName
+        });
+    },
+
     // Team Management
     async listTeams() {
         const response = await client.get('/?action=list_teams');

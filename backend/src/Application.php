@@ -146,6 +146,10 @@ class Application
                 $this->authController->handleLogout();
                 exit;
 
+            case 'save_active_project':
+                $this->authController->handleUpdateActiveProject();
+                exit;
+
             case 'get_setting':
             case 'save_setting':
                 $this->handleSettingAction($action);

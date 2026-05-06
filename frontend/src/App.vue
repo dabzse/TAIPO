@@ -375,6 +375,9 @@ const checkAuth = async () => {
         if (res.success && res.authenticated) {
             isAuthenticated.value = true;
             authUser.value = res.user;
+            if (res.user.last_active_project) {
+                currentProject.value = res.user.last_active_project;
+            }
             await refreshTasks();
         } else {
             isAuthenticated.value = false;
@@ -390,6 +393,9 @@ const checkAuth = async () => {
 const handleAuthSuccess = async (user) => {
     isAuthenticated.value = true;
     authUser.value = user;
+    if (user.last_active_project) {
+        currentProject.value = user.last_active_project;
+    }
     await refreshTasks();
 };
 
@@ -446,6 +452,11 @@ onBeforeUnmount(() => {
 const handleProjectSelected = async (projectName) => {
     currentProject.value = projectName;
     await refreshTasks();
+    try {
+        await api.saveActiveProject(projectName);
+    } catch (e) {
+        console.error("Failed to save active project:", e);
+    }
 };
 
 const handleViewBoard = async (projectName) => {
