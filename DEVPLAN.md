@@ -230,8 +230,8 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Acceptance Criteria:**
 
-[ ] All AI-generated content is timestamped and attributed  
-[ ] Change history for cards is maintained  
+[X] All AI-generated content is timestamped and attributed  
+[X] Change history for cards is maintained  
 [X] Queries and responses are linked to cards permanently  
 [ ] Audit log is searchable and exportable  
 [X] Original requirements remain accessible  
@@ -375,4 +375,4 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [/] Epic 3: Story 3.3 (Multi-team support)  
 [/] Deployment optimization (Story 7.1)  
 
-**Approximately 76%** of the whole project is done.
+**Approximately 82%** of the whole project is done.
