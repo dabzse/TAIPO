@@ -379,4 +379,95 @@ class TaskAiService
         ];
         return $statusMap[$rawStatus] ?? TaskService::STATUS_SPRINT_BACKLOG;
     }
+
+    public function reviewTaskForAcceptance(int $taskId, ?int $userId = null, bool $isInstructor = false): array
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT id, project_name, title, description, po_comments, generated_code, status FROM {$prefix}tasks WHERE id = :id");
+        $stmt->execute([':id' => $taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            throw new TaskNotFoundException("Task not found.");
+        }
+
+        $projectName = $task['project_name'];
+        if ($userId !== null && !$this->isAuthorized($projectName, $userId, $isInstructor)) {
+            throw new ProjectUnauthorizedException($projectName);
+        }
+
+        $context = $this->getProjectContextInfo($projectName);
+        $this->geminiService->setContext($userId, $context['team_id'] ?? null);
+
+        $prompt = \App\Prompts::getAcceptanceReviewPrompt(
+            $task['title'],
+            $task['description'],
+            $task['generated_code'] ?? '',
+            $task['po_comments'] ?? ''
+        );
+
+        $rawResponse = $this->geminiService->askTaipo($prompt);
+        $result = $this->parseReviewResponse($rawResponse);
+
+        if ($result) {
+            $newStatus = ($result['status'] === 'ACCEPTED') ? 'DONE' : 'SPRINT BACKLOG';
+            $oldStatus = $task['status'];
+
+            // Update task status via TaskService to respect constraints
+            $this->taskService->updateStatus($taskId, $newStatus, $projectName, $userId ?? 0, $isInstructor);
+
+            // Add PO comment
+            $feedback = "**Acceptance Decision: {$result['status']}**\n";
+            $feedback .= "**Reason:** {$result['reason']}\n";
+            if ($result['status'] === 'REJECTED') {
+                $feedback .= "**Suggestions:** {$result['suggestions']}";
+            }
+            $this->persistPoComment($taskId, $feedback, $task['po_comments'] ?? '');
+
+            // Log to history
+            $this->historyService->setContext($userId, $context['team_id'] ?? null);
+            $this->historyService->log($taskId, 'ai_review', $oldStatus, $newStatus, $feedback);
+
+            return array_merge($result, ['new_status' => $newStatus]);
+        }
+
+        throw new \App\Exception\GeminiApiException("Failed to parse AI review response.");
+    }
+
+    private function parseReviewResponse(string $raw): ?array
+    {
+        $status = '';
+        $reason = '';
+        $suggestions = '';
+
+        if (preg_match('/\[STATUS\]:(.*)/i', $raw, $m)) {
+            $status = trim($m[1]);
+        }
+        if (preg_match('/\[REASON\]:(.*)/i', $raw, $m)) {
+            $reason = trim($m[1]);
+        }
+        if (preg_match('/\[SUGGESTIONS\]:(.*)/i', $raw, $m)) {
+            $suggestions = trim($m[1]);
+        }
+
+        if ($status && $reason) {
+            return [
+                'status' => strtoupper($status),
+                'reason' => $reason,
+                'suggestions' => $suggestions
+            ];
+        }
+
+        return null;
+    }
+
+    private function persistPoComment(int $taskId, string $feedback, string $currentComments): void
+    {
+        $separator = $currentComments ? "\n\n---\n\n" : "";
+        $newComments = $currentComments . $separator . "**TAIPO Review:**\n" . $feedback;
+
+        $prefix = Config::getTablePrefix();
+        $updateStmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET po_comments = :comments WHERE id = :id");
+        $updateStmt->execute([':comments' => $newComments, ':id' => $taskId]);
+    }
 }

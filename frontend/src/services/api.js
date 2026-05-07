@@ -276,6 +276,13 @@ export const api = {
         });
     },
 
+    async reviewTask(taskId) {
+        return client.post('/', {
+            action: 'review_task',
+            task_id: taskId
+        });
+    },
+
     // Team Management
     async listTeams() {
         const response = await client.get('/?action=list_teams');

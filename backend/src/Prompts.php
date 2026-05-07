@@ -59,4 +59,23 @@ class Prompts
                 [TITLE]: [A very short title, max 40 chars]
                 [STORY]: [Standard format: As a [user], I want to [action], so that [benefit]]";
     }
+
+    public static function getAcceptanceReviewPrompt(string $taskTitle, string $taskDesc, string $code = '', string $comments = ''): string
+    {
+        $codeSection = $code ? "\n[SUBMITTED CODE/WORK]:\n{$code}\n" : "";
+        $commentsSection = $comments ? "\n[PREVIOUS PO COMMENTS]:\n{$comments}\n" : "";
+
+        return "You are TAIPO, a Product Owner assistant. You are reviewing a task that has been submitted for approval.
+
+                TASK TITLE: {$taskTitle}
+                TASK DESCRIPTION (Acceptance Criteria): {$taskDesc}
+                {$codeSection}{$commentsSection}
+
+                Evaluate if the task is complete based on the description and acceptance criteria.
+                If there are previous comments, ensure the task addressed them.
+                Respond strictly in the following format:
+                [STATUS]: [ACCEPTED or REJECTED]
+                [REASON]: [One sentence explanation of the decision]
+                [SUGGESTIONS]: [If REJECTED, give 1-2 specific points to fix. If ACCEPTED, say 'Great job!']";
+    }
 }

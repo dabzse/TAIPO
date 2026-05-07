@@ -242,6 +242,18 @@
 
             <!-- Sticky Footer Action Bar -->
             <div class="px-6 py-4 bg-base-100 border-t border-base-300 flex justify-end items-center gap-3 shrink-0 backdrop-blur-md">
+                <!-- Request Review Button -->
+                <button
+                    v-if="isReadOnly && (task?.status === 'REVIEW WIP:2' || task?.status === 'TESTING WIP:2')"
+                    @click="requestReview"
+                    :disabled="isReviewing"
+                    class="mr-auto px-5 py-2.5 text-sm font-bold bg-secondary hover:bg-secondary/90 text-secondary-content rounded-xl shadow-lg shadow-secondary/20 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
+                >
+                    <span v-if="isReviewing" class="loading loading-spinner loading-xs"></span>
+                    <span v-else>🔍</span>
+                    <span>{{ isReviewing ? 'Reviewing...' : 'Request PO Review' }}</span>
+                </button>
+
                 <button
                     @click="$emit('close')"
                     class="px-5 py-2.5 text-sm font-semibold text-base-content/60 hover:text-base-content hover:bg-base-200 rounded-xl transition-all duration-200"
@@ -315,6 +327,7 @@ const titleInput = ref(null);
 const activeTab = ref("details");
 const history = ref([]);
 const loadingHistory = ref(false);
+const isReviewing = ref(false);
 
 const formattedPoComments = computed(() => {
     if (!props.task?.po_comments) return "";
@@ -389,15 +402,34 @@ const save = () => {
     emit("save", { title: title.value, description: description.value, priority: priority.value });
 };
 
+const requestReview = async () => {
+    if (!props.task?.id || isReviewing.value) return;
+
+    isReviewing.value = true;
+    try {
+        const response = await api.reviewTask(props.task.id);
+        if (response.success) {
+            // We need to refresh the task data in the parent or emit an event
+            // For now, let's just close and let the parent refresh the board
+            emit('close');
+            // We could also emit a 'refresh' event
+        }
+    } catch (e) {
+        console.error("Review failed:", e);
+    } finally {
+        isReviewing.value = false;
+    }
+};
+
 // History Formatters
 const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    return date.toLocaleString([], { 
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
+    return date.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
 };
 
@@ -408,6 +440,7 @@ const formatActionLabel = (action) => {
         'edit_content': 'Content Edited',
         'ai_comment': 'AI Feedback',
         'ai_query': 'AI Query',
+        'ai_review': 'PO Review Decision',
         'ai_decompose': 'Task Decomposed',
         'ai_code_gen': 'Code Generated',
         'ai_change_request': 'Change Request'
@@ -422,6 +455,7 @@ const getHistoryIcon = (action) => {
         'edit_content': '✏️',
         'ai_comment': '🤖',
         'ai_query': '❓',
+        'ai_review': '🔍',
         'ai_decompose': '🧩',
         'ai_code_gen': '💻',
         'ai_change_request': '⚠️'

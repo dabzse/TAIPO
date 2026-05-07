@@ -13,16 +13,18 @@ class PoActivityService
 {
     private PDO $pdo;
     private GeminiService $geminiService;
-    private ?TawosService $tawosService;
     private HistoryService $historyService;
+    private TaskAiService $taskAiService;
+    private ?TawosService $tawosService;
     private ?int $currentUserId;
     private string $dbType;
 
-    public function __construct(PDO $pdo, GeminiService $geminiService, HistoryService $historyService, string $dbType = 'sqlite', ?TawosService $tawosService = null)
+    public function __construct(PDO $pdo, GeminiService $geminiService, TaskAiService $taskAiService, HistoryService $historyService, string $dbType = 'sqlite', ?TawosService $tawosService = null)
     {
         $this->pdo = $pdo;
         $this->geminiService = $geminiService;
         $this->historyService = $historyService;
+        $this->taskAiService = $taskAiService;
         $this->dbType = $dbType;
         $this->tawosService = $tawosService;
 
@@ -51,8 +53,9 @@ class PoActivityService
         }
 
         // 3. Process Autonomous Actions
-        $this->processComments($project);
+        $this->processAcceptance($project);
         $this->processChangeRequests($project);
+        $this->processComments($project);
     }
 
     private function isWorkingHours(): bool
@@ -266,6 +269,48 @@ class PoActivityService
         $prefix = Config::getTablePrefix();
         $stmt = $this->pdo->prepare("UPDATE {$prefix}projects SET $column = CURRENT_TIMESTAMP WHERE id = :id");
         $stmt->execute([':id' => $projectId]);
+    }
+
+    private function processAcceptance(array $project): void
+    {
+        // Acceptances are also scheduled to avoid doing it every tick
+        // We reuse the comment interval logic for now or add a new one if needed.
+        // For simplicity, we just check if any task is in REVIEW state and do it occasionally.
+
+        $now = time();
+        $nextAt = $project['next_comment_at'] ? strtotime($project['next_comment_at']) : null;
+
+        // Only attempt review when a comment is also scheduled (roughly same frequency)
+        if ($now < $nextAt) {
+            return;
+        }
+
+        try {
+            $task = $this->getReviewCandidateTask($project['name']);
+            if (!$task) {
+                return;
+            }
+
+            // Perform automated review
+            $this->taskAiService->reviewTaskForAcceptance($task['id'], $this->currentUserId);
+        } catch (Exception $e) {
+            error_log("PoActivityService error (Acceptance): " . $e->getMessage());
+        }
+    }
+
+    private function getReviewCandidateTask(string $projectName): ?array
+    {
+        $prefix = Config::getTablePrefix();
+        $randomFunc = ($this->dbType === 'mysql') ? 'RAND()' : 'RANDOM()';
+
+        $query = "SELECT id FROM {$prefix}tasks
+                  WHERE project_name = :name
+                  AND status = 'REVIEW WIP:2'
+                  ORDER BY {$randomFunc} LIMIT 1";
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':name' => $projectName]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     private function parseCrResponse(string $raw): ?array

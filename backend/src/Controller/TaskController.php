@@ -468,6 +468,27 @@ class TaskController
         ];
     }
 
+    public function handleReviewTask()
+    {
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$taskId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => "Task ID is required."]);
+            return;
+        }
+
+        try {
+            $userId = $_SESSION['user_id'] ?? 0;
+            $isInstructor = $_SESSION['is_instructor'] ?? false;
+            $result = $this->taskAiService->reviewTaskForAcceptance($taskId, $userId, $isInstructor);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true, 'result' => $result]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
     public function handleGetTaskHistory()
     {
         $taskId = filter_var($_GET['task_id'] ?? $_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
