@@ -259,7 +259,7 @@
                                         :checked="project.is_active == 1"
                                         @change="toggleProjectActivity(project, $event)"
                                         type="checkbox"
-                                        class="toggle toggle-sm toggle-success"
+                                        class="custom-status-toggle scale-90"
                                         title="Toggle Simulation Activity"
                                     >
                                 </td>
@@ -277,7 +277,7 @@
                                     <span v-else class="opacity-40">—</span>
                                 </td>
                                 <td>
-                                    <button 
+                                    <button
                                         @click="viewBoard(project.name)"
                                         class="btn btn-xs btn-outline btn-secondary"
                                     >

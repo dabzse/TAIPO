@@ -163,7 +163,7 @@
                                 :checked="selectedProject?.is_active == 1"
                                 @click="toggleActivity"
                                 type="checkbox"
-                                class="toggle toggle-xs toggle-success"
+                                class="custom-status-toggle"
                             >
                         </label>
                     </div>
@@ -179,19 +179,19 @@
 
                 <div class="divider"></div>
 
-              <li>
-    <a
-        href="http://localhost:8000/?action=github_login"
-        class="btn btn-outline gap-2 w-full bg-zinc-400 flex items-center justify-center"
-    >
-        <img
-            src="../images/github.svg"
-            alt="GitHub"
-            class="w-6 h-6"
-        >
-        GitHub Login
-    </a>
-</li>
+                <li>
+                    <a
+                        href="http://localhost:8000/?action=github_login"
+                        class="btn btn-outline gap-2 w-full bg-zinc-400 flex items-center justify-center"
+                    >
+                        <img
+                            src="../images/github.svg"
+                            alt="GitHub"
+                            class="w-6 h-6"
+                        >
+                        GitHub Login
+                    </a>
+                </li>
             </ul>
         </div>
 
@@ -222,7 +222,7 @@
                                     :checked="selectedProject?.is_active == 1"
                                     @change="toggleActivity"
                                     type="checkbox"
-                                    class="toggle toggle-success"
+                                    class="custom-status-toggle"
                                 >
                                 <span class="label-text font-bold">Product Owner Simulation (AI Comments/CRs)</span>
                             </label>
