@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Service\HistoryService;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\MockObject;
 use PDO;
 use PDOStatement;
 
@@ -13,8 +14,8 @@ use PDOStatement;
  */
 class HistoryServiceTest extends TestCase
 {
-    private $pdo;
-    private $historyService;
+    private MockObject|PDO $pdo;
+    private HistoryService $historyService;
 
     protected function setUp(): void
     {

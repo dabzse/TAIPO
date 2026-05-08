@@ -93,7 +93,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 8
 
-## [ ] Story 2.4: Card Description Enhancement (Priority: MEDIUM)
+## [X] Story 2.4: Card Description Enhancement (Priority: MEDIUM)
 
 **As a** product owner  
 **I want** TAIPO to edit and enhance card descriptions  
@@ -101,11 +101,11 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Acceptance Criteria:**
 
-[ ] TAIPO can analyze existing card descriptions  
-[ ] System suggests improvements or additions  
-[ ] Enhanced descriptions maintain original intent  
-[ ] Changes are tracked and reversible  
-[ ] Users can accept or reject suggestions  
+[X] TAIPO can analyze existing card descriptions  
+[X] System suggests improvements or additions  
+[X] Enhanced descriptions maintain original intent  
+[X] Changes are tracked and reversible (via history)  
+[X] Users can accept or reject suggestions  
 
 **Story Points:** 5
 

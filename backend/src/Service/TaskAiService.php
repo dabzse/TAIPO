@@ -6,8 +6,9 @@ use PDO;
 use Exception;
 use App\Service\GeminiService;
 use App\Service\ProjectAccessTrait;
-use App\Exception\TaskNotFoundException;
+use App\Exception\GeminiApiException;
 use App\Exception\ProjectUnauthorizedException;
+use App\Exception\TaskNotFoundException;
 use App\Config;
 
 class TaskAiService
@@ -206,7 +207,7 @@ class TaskAiService
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$task) {
-            throw new TaskNotFoundException("Task not found.");
+            throw new TaskNotFoundException(Config::ERROR_TASK_NOT_FOUND);
         }
 
         $projectName = $task['project_name'];
@@ -388,7 +389,7 @@ class TaskAiService
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$task) {
-            throw new TaskNotFoundException("Task not found.");
+            throw new TaskNotFoundException(Config::ERROR_TASK_NOT_FOUND);
         }
 
         $projectName = $task['project_name'];
@@ -431,7 +432,45 @@ class TaskAiService
             return array_merge($result, ['new_status' => $newStatus]);
         }
 
-        throw new \App\Exception\GeminiApiException("Failed to parse AI review response.");
+        throw new GeminiApiException("Failed to parse AI review response.");
+    }
+
+    /**
+     * Enhances a task description using AI.
+     * Supports Story 2.4: Card Description Enhancement.
+     */
+    public function refineTaskDescription(int $taskId, ?int $userId = null, bool $isInstructor = false): string
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT * FROM {$prefix}tasks WHERE id = :id");
+        $stmt->execute([':id' => $taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            throw new TaskNotFoundException(Config::ERROR_TASK_NOT_FOUND);
+        }
+
+        $projectName = $task['project_name'];
+        if ($userId !== null && !$this->isAuthorized($projectName, $userId, $isInstructor)) {
+            throw new ProjectUnauthorizedException($projectName);
+        }
+
+        $context = $this->getProjectContextInfo($projectName);
+        $this->geminiService->setContext($userId, $context['team_id'] ?? null);
+
+        $prompt = \App\Prompts::getRequirementRefinementPrompt(
+            $task['title'],
+            $task['description'],
+            $context['summary']
+        );
+
+        $enhancedDescription = $this->geminiService->askTaipo($prompt);
+
+        if (empty($enhancedDescription)) {
+            throw new GeminiApiException("AI failed to generate an enhanced description.");
+        }
+
+        return trim($enhancedDescription);
     }
 
     private function parseReviewResponse(string $raw): ?array

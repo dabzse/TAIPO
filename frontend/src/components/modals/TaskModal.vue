@@ -69,6 +69,7 @@
                     >
                         Details
                     </button>
+                    <div class="w-px h-4 bg-base-content/20 mx-1 self-center"></div>
                     <button
                         @click="activeTab = 'history'"
                         :class="{'tab-active bg-base-100 shadow-sm text-primary': activeTab === 'history'}"
@@ -143,8 +144,60 @@
                                 {{ maxDescriptionLength - description.length }}
                             </div>
                         </div>
+
+                        <!-- Refinement Suggestion Button -->
                         <div
-                            v-else
+                            v-if="!isReadOnly && isEditMode"
+                            class="mt-2 flex justify-end"
+                        >
+                            <button
+                                @click="refineWithAi"
+                                :disabled="isRefining"
+                                class="btn btn-xs btn-ghost text-primary gap-1.5 hover:bg-primary/10 transition-all duration-200"
+                            >
+                                <span
+                                    v-if="isRefining"
+                                    class="loading loading-spinner loading-xs"
+                                >
+                                </span>
+                                <span v-else class="text-sm">✨</span>
+                                <span class="font-bold tracking-tight">Refine with AI</span>
+                            </button>
+                        </div>
+
+                        <!-- Suggestion Preview Box -->
+                        <div
+                            v-if="aiSuggestion"
+                            class="mt-4 bg-primary/5 border border-primary/20 rounded-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm relative overflow-hidden"
+                        >
+                            <div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <span class="bg-primary text-primary-content w-4 h-4 rounded-full flex items-center justify-center text-[8px]">✨</span>
+                                    TAIPO's Enhancement
+                                </span>
+                                <div class="flex gap-2">
+                                    <button
+                                        @click="discardSuggestion"
+                                        class="btn btn-xs btn-ghost text-base-content/40 hover:text-error hover:bg-error/10 transition-colors"
+                                    >
+                                        Discard
+                                    </button>
+                                    <button
+                                        @click="acceptSuggestion"
+                                        class="btn btn-xs btn-primary shadow-lg shadow-primary/20"
+                                    >
+                                        Accept & Apply
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-[13px] text-base-content/80 whitespace-pre-wrap leading-relaxed italic border-l-2 border-primary/20 pl-4 py-1">
+                                {{ aiSuggestion }}
+                            </div>
+                        </div>
+
+                        <div
+                            v-else-if="isReadOnly"
                             class="w-full p-5 bg-base-100 text-base-content/80 rounded-xl border border-base-300 whitespace-pre-wrap min-h-[8rem] text-[15px] leading-relaxed shadow-sm"
                         >
                             {{ description || 'No detailed description provided.' }}
@@ -164,7 +217,8 @@
                                 <div
                                     v-html="formattedPoComments"
                                     class="prose prose-sm max-w-none text-base-content/90 leading-relaxed font-normal"
-                                ></div>
+                                >
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -191,9 +245,12 @@
                         </svg>
                         <span class="text-sm font-medium">No history recorded yet.</span>
                     </div>
-                    <div v-else class="space-y-4">
+                    <div
+                        v-else
+                        class="space-y-4"
+                    >
                         <div
-                            v-for="item in history" 
+                            v-for="item in history"
                             :key="item.id"
                             class="relative pl-8 before:absolute before:left-3 before:top-2 before:bottom-0 before:w-0.5 before:bg-base-300 last:before:hidden"
                         >
@@ -249,9 +306,15 @@
                     :disabled="isReviewing"
                     class="mr-auto px-5 py-2.5 text-sm font-bold bg-secondary hover:bg-secondary/90 text-secondary-content rounded-xl shadow-lg shadow-secondary/20 disabled:opacity-50 transition-all duration-300 flex items-center gap-2"
                 >
-                    <span v-if="isReviewing" class="loading loading-spinner loading-xs"></span>
+                    <span
+                        v-if="isReviewing"
+                        class="loading loading-spinner loading-xs"
+                    >
+                    </span>
                     <span v-else>🔍</span>
-                    <span>{{ isReviewing ? 'Reviewing...' : 'Request PO Review' }}</span>
+                    <span>
+                        {{ isReviewing ? 'Reviewing...' : 'Request PO Review' }}
+                    </span>
                 </button>
 
                 <button
@@ -328,6 +391,8 @@ const activeTab = ref("details");
 const history = ref([]);
 const loadingHistory = ref(false);
 const isReviewing = ref(false);
+const isRefining = ref(false);
+const aiSuggestion = ref("");
 
 const formattedPoComments = computed(() => {
     if (!props.task?.po_comments) return "";
@@ -419,6 +484,34 @@ const requestReview = async () => {
     } finally {
         isReviewing.value = false;
     }
+};
+
+const refineWithAi = async () => {
+    if (!props.task?.id || isRefining.value) return;
+
+    isRefining.value = true;
+    aiSuggestion.value = "";
+    try {
+        const response = await api.refineTask(props.task.id);
+        if (response.success) {
+            aiSuggestion.value = response.refined_description;
+        } else {
+            console.error("Refinement failed:", response.error);
+        }
+    } catch (e) {
+        console.error("Refinement failed:", e);
+    } finally {
+        isRefining.value = false;
+    }
+};
+
+const acceptSuggestion = () => {
+    description.value = aiSuggestion.value;
+    aiSuggestion.value = "";
+};
+
+const discardSuggestion = () => {
+    aiSuggestion.value = "";
 };
 
 // History Formatters

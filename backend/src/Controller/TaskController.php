@@ -473,7 +473,7 @@ class TaskController
         $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
         if (!$taskId) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => "Task ID is required."]);
+            echo json_encode(['success' => false, 'error' => Config::ERROR_TASK_ID_REQUIRED]);
             return;
         }
 
@@ -494,7 +494,7 @@ class TaskController
         $taskId = filter_var($_GET['task_id'] ?? $_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
         if (!$taskId) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => "Task ID is required."]);
+            echo json_encode(['success' => false, 'error' => Config::ERROR_TASK_ID_REQUIRED]);
             return;
         }
 
@@ -502,6 +502,27 @@ class TaskController
             $history = $this->historyService->getTaskHistory($taskId);
             header(Config::APP_JSON);
             echo json_encode(['success' => true, 'data' => $history]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function handleRefineTask()
+    {
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$taskId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => Config::ERROR_TASK_ID_REQUIRED]);
+            return;
+        }
+
+        try {
+            $userId = $_SESSION['user_id'] ?? 0;
+            $isInstructor = $_SESSION['is_instructor'] ?? false;
+            $refinedDescription = $this->taskAiService->refineTaskDescription($taskId, $userId, $isInstructor);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true, 'refined_description' => $refinedDescription]);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);

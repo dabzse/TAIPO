@@ -78,4 +78,24 @@ class Prompts
                 [REASON]: [One sentence explanation of the decision]
                 [SUGGESTIONS]: [If REJECTED, give 1-2 specific points to fix. If ACCEPTED, say 'Great job!']";
     }
+
+    public static function getRequirementRefinementPrompt(string $taskTitle, string $taskDesc, string $projectContext): string
+    {
+        return "You are TAIPO, a Product Owner assistant. I want you to refine and enhance a task description to make it clearer, more complete, and more professional.
+
+                Project Context:
+                {$projectContext}
+
+                Current Task Title: {$taskTitle}
+                Current Description: {$taskDesc}
+
+                Please provide an enhanced version of the description.
+                Focus on:
+                1. Clarity: Use professional, industrial tone.
+                2. Completeness: Add a short list of 'Acceptance Criteria' if missing.
+                3. Technical Context: Mention any relevant project constraints if applicable.
+
+                The enhanced description must maintain the original intent but be much more 'ready for development'.
+                Respond ONLY with the new description text. Do not include any intros or outros.";
+    }
 }

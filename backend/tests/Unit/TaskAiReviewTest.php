@@ -11,14 +11,15 @@ use App\Service\TaskAiService;
 use App\Service\TaskService;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\MockObject;
 
 class TaskAiReviewTest extends TestCase
 {
-    private $pdo;
-    private $geminiService;
-    private $historyService;
-    private $taskService;
-    private $taskAiService;
+    private MockObject|GeminiService $geminiService;
+    private MockObject|HistoryService $historyService;
+    private MockObject|TaskService $taskService;
+    private MockObject|PDO $pdo;
+    private TaskAiService $taskAiService;
 
     protected function setUp(): void
     {

@@ -283,6 +283,14 @@ export const api = {
         });
     },
 
+    async refineTask(taskId) {
+        const response = await client.post('/', {
+            action: 'refine_task',
+            task_id: taskId
+        });
+        return response.data;
+    },
+
     // Team Management
     async listTeams() {
         const response = await client.get('/?action=list_teams');

@@ -15,6 +15,7 @@ class Config
     }
     public const APP_JSON = 'Content-Type: application/json';
     public const ERROR_TASK_NOT_FOUND = "Task not found.";
+    public const ERROR_TASK_ID_REQUIRED = "Task ID is required.";
 
     public const SUPPORTED_LANGUAGES = [
         'Python',
