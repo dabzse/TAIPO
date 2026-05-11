@@ -4,12 +4,16 @@ namespace App\Service;
 
 use PDO;
 use Exception;
-use App\Service\GeminiService;
-use App\Service\ProjectAccessTrait;
+
+use App\Config;
+use App\Prompts;
+
 use App\Exception\GeminiApiException;
 use App\Exception\ProjectUnauthorizedException;
 use App\Exception\TaskNotFoundException;
-use App\Config;
+
+use App\Service\GeminiService;
+use App\Service\ProjectAccessTrait;
 
 class TaskAiService
 {
@@ -400,7 +404,7 @@ class TaskAiService
         $context = $this->getProjectContextInfo($projectName);
         $this->geminiService->setContext($userId, $context['team_id'] ?? null);
 
-        $prompt = \App\Prompts::getAcceptanceReviewPrompt(
+        $prompt = Prompts::getAcceptanceReviewPrompt(
             $task['title'],
             $task['description'],
             $task['generated_code'] ?? '',
@@ -458,10 +462,12 @@ class TaskAiService
         $context = $this->getProjectContextInfo($projectName);
         $this->geminiService->setContext($userId, $context['team_id'] ?? null);
 
-        $prompt = \App\Prompts::getRequirementRefinementPrompt(
+        $projectContextSummary = $this->getProjectContextSummary($projectName, $taskId);
+
+        $prompt = Prompts::getRequirementRefinementPrompt(
             $task['title'],
             $task['description'],
-            $context['summary']
+            $projectContextSummary
         );
 
         $enhancedDescription = $this->geminiService->askTaipo($prompt);
@@ -508,5 +514,75 @@ class TaskAiService
         $prefix = Config::getTablePrefix();
         $updateStmt = $this->pdo->prepare("UPDATE {$prefix}tasks SET po_comments = :comments WHERE id = :id");
         $updateStmt->execute([':comments' => $newComments, ':id' => $taskId]);
+    }
+
+    /**
+     * Suggests a priority for a task based on project context and backlog state.
+     * Supports Story 2.5: Priority Management.
+     */
+    public function suggestPriority(int $taskId, ?int $userId = null, bool $isInstructor = false): array
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT * FROM {$prefix}tasks WHERE id = :id");
+        $stmt->execute([':id' => $taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            throw new TaskNotFoundException(Config::ERROR_TASK_NOT_FOUND);
+        }
+
+        $projectName = $task['project_name'];
+        if ($userId !== null && !$this->isAuthorized($projectName, $userId, $isInstructor)) {
+            throw new ProjectUnauthorizedException($projectName);
+        }
+
+        $context = $this->getProjectContextInfo($projectName);
+        $this->geminiService->setContext($userId, $context['team_id'] ?? null);
+
+        $projectContextSummary = $this->getProjectContextSummary($projectName, $taskId);
+        $backlogSummary = $this->getProjectContextSummary($projectName, $taskId);
+
+        $prompt = Prompts::getPrioritySuggestionPrompt(
+            $task['title'],
+            $task['description'],
+            $projectContextSummary,
+            $backlogSummary
+        );
+
+        $rawResponse = $this->geminiService->askTaipo($prompt);
+        $result = $this->parsePriorityResponse($rawResponse);
+
+        if (!$result) {
+            throw new GeminiApiException("Failed to parse AI priority suggestion.");
+        }
+
+        return $result;
+    }
+
+    private function parsePriorityResponse(string $raw): ?array
+    {
+        $priority = null;
+        $rationale = '';
+        $value = '';
+
+        if (preg_match('/\[PRIORITY\]:(.*)/i', $raw, $m)) {
+            $priority = (int)trim($m[1]);
+        }
+        if (preg_match('/\[RATIONALE\]:(.*)/i', $raw, $m)) {
+            $rationale = trim($m[1]);
+        }
+        if (preg_match('/\[VALUE\]:(.*)/i', $raw, $m)) {
+            $value = trim($m[1]);
+        }
+
+        if ($priority !== null && $rationale) {
+            return [
+                'priority' => $priority,
+                'rationale' => $rationale,
+                'value' => $value
+            ];
+        }
+
+        return null;
     }
 }

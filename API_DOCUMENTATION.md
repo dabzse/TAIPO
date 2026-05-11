@@ -60,6 +60,8 @@ Error Mockup:
 | `reorder_tasks`       | `project_name`, `status`, `task_ids` (array)                                 | `success: true`                              | Reorders tasks within a specific column/status.                                                                                                                                |
 | `query_task`          | `task_id`, `query`                                                           | `answer` (string)                            | Uses Gemini AI to answer a question about a specific task.                                                                                                                     |
 | `get_task_history`    | `task_id`                                                                    | `data` (array)                               | Returns the full audit trail for a task, including status changes, edits, and AI interactions.                                                                                 |
+| `refine_task`         | `task_id`                                                                    | `refined_description`                        | Uses Gemini AI to enhance a task description (clarity, acceptance criteria).                                                                                                   |
+| `suggest_priority`    | `task_id`                                                                    | `suggestion` (object)                        | Uses Gemini AI to analyze context and suggest a priority level (0-3) with rationale.                                                                                           |
 
 `decompose_task` behavior notes:
 

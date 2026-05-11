@@ -528,4 +528,25 @@ class TaskController
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
     }
+
+    public function handleSuggestPriority()
+    {
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$taskId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => Config::ERROR_TASK_ID_REQUIRED]);
+            return;
+        }
+
+        try {
+            $userId = $_SESSION['user_id'] ?? 0;
+            $isInstructor = $_SESSION['is_instructor'] ?? false;
+            $suggestion = $this->taskAiService->suggestPriority($taskId, $userId, $isInstructor);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true, 'suggestion' => $suggestion]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
 }

@@ -98,4 +98,30 @@ class Prompts
                 The enhanced description must maintain the original intent but be much more 'ready for development'.
                 Respond ONLY with the new description text. Do not include any intros or outros.";
     }
+
+    public static function getPrioritySuggestionPrompt(string $taskTitle, string $taskDesc, string $projectContext, string $backlogSummary): string
+    {
+        return "You are TAIPO, a Product Owner assistant. I want you to evaluate the priority of a specific task within the context of its project and the current backlog.
+
+                Project Context:
+                {$projectContext}
+
+                Current Backlog State (Summary of other tasks and their statuses):
+                {$backlogSummary}
+
+                Target Task:
+                TITLE: {$taskTitle}
+                DESCRIPTION: {$taskDesc}
+
+                Evaluate the priority on a scale of 0 to 3:
+                0: None / Normal (Default)
+                1: Low (Nice to have, non-blocking)
+                2: Medium (Standard feature, important for next milestone)
+                3: High (Critical, blocker, or core requirement)
+
+                Respond strictly in the following format:
+                [PRIORITY]: [0-3]
+                [RATIONALE]: [A short, professional explanation of why this priority was chosen, max 2 sentences]
+                [VALUE]: [Brief mention of business or technical value provided by this task]";
+    }
 }

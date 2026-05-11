@@ -291,6 +291,14 @@ export const api = {
         return response.data;
     },
 
+    async suggestPriority(taskId) {
+        const response = await client.post('/', {
+            action: 'suggest_priority',
+            task_id: taskId
+        });
+        return response.data;
+    },
+
     // Team Management
     async listTeams() {
         const response = await client.get('/?action=list_teams');

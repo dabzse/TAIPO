@@ -55,6 +55,24 @@
                             </svg>
                         </button>
                     </div>
+                    <!-- Priority Suggestion Button -->
+                    <div
+                        v-if="(!activeTab || activeTab === 'details') && !isReadOnly && isEditMode"
+                        class="ml-2"
+                    >
+                        <button
+                            @click="suggestPriority"
+                            :disabled="isSuggestingPriority"
+                            class="btn btn-xs btn-circle btn-ghost text-primary hover:bg-primary/10 transition-all duration-300"
+                            title="Suggest priority with AI"
+                        >
+                            <span
+                                v-if="isSuggestingPriority"
+                                class="loading loading-spinner loading-[14px]">
+                            </span>
+                            <span v-else class="text-base">✨</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Tabs -->
@@ -193,6 +211,45 @@
                             </div>
                             <div class="text-[13px] text-base-content/80 whitespace-pre-wrap leading-relaxed italic border-l-2 border-primary/20 pl-4 py-1">
                                 {{ aiSuggestion }}
+                            </div>
+                        </div>
+
+                        <!-- Priority Suggestion Box -->
+                        <div
+                            v-if="prioritySuggestion"
+                            class="mt-4 bg-secondary/5 border border-secondary/20 rounded-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm relative overflow-hidden"
+                        >
+                            <div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2">
+                                    <span class="bg-secondary text-secondary-content w-4 h-4 rounded-full flex items-center justify-center text-[8px]">✨</span>
+                                    AI Priority Recommendation: {{ getPriorityLabel(prioritySuggestion.priority) }}
+                                </span>
+                                <div class="flex gap-2">
+                                    <button
+                                        @click="prioritySuggestion = null"
+                                        class="btn btn-xs btn-ghost text-base-content/40 hover:text-error hover:bg-error/10 transition-colors"
+                                    >
+                                        Discard
+                                    </button>
+                                    <button
+                                        @click="applyPrioritySuggestion"
+                                        class="btn btn-xs btn-secondary shadow-lg shadow-secondary/20"
+                                    >
+                                        Apply {{ prioritySuggestion.priority }} Stars
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-[13px] text-base-content/80 leading-relaxed italic border-l-2 border-secondary/20 pl-4 py-1">
+                                <div class="font-bold text-secondary mb-1">Rationale:</div>
+                                {{ prioritySuggestion.rationale }}
+                                <div
+                                    v-if="prioritySuggestion.value"
+                                    class="mt-2 text-[12px] opacity-75"
+                                >
+                                    <span class="font-bold">Value:</span>
+                                    {{ prioritySuggestion.value }}
+                                </div>
                             </div>
                         </div>
 
@@ -393,6 +450,8 @@ const loadingHistory = ref(false);
 const isReviewing = ref(false);
 const isRefining = ref(false);
 const aiSuggestion = ref("");
+const isSuggestingPriority = ref(false);
+const prioritySuggestion = ref(null);
 
 const formattedPoComments = computed(() => {
     if (!props.task?.po_comments) return "";
@@ -503,6 +562,32 @@ const refineWithAi = async () => {
     } finally {
         isRefining.value = false;
     }
+};
+
+const suggestPriority = async () => {
+    if (!props.task?.id) return;
+    isSuggestingPriority.value = true;
+    try {
+        const response = await api.suggestPriority(props.task.id);
+        if (response.success) {
+            prioritySuggestion.value = response.suggestion;
+        }
+    } catch (error) {
+        console.error("Priority suggestion error:", error);
+    } finally {
+        isSuggestingPriority.value = false;
+    }
+};
+
+const applyPrioritySuggestion = () => {
+    if (!prioritySuggestion.value) return;
+    setPriority(prioritySuggestion.value.priority);
+    prioritySuggestion.value = null;
+};
+
+const getPriorityLabel = (p) => {
+    const labels = ['None', 'Low', 'Medium', 'High'];
+    return labels[p] || 'Unknown';
 };
 
 const acceptSuggestion = () => {

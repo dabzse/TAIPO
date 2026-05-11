@@ -159,7 +159,14 @@ class TaskService
             ':is_important' => $isImportant,
             ':id' => $taskId
         ]);
-        return $stmt->rowCount();
+
+        $affected = $stmt->rowCount();
+        if ($affected > 0) {
+            $this->historyService->setContext($userId);
+            $this->historyService->log($taskId, 'priority_change', null, (string)$isImportant, "Priority changed to $isImportant stars.");
+        }
+
+        return $affected;
     }
 
     public function updateTask(int $taskId, string $title, string $description, ?string $lastUpdatedAt = null, int $userId = 0, bool $isInstructor = false): int

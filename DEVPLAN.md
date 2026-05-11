@@ -109,7 +109,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 5
 
-## [ ] Story 2.5: Priority Management (Priority: MEDIUM)
+## [X] Story 2.5: Priority Management (Priority: MEDIUM)
 
 **As a** product owner  
 **I want** TAIPO to update card priorities based on context  
@@ -117,11 +117,11 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Acceptance Criteria:**
 
-[ ] TAIPO can analyze project context and suggest priority changes  
-[ ] Priority updates consider dependencies and business value  
-[ ] Changes include rationale/explanation  
-[ ] Users can override AI-suggested priorities  
-[ ] Priority history is tracked  
+[X] TAIPO can analyze project context and suggest priority changes  
+[X] Priority updates consider dependencies and business value  
+[X] Changes include rationale/explanation  
+[X] Users can override AI-suggested priorities  
+[X] Priority history is tracked  
 
 **Story Points:** 5
 
@@ -365,7 +365,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 ### Release 2.0 (Educational Features)
 
 [/] Epic 3: Project Simulation Capabilities  
-[ ] Epic 2: Stories 2.4, 2.5 (Enhanced AI features)  
+[X] Epic 2: Stories 2.4, 2.5 (Enhanced AI features)  
 [/] Epic 5: Stories 5.1, 5.2 (Quality features)  
 [X] Epic 4: Story 4.3 (TAWOS integration)  
 
@@ -375,4 +375,4 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [/] Epic 3: Story 3.3 (Multi-team support)  
 [/] Deployment optimization (Story 7.1)  
 
-**Approximately 88%** of the whole project is done.
+**Approximately 86%** of the whole project is done.

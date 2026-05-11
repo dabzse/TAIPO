@@ -7,11 +7,11 @@ use App\Database;
 use App\Utils;
 use Dotenv\Dotenv;
 use Exception;
-use App\Controller\DashboardController;
 
 use App\Configuration\GeminiConfig;
 
 use App\Controller\AuthController;
+use App\Controller\DashboardController;
 use App\Controller\ProjectController;
 use App\Controller\RequirementController;
 use App\Controller\SettingsController;
@@ -82,7 +82,7 @@ class Application
         session_set_cookie_params([
             'lifetime' => 86400 * 30, // 30 days
             'path' => '/',
-            'secure' => $isSecure,
+            'secure' => (bool)$isSecure,
             'httponly' => true,
             'samesite' => 'Lax' // Or 'Strict' depending on cross-site needs
         ]);
@@ -191,7 +191,7 @@ class Application
                 'add_task', 'delete_task', 'toggle_importance', 'update_status',
                 'reorder_tasks', 'edit_task', 'generate_code', 'generate_project_tasks',
                 'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec',
-                'get_task_history', 'review_task', 'refine_task'
+                'get_task_history', 'review_task', 'refine_task', 'suggest_priority'
             ],
             'handleProjectAction' => [
                 'create_project', 'list_projects', 'update_project', 'delete_project',
@@ -485,6 +485,9 @@ class Application
                 break;
             case 'refine_task':
                 $this->taskController->handleRefineTask();
+                break;
+            case 'suggest_priority':
+                $this->taskController->handleSuggestPriority();
                 break;
             default:
                 break;
