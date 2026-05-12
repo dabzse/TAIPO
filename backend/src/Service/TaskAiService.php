@@ -519,6 +519,16 @@ class TaskAiService
     /**
      * Suggests a priority for a task based on project context and backlog state.
      * Supports Story 2.5: Priority Management.
+     *
+     * PHPDoc needed to help the IDE's static analysis engine properly index the methods.
+     *
+     * @param int $taskId
+     * @param int|null $userId
+     * @param bool $isInstructor
+     * @return array
+     * @throws TaskNotFoundException
+     * @throws ProjectUnauthorizedException
+     * @throws GeminiApiException
      */
     public function suggestPriority(int $taskId, ?int $userId = null, bool $isInstructor = false): array
     {
@@ -539,14 +549,14 @@ class TaskAiService
         $context = $this->getProjectContextInfo($projectName);
         $this->geminiService->setContext($userId, $context['team_id'] ?? null);
 
+        // Fetch context once and reuse
         $projectContextSummary = $this->getProjectContextSummary($projectName, $taskId);
-        $backlogSummary = $this->getProjectContextSummary($projectName, $taskId);
 
         $prompt = Prompts::getPrioritySuggestionPrompt(
             $task['title'],
             $task['description'],
             $projectContextSummary,
-            $backlogSummary
+            $projectContextSummary // Reusing the same summary for backlog state in this simplified call
         );
 
         $rawResponse = $this->geminiService->askTaipo($prompt);

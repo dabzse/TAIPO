@@ -51,6 +51,14 @@ class TaskController
         'md' => 'md'
     ];
 
+    /**
+     * PHPDoc needed to help the IDE's static analysis engine properly index the methods.
+     *
+     * @param TaskService $taskService
+     * @param TaskAiService $taskAiService
+     * @param ProjectService $projectService
+     * @param HistoryService $historyService
+     */
     public function __construct(TaskService $taskService, TaskAiService $taskAiService, ProjectService $projectService, HistoryService $historyService)
     {
         $this->taskService = $taskService;
@@ -529,6 +537,10 @@ class TaskController
         }
     }
 
+    /**
+     * Suggests a priority for a task using AI.
+     * @return void
+     */
     public function handleSuggestPriority()
     {
         $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);

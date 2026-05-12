@@ -76,13 +76,13 @@ class Application
         }
 
         // Start session before any output
-        $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
-            (isset($_ENV['FORCE_HTTPS']) && $_ENV['FORCE_HTTPS'] === 'true');
+        $isSecure = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+            (isset($_ENV['FORCE_HTTPS']) && $_ENV['FORCE_HTTPS'] === 'true')) && !Config::isOffline();
 
         session_set_cookie_params([
             'lifetime' => 86400 * 30, // 30 days
             'path' => '/',
-            'secure' => (bool)$isSecure,
+            'secure' => $isSecure,
             'httponly' => true,
             'samesite' => 'Lax' // Or 'Strict' depending on cross-site needs
         ]);
