@@ -218,6 +218,11 @@ export const api = {
         return response.data;
     },
 
+    async getProjectHistory(projectName) {
+        const response = await client.get(`/?action=get_project_history&project_name=${encodeURIComponent(projectName)}`);
+        return response.data;
+    },
+
     async saveRequirement(projectName, content) {
         return client.post('/', {
             action: 'save_requirement',

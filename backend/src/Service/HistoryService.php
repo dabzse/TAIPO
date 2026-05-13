@@ -74,4 +74,21 @@ class HistoryService
         $stmt->execute([':task_id' => $taskId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Retrieve history for a specific project.
+     */
+    public function getProjectHistory(string $projectName): array
+    {
+        $prefix = Config::getTablePrefix();
+        $stmt = $this->pdo->prepare("SELECT h.*, t.title as task_title, u.username
+            FROM {$prefix}task_history h
+            JOIN {$prefix}tasks t ON h.task_id = t.id
+            LEFT JOIN {$prefix}users u ON h.user_id = u.id
+            WHERE t.project_name = :project_name
+            ORDER BY h.created_at DESC");
+
+        $stmt->execute([':project_name' => $projectName]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

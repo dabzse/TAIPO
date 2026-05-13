@@ -191,7 +191,7 @@ class Application
                 'add_task', 'delete_task', 'toggle_importance', 'update_status',
                 'reorder_tasks', 'edit_task', 'generate_code', 'generate_project_tasks',
                 'decompose_task', 'commit_to_github', 'query_task', 'create_project_from_spec',
-                'get_task_history', 'review_task', 'refine_task', 'suggest_priority'
+                'get_task_history', 'get_project_history', 'review_task', 'refine_task', 'suggest_priority'
             ],
             'handleProjectAction' => [
                 'create_project', 'list_projects', 'update_project', 'delete_project',
@@ -479,6 +479,9 @@ class Application
                 break;
             case 'get_task_history':
                 $this->taskController->handleGetTaskHistory();
+                break;
+            case 'get_project_history':
+                $this->taskController->handleGetProjectHistory();
                 break;
             case 'review_task':
                 $this->taskController->handleReviewTask();

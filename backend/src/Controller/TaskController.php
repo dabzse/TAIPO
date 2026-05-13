@@ -516,6 +516,25 @@ class TaskController
         }
     }
 
+    public function handleGetProjectHistory()
+    {
+        $projectName = $_GET['project_name'] ?? $_POST['project_name'] ?? null;
+        if (empty($projectName)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Project name is required.']);
+            return;
+        }
+
+        try {
+            $history = $this->historyService->getProjectHistory($projectName);
+            header(Config::APP_JSON);
+            echo json_encode(['success' => true, 'data' => $history]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
     public function handleRefineTask()
     {
         $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
