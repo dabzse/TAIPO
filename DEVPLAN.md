@@ -5,8 +5,8 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 ## EPICS
 
 [X] Epic 1: Core Kanban Board Infrastructure  
-[/] Epic 2: AI-Powered Product Owner Assistant  
-[/] Epic 3: Project Simulation Capabilities  
+[X] Epic 2: AI-Powered Product Owner Assistant  
+[X] Epic 3: Project Simulation Capabilities  
 [X] Epic 4: Backend and Integration  
 [X] Epic 5: Quality and Safety Features  
 [/] Epic 6: Educational Use Cases  
@@ -375,4 +375,4 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [X] Epic 3: Story 3.3 (Multi-team support)  
 [/] Deployment optimization (Story 7.1)  
 
-**Approximately 92%** of the whole project is done.
+**Approximately 95%** of the whole project is done.
