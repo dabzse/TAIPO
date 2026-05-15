@@ -26,15 +26,33 @@ class TeamService
 
     public function listTeams(): array
     {
-        $stmt = $this->pdo->prepare("SELECT id, name, created_at FROM {$this->prefix}teams ORDER BY name ASC");
+        $stmt = $this->pdo->prepare("
+            SELECT id, name, created_at,
+                   sim_min_feedback_sec, sim_max_feedback_sec,
+                   sim_min_cr_sec, sim_max_cr_sec
+            FROM {$this->prefix}teams
+            ORDER BY name ASC
+        ");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function updateTeam(int $teamId, string $name): void
+    public function updateTeam(int $teamId, string $name, array $settings = []): void
     {
-        $stmt = $this->pdo->prepare("UPDATE {$this->prefix}teams SET name = :name WHERE id = :id");
-        $stmt->execute([':name' => $name, ':id' => $teamId]);
+        $updates = ["name = :name"];
+        $params = [':name' => $name, ':id' => $teamId];
+
+        $allowedSettings = ['sim_min_feedback_sec', 'sim_max_feedback_sec', 'sim_min_cr_sec', 'sim_max_cr_sec'];
+        foreach ($allowedSettings as $key) {
+            if (array_key_exists($key, $settings)) {
+                $updates[] = "$key = :$key";
+                $params[":$key"] = $settings[$key] === '' ? null : (int)$settings[$key];
+            }
+        }
+
+        $setClause = implode(", ", $updates);
+        $stmt = $this->pdo->prepare("UPDATE {$this->prefix}teams SET $setClause WHERE id = :id");
+        $stmt->execute($params);
     }
 
     public function deleteTeam(int $teamId): void

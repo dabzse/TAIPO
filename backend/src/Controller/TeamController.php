@@ -69,8 +69,13 @@ class TeamController
             return;
         }
 
+        $settings = isset($_POST['settings']) && is_array($_POST['settings']) ? $_POST['settings'] : [];
+        if (isset($_POST['settings']) && is_string($_POST['settings'])) {
+            $settings = json_decode($_POST['settings'], true) ?: [];
+        }
+
         try {
-            $this->teamService->updateTeam($teamId, $name);
+            $this->teamService->updateTeam($teamId, $name, $settings);
             header(Config::APP_JSON);
             echo json_encode(['success' => true]);
         } catch (Exception $e) {

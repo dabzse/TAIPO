@@ -203,6 +203,9 @@ class Database
 
         // User migrations
         $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project']);
+
+        // Team migrations
+        $this->ensureColumnsExist($prefix . 'teams', ['sim_min_feedback_sec', 'sim_max_feedback_sec', 'sim_min_cr_sec', 'sim_max_cr_sec']);
     }
 
     private function seedDefaultRoles(string $prefix): void
@@ -348,6 +351,10 @@ class Database
             'generated_code' => ['type' => $clobType, 'default' => 'NULL'],
             'is_instructor' => ['type' => 'INTEGER', 'default' => '0'],
             'last_active_project' => ['type' => $titleType, 'default' => 'NULL'],
+            'sim_min_feedback_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
+            'sim_max_feedback_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
+            'sim_min_cr_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
+            'sim_max_cr_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
         ];
     }
 

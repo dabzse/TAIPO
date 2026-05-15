@@ -121,6 +121,81 @@
                             </div>
                         </div>
 
+                        <!-- Simulation Settings -->
+                        <div class="bg-base-200 p-4 rounded-lg mb-6">
+                            <h5 class="font-bold mb-2">Simulation Overrides</h5>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="form-control">
+                                    <label
+                                        class="label"
+                                        for="sim_min_feedback"
+                                    >
+                                        <span class="label-text">Min Feedback (sec)</span>
+                                    </label>
+                                    <input
+                                        v-model="teamSettings.sim_min_feedback_sec"
+                                        id="sim_min_feedback"
+                                        type="number"
+                                        class="input input-sm input-bordered"
+                                        placeholder="Global default"
+                                    />
+                                </div>
+                                <div class="form-control">
+                                    <label
+                                        class="label"
+                                        for="sim_max_feedback"
+                                    >
+                                        <span class="label-text">Max Feedback (sec)</span>
+                                    </label>
+                                    <input
+                                        v-model="teamSettings.sim_max_feedback_sec"
+                                        id="sim_max_feedback"
+                                        type="number"
+                                        class="input input-sm input-bordered"
+                                        placeholder="Global default"
+                                    />
+                                </div>
+                                <div class="form-control">
+                                    <label
+                                        class="label"
+                                        for="sim_min_cr"
+                                    >
+                                        <span class="label-text">Min Change Request (sec)</span>
+                                    </label>
+                                    <input
+                                        v-model="teamSettings.sim_min_cr_sec"
+                                        id="sim_min_cr"
+                                        type="number"
+                                        class="input input-sm input-bordered"
+                                        placeholder="Global default"
+                                    />
+                                </div>
+                                <div class="form-control">
+                                    <label
+                                        class="label"
+                                        for="sim_max_cr"
+                                    >
+                                        <span class="label-text">Max Change Request (sec)</span>
+                                    </label>
+                                    <input
+                                        id="sim_max_cr"
+                                        v-model="teamSettings.sim_max_cr_sec"
+                                        type="number"
+                                        class="input input-sm input-bordered"
+                                        placeholder="Global default"
+                                    />
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-end">
+                                <button
+                                    @click="saveTeamSettings"
+                                    class="btn btn-sm btn-primary"
+                                >
+                                    Save Settings
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Add Member Form -->
                         <div class="bg-base-200 p-4 rounded-lg mb-6 flex gap-2 items-end">
                             <div class="form-control w-1/3">
@@ -339,6 +414,13 @@ const editingTeamName = ref('');
 const assignUserId = ref('');
 const assignRoleId = ref('');
 
+const teamSettings = ref({
+    sim_min_feedback_sec: null,
+    sim_max_feedback_sec: null,
+    sim_min_cr_sec: null,
+    sim_max_cr_sec: null,
+});
+
 const loadingTeams = ref(false);
 const loadingMembers = ref(false);
 const loadingProjects = ref(false);
@@ -398,6 +480,12 @@ const createTeam = async () => {
 const selectTeam = async (team) => {
     selectedTeam.value = team;
     isEditingTeamName.value = false;
+    teamSettings.value = {
+        sim_min_feedback_sec: team.sim_min_feedback_sec,
+        sim_max_feedback_sec: team.sim_max_feedback_sec,
+        sim_min_cr_sec: team.sim_min_cr_sec,
+        sim_max_cr_sec: team.sim_max_cr_sec,
+    };
     await fetchTeamUsers(team.id);
     updateTeamProjects();
 };
@@ -416,6 +504,18 @@ const renameTeam = async () => {
         await fetchTeamsAndRoles();
     } catch (e) {
         showAlert("Failed to rename team: " + (e.response?.data?.error || e.message), true);
+    }
+};
+
+const saveTeamSettings = async () => {
+    if (!selectedTeam.value) return;
+    try {
+        await api.updateTeam(selectedTeam.value.id, selectedTeam.value.name, teamSettings.value);
+        Object.assign(selectedTeam.value, teamSettings.value);
+        showAlert("Team simulation settings saved successfully!");
+        await fetchTeamsAndRoles();
+    } catch (e) {
+        showAlert("Failed to save settings: " + (e.response?.data?.error || e.message), true);
     }
 };
 

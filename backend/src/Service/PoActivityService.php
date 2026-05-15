@@ -85,7 +85,7 @@ class PoActivityService
 
         // If next_comment_at is not set, schedule it now
         if (!$nextAt) {
-            $this->scheduleNextActivity($project['id'], 'comment');
+            $this->scheduleNextActivity($project['id'], $project['team_id'], 'comment');
             return;
         }
 
@@ -99,7 +99,7 @@ class PoActivityService
             if (!$task) {
                 // If no task, we still mark as "done" for this cycle but maybe schedule sooner?
                 // For now, just reschedule normally.
-                $this->scheduleNextActivity($project['id'], 'comment');
+                $this->scheduleNextActivity($project['id'], $project['team_id'], 'comment');
                 return;
             }
 
@@ -119,7 +119,7 @@ class PoActivityService
 
             // Update last_comment_at and schedule NEXT
             $this->updateProjectTimestamp($project['id'], 'last_comment_at');
-            $this->scheduleNextActivity($project['id'], 'comment');
+            $this->scheduleNextActivity($project['id'], $project['team_id'], 'comment');
         } catch (Exception $e) {
             error_log("PoActivityService error (Comment): " . $e->getMessage());
         }
@@ -131,7 +131,7 @@ class PoActivityService
         $nextAt = $project['next_cr_at'] ? strtotime($project['next_cr_at']) : null;
 
         if (!$nextAt) {
-            $this->scheduleNextActivity($project['id'], 'cr');
+            $this->scheduleNextActivity($project['id'], $project['team_id'], 'cr');
             return;
         }
 
@@ -159,24 +159,42 @@ class PoActivityService
                 $this->historyService->log($taskId, 'ai_change_request', null, $crData['title'], $crData['story']);
 
                 $this->updateProjectTimestamp($project['id'], 'last_cr_at');
-                $this->scheduleNextActivity($project['id'], 'cr');
+                $this->scheduleNextActivity($project['id'], $project['team_id'], 'cr');
             }
         } catch (Exception $e) {
             error_log("PoActivityService error (CR): " . $e->getMessage());
         }
     }
 
-    private function scheduleNextActivity(int $projectId, string $type): void
+    private function scheduleNextActivity(int $projectId, ?int $teamId, string $type): void
     {
         $prefix = Config::getTablePrefix();
         $column = ($type === 'comment') ? 'next_comment_at' : 'next_cr_at';
 
+        $min = null;
+        $max = null;
+
+        if ($teamId) {
+            $stmt = $this->pdo->prepare("SELECT sim_min_feedback_sec, sim_max_feedback_sec, sim_min_cr_sec, sim_max_cr_sec FROM {$prefix}teams WHERE id = :id");
+            $stmt->execute([':id' => $teamId]);
+            $teamSettings = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($teamSettings) {
+                if ($type === 'comment') {
+                    $min = $teamSettings['sim_min_feedback_sec'];
+                    $max = $teamSettings['sim_max_feedback_sec'];
+                } else {
+                    $min = $teamSettings['sim_min_cr_sec'];
+                    $max = $teamSettings['sim_max_cr_sec'];
+                }
+            }
+        }
+
         if ($type === 'comment') {
-            $min = Config::getSimMinFeedbackInterval();
-            $max = Config::getSimMaxFeedbackInterval();
+            $min = $min ?? Config::getSimMinFeedbackInterval();
+            $max = $max ?? Config::getSimMaxFeedbackInterval();
         } else {
-            $min = Config::getSimMinCrInterval();
-            $max = Config::getSimMaxCrInterval();
+            $min = $min ?? Config::getSimMinCrInterval();
+            $max = $max ?? Config::getSimMaxCrInterval();
         }
 
         $interval = rand($min, $max);

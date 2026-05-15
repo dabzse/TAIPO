@@ -162,16 +162,16 @@ Returns the dashboard data. If `Accept: application/json` is sent or `?api=1` qu
 
 **Action Parameter:** `action` (in POST or GET)
 
-| Action                  | Method   | Required Fields                  | Description                                                                   |
-| :---------------------- | :------- | :------------------------------- | :---------------------------------------------------------------------------- |
-| `list_teams`            | GET/POST | None                             | Retrieve a list of all teams.                                                 |
-| `create_team`           | POST     | `name`                           | Creates a new group/team of students.                                         |
-| `list_roles`            | GET/POST | None                             | Retrieve available system roles (e.g., Instructor, Student, PO).              |
-| `assign_team_user`      | POST     | `team_id`, `user_id`, `role_id`  | Assigns a user (by ID or exact username) to a team mapped to a specific role. |
-| `list_team_users`       | GET      | `team_id`                        | Lists all users and their respective roles for a given team.                  |
-| `remove_team_user`      | POST     | `team_id`, `user_id`             | Removes a user from a specific team.                                          |
-| `update_team_user_role` | POST     | `team_id`, `user_id`, `role_id`  | Changes the role of a user within a team.                                     |
-| `update_team`           | POST     | `team_id`, `name`                | Renames an existing team.                                                     |
+| Action                  | Method   | Required Fields                       | Description                                                                   |
+| :---------------------- | :------- | :------------------------------------ | :---------------------------------------------------------------------------- |
+| `list_teams`            | GET/POST | None                                  | Retrieve a list of all teams.                                                 |
+| `create_team`           | POST     | `name`                                | Creates a new group/team of students.                                         |
+| `list_roles`            | GET/POST | None                                  | Retrieve available system roles (e.g., Instructor, Student, PO).              |
+| `assign_team_user`      | POST     | `team_id`, `user_id`, `role_id`       | Assigns a user (by ID or exact username) to a team mapped to a specific role. |
+| `list_team_users`       | GET      | `team_id`                             | Lists all users and their respective roles for a given team.                  |
+| `remove_team_user`      | POST     | `team_id`, `user_id`                  | Removes a user from a specific team.                                          |
+| `update_team_user_role` | POST     | `team_id`, `user_id`, `role_id`       | Changes the role of a user within a team.                                     |
+| `update_team`           | POST     | `team_id`, `name`, `settings` (opt)   | Renames an existing team and/or updates its simulation config overrides.      |
 
 ### 9. TAWOS Dataset
 
@@ -203,3 +203,4 @@ TAIPO ships a curated subset of the [TAWOS dataset](https://github.com/SOLAR-gro
 - `config`: Object — Environment variables grouped by category (Project, Gemini API, Gemini Costs, PO Simulation, Users, GitHub, Database, Network). API keys and tokens are masked with bullet characters showing only the last 4 characters. Database credentials (`DB_NAME`, `DB_USER`, `DB_PASS`) are fully masked.
 - `tawos`: Object — Dataset statistics including `total` record count, `types` breakdown array, and `projects` list.
 - `projects`: Array — All projects with `id`, `name`, `team_id`, `is_active`, `created_at`, and a `metrics` object (`total_tasks`, `done_tasks`, `completion_rate`, `stalled`).
+- `teams`: Array — All registered teams, their members count, associated projects, and specific simulation parameter overrides.

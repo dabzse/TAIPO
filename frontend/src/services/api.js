@@ -317,12 +317,17 @@ export const api = {
         });
         return response.data;
     },
-    async updateTeam(teamId, name) {
-        const response = await client.post('/', {
+
+    async updateTeam(teamId, name, settings = null) {
+        const payload = {
             action: 'update_team',
             team_id: teamId,
             name: name
-        });
+        };
+        if (settings) {
+            payload.settings = JSON.stringify(settings);
+        }
+        const response = await client.post('/', payload);
         return response.data;
     },
 

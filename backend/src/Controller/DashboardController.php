@@ -88,12 +88,18 @@ class DashboardController
             $userId = $_SESSION['user_id'] ?? 0;
             $projects = $this->projectService->getAllProjects($userId, true);
             $this->attachProjectMetrics($projects);
+            $teams = $this->teamService->listTeams();
+            foreach ($teams as &$team) {
+                $team['members'] = count($this->teamService->listTeamUsers($team['id']));
+                $team['projects'] = array_values(array_filter($projects, fn($p) => $p['team_id'] == $team['id']));
+            }
 
             echo json_encode([
                 'success' => true,
                 'config' => $config,
                 'tawos' => $tawos,
                 'projects' => $projects,
+                'teams' => $teams,
             ]);
         } catch (Exception $e) {
             http_response_code(500);

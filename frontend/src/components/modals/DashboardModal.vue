@@ -53,6 +53,13 @@
                     >
                         Projects
                     </a>
+                    <a
+                        :class="{ 'tab-active': activeTab === 'teams' }"
+                        @click="activeTab = 'teams'"
+                        class="tab"
+                    >
+                        Teams
+                    </a>
                 </div>
 
                 <!-- Tab: Configuration -->
@@ -192,6 +199,59 @@
                     </div>
                 </div>
 
+                <!-- Tab: Teams -->
+                <div
+                    v-if="activeTab === 'teams'"
+                    class="max-h-[60vh] overflow-y-auto"
+                >
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div
+                            v-for="team in dashboardData.teams"
+                            :key="team.id"
+                            class="card bg-base-200 shadow-xl"
+                        >
+                            <div class="card-body">
+                                <h2 class="card-title justify-between">
+                                    {{ team.name }}
+                                    <div class="badge badge-primary">{{ team.members }} members</div>
+                                </h2>
+                                <div class="text-sm opacity-70 mb-2">
+                                    Created: {{ formatDate(team.created_at) }}
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <div class="font-bold text-sm">Projects:</div>
+                                    <div class="flex flex-wrap gap-1">
+                                        <span
+                                            v-for="proj in team.projects"
+                                            :key="proj.id"
+                                            class="badge badge-outline badge-sm"
+                                        >
+                                            {{ proj.name }}
+                                        </span>
+                                        <span v-if="team.projects.length === 0" class="opacity-50 text-xs">No projects</span>
+                                    </div>
+                                </div>
+                                <div class="divider my-2"></div>
+                                <div class="text-sm">
+                                    <div class="font-bold mb-1">Simulation Config Overrides:</div>
+                                    <ul class="list-disc list-inside text-xs">
+                                        <li>Min Feedback: {{ team.sim_min_feedback_sec || 'Global' }}</li>
+                                        <li>Max Feedback: {{ team.sim_max_feedback_sec || 'Global' }}</li>
+                                        <li>Min CR: {{ team.sim_min_cr_sec || 'Global' }}</li>
+                                        <li>Max CR: {{ team.sim_max_cr_sec || 'Global' }}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        v-if="!dashboardData.teams || dashboardData.teams.length === 0"
+                        class="text-center opacity-50 p-8"
+                    >
+                        No teams found.
+                    </div>
+                </div>
+
                 <!-- Tab: Projects -->
                 <div
                     v-if="activeTab === 'projects'"
@@ -327,7 +387,8 @@ const activeTab = ref('config');
 const dashboardData = ref({
     config: {},
     tawos: null,
-    projects: []
+    projects: [],
+    teams: []
 });
 
 // Track which config groups are expanded (first group open by default)
