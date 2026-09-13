@@ -38,25 +38,50 @@ class TawosService
     }
 
     /**
+     * @return resource|false
+     */
+    private function openCsv(string $csvPath)
+    {
+        if (file_exists($csvPath) && is_readable($csvPath)) {
+            $handle = fopen($csvPath, 'r');
+            if ($handle !== false) {
+                $header = fgetcsv($handle);
+                if ($header && count($header) >= 10) {
+                    return $handle;
+                }
+                fclose($handle);
+            }
+        } else {
+            error_log("TawosService: CSV file not found or not readable: {$csvPath}");
+        }
+
+        return false;
+    }
+
+    private function insertRow(\PDOStatement $stmt, array $row): void
+    {
+        $stmt->execute([
+            ':issue_key' => $row[0],
+            ':title' => $row[1],
+            ':description_text' => $row[2],
+            ':type' => $row[3],
+            ':priority' => $row[4],
+            ':status' => $row[5],
+            ':resolution' => $row[6],
+            ':story_point' => is_numeric($row[7]) ? (float)$row[7] : null,
+            ':comment_text' => $row[8] ?: null,
+            ':project_name' => $row[9],
+        ]);
+    }
+
+    /**
      * Seed the tawos_issues table from a CSV file.
      * Returns the number of records inserted.
      */
     public function seedFromCsv(string $csvPath): int
     {
-        if (!file_exists($csvPath) || !is_readable($csvPath)) {
-            error_log("TawosService: CSV file not found or not readable: {$csvPath}");
-            return 0;
-        }
-
-        $handle = fopen($csvPath, 'r');
+        $handle = $this->openCsv($csvPath);
         if ($handle === false) {
-            return 0;
-        }
-
-        // Read and validate header
-        $header = fgetcsv($handle);
-        if (!$header || count($header) < 10) {
-            fclose($handle);
             return 0;
         }
 
@@ -71,23 +96,10 @@ class TawosService
 
         try {
             while (($row = fgetcsv($handle)) !== false) {
-                if (count($row) < 10) {
-                    continue;
+                if (count($row) >= 10) {
+                    $this->insertRow($stmt, $row);
+                    $count++;
                 }
-
-                $stmt->execute([
-                    ':issue_key' => $row[0],
-                    ':title' => $row[1],
-                    ':description_text' => $row[2],
-                    ':type' => $row[3],
-                    ':priority' => $row[4],
-                    ':status' => $row[5],
-                    ':resolution' => $row[6],
-                    ':story_point' => is_numeric($row[7]) ? (float)$row[7] : null,
-                    ':comment_text' => $row[8] ?: null,
-                    ':project_name' => $row[9],
-                ]);
-                $count++;
             }
             $this->pdo->commit();
         } catch (Exception $e) {
@@ -202,6 +214,53 @@ class TawosService
             'types' => $types,
             'projects' => $projects,
         ];
+    }
+
+    /**
+     * Clear all records from tawos_issues table.
+     */
+    public function clear(): void
+    {
+        $this->pdo->exec("DELETE FROM {$this->prefix}tawos_issues");
+    }
+
+    /**
+     * Reseed the tawos_issues table from a CSV file (clears table first).
+     */
+    public function reseedFromCsv(string $csvPath): int
+    {
+        $this->clear();
+        return $this->seedFromCsv($csvPath);
+    }
+
+    /**
+     * Get detailed breakdown of all label dimensions (types, priorities, statuses, resolutions, projects).
+     */
+    public function getDetailedStats(): array
+    {
+        $stats = $this->getStats();
+
+        $priorityStmt = $this->pdo->query(
+            "SELECT priority, COUNT(*) as count FROM {$this->prefix}tawos_issues GROUP BY priority ORDER BY count DESC"
+        );
+        $stats['priorities'] = $priorityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $statusStmt = $this->pdo->query(
+            "SELECT status, COUNT(*) as count FROM {$this->prefix}tawos_issues GROUP BY status ORDER BY count DESC"
+        );
+        $stats['statuses'] = $statusStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $resolutionStmt = $this->pdo->query(
+            "SELECT resolution, COUNT(*) as count FROM {$this->prefix}tawos_issues GROUP BY resolution ORDER BY count DESC"
+        );
+        $stats['resolutions'] = $resolutionStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $projectCountsStmt = $this->pdo->query(
+            "SELECT project_name, COUNT(*) as count FROM {$this->prefix}tawos_issues GROUP BY project_name ORDER BY count DESC"
+        );
+        $stats['project_counts'] = $projectCountsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $stats;
     }
 
     /**

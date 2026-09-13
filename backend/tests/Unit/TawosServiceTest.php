@@ -120,6 +120,41 @@ class TawosServiceTest extends TestCase
         $this->assertLessThanOrEqual(2, count($sample));
     }
 
+    public function testClearEmptiesTable(): void
+    {
+        $this->insertSampleData();
+        $this->assertTrue($this->service->isSeeded());
+        $this->service->clear();
+        $this->assertFalse($this->service->isSeeded());
+    }
+
+    public function testGetDetailedStatsReturnsAllDimensions(): void
+    {
+        $this->insertSampleData();
+        $stats = $this->service->getDetailedStats();
+        $this->assertArrayHasKey('total', $stats);
+        $this->assertArrayHasKey('types', $stats);
+        $this->assertArrayHasKey('priorities', $stats);
+        $this->assertArrayHasKey('statuses', $stats);
+        $this->assertArrayHasKey('resolutions', $stats);
+        $this->assertArrayHasKey('projects', $stats);
+        $this->assertArrayHasKey('project_counts', $stats);
+        $this->assertSame(4, $stats['total']);
+    }
+
+    public function testReseedFromCsvClearsAndSeeds(): void
+    {
+        $csvPath = realpath(__DIR__ . '/../../data/tawos_seed.csv');
+        if (!$csvPath) {
+            $this->markTestSkipped('tawos_seed.csv not found');
+        }
+
+        $this->insertSampleData();
+        $count = $this->service->reseedFromCsv($csvPath);
+        $this->assertGreaterThan(0, $count);
+        $this->assertTrue($this->service->isSeeded());
+    }
+
     private function insertSampleData(): void
     {
         $stmt = $this->pdo->prepare(
