@@ -290,13 +290,6 @@ class Application
             'DONE' => 'success',
         ];
 
-        // Resolve current project
-        // We now fetch projects via ProjectService but need to maintain compatibility with existing functionality
-        // for now we still use TaskService->getProjects() or ProjectService->getAllProjects()
-        // Wait, TaskService->getProjects() uses `SELECT DISTINCT project_name...`
-        // ProjectService->getAllProjects() uses `projects` table.
-        // We should switch to ProjectService completely for list of projects.
-
         $existingProjects = [];
         $projectsData = [];
         try {
@@ -308,26 +301,17 @@ class Application
             $error = "Error loading projects: " . $e->getMessage();
         }
 
-        $projectName = trim($_POST['project_name'] ?? '');
-        $currentProjectName = trim($_GET['project'] ?? $projectName ?? '');
-        $currentProjectName = trim($_POST['current_project'] ?? $currentProjectName);
-
-        if (empty($currentProjectName) && !empty($existingProjects)) {
-            $currentProjectName = $existingProjects[0];
-        }
+        $currentProjectName = $this->resolveCurrentProjectName($existingProjects);
 
         $kanbanTasks = [];
         $tickProjectName = null;
         $tickUserId = null;
-        // Only load tasks if authenticated
         if (isset($_SESSION['user_id'])) {
-            // Defer tick() to after response — load tasks first for fast page render
             $tickProjectName = $currentProjectName;
             $tickUserId = (int)$_SESSION['user_id'];
             $kanbanTasks = $this->loadKanbanTasks($currentProjectName, $columns, $error);
         }
 
-        // Resolve user role for the current project
         $userRole = null;
         $allowedActions = [];
         if (isset($_SESSION['user_id']) && !empty($currentProjectName)) {
@@ -335,7 +319,6 @@ class Application
             $allowedActions = RolePermissions::getAllowedActions($userRole);
         }
 
-        // Release session lock so other requests from the same client can proceed
         session_write_close();
 
         header(Config::APP_JSON);
@@ -360,25 +343,51 @@ class Application
             ]
         ]);
 
-        // Flush response to client before running PO simulation tick.
-        // tick() may trigger slow Gemini API calls — deferring it means
-        // the user sees data immediately while simulation runs after.
+        $this->dispatchPoActivityTick($tickProjectName, $tickUserId);
+        exit;
+    }
+
+    private function resolveCurrentProjectName(array $existingProjects): string
+    {
+        $projectName = trim($_POST['project_name'] ?? '');
+        $current = trim($_GET['project'] ?? $projectName);
+        $current = trim($_POST['current_project'] ?? $current);
+
+        if (empty($current) && !empty($existingProjects)) {
+            return $existingProjects[0];
+        }
+
+        return $current;
+    }
+
+    private function dispatchPoActivityTick(?string $projectName, ?int $userId): void
+    {
+        if (!$projectName || !$userId) {
+            return;
+        }
+
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
-        } else {
-            if (ob_get_level()) {
-                ob_end_flush();
-            }
-            flush();
-        }
-
-        // Run PO Activity tick AFTER response is sent
-        if ($tickProjectName && $tickUserId) {
             ignore_user_abort(true);
-            $this->poActivityService->tick($tickProjectName, $tickUserId);
+            $this->poActivityService->tick($projectName, $userId);
+            return;
         }
 
-        exit;
+        if (ob_get_level()) {
+            ob_end_flush();
+        }
+        flush();
+
+        $cliScript = dirname(__DIR__) . '/tools/sim_tick.php';
+        if (file_exists($cliScript)) {
+            $cmd = sprintf(
+                'php %s %s %d > /dev/null 2>&1 &',
+                escapeshellarg($cliScript),
+                escapeshellarg($projectName),
+                $userId
+            );
+            exec($cmd);
+        }
     }
 
     private function initEnvAndInput(): void

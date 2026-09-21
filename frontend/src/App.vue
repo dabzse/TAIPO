@@ -85,9 +85,15 @@
                 <div class="flex-1 flex justify-center">
                     <span
                         v-if="currentProject"
-                        class="badge badge-lg badge-primary font-bold"
+                        class="badge badge-lg badge-primary font-bold gap-2"
                     >
                         {{ currentProject }}
+                        <span
+                            v-if="isRefreshingTasks"
+                            class="loading loading-spinner loading-xs text-primary-content"
+                            title="Syncing..."
+                        >
+                        </span>
                     </span>
                     <span
                         v-else
@@ -145,8 +151,10 @@
 
                 <!-- Theme Toggle -->
                 <div class="flex-none">
-                    <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <label class="swap swap-rotate btn btn-ghost btn-circle" for="theme-toggle">
+                        <span class="sr-only">Toggle theme</span>
                         <input
+                            id="theme-toggle"
                             @change="toggleTheme"
                             :checked="theme === 'dark'"
                             type="checkbox"
@@ -321,6 +329,8 @@ import { api } from './services/api';
 const isAuthenticated = ref(false);
 const authUser = ref(null);
 const loading = ref(true); // Start loading while checking auth
+const isRefreshingTasks = ref(false);
+let refreshInFlight = false;
 const error = ref(null);
 const tasks = ref({});
 const appConfig = ref({
@@ -334,6 +344,53 @@ const userRole = ref(null);
 const showGithubModal = ref(false);
 const drawerOpen = ref(false);
 const theme = ref(globalThis?.localStorage?.getItem('theme') || 'dark');
+
+const CACHE_PROJECT_KEY = 'taipo_last_active_project';
+const CACHE_TASKS_PREFIX = 'taipo_cached_tasks_';
+
+const getStorage = () => (typeof globalThis !== 'undefined' ? globalThis.localStorage : null);
+
+const restoreLastState = () => {
+    const storage = getStorage();
+    if (!storage) return false;
+
+    try {
+        const savedProject = storage.getItem(CACHE_PROJECT_KEY);
+        if (savedProject && !currentProject.value) {
+            currentProject.value = savedProject;
+        }
+
+        const activeProj = currentProject.value;
+        if (!activeProj) return false;
+
+        const cached = storage.getItem(CACHE_TASKS_PREFIX + activeProj);
+        if (!cached) return false;
+
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') {
+            tasks.value = parsed;
+            enrichTasksWithSubtaskInfo();
+            return true;
+        }
+    } catch (e) {
+        console.warn("Could not restore last state from cache:", e);
+    }
+    return false;
+};
+
+const persistLastState = () => {
+    const storage = getStorage();
+    if (!storage || !currentProject.value) return;
+
+    try {
+        storage.setItem(CACHE_PROJECT_KEY, currentProject.value);
+        if (tasks.value && Object.keys(tasks.value).length > 0) {
+            storage.setItem(CACHE_TASKS_PREFIX + currentProject.value, JSON.stringify(tasks.value));
+        }
+    } catch (e) {
+        console.warn("Could not persist state to cache:", e);
+    }
+};
 
 const toggleTheme = () => {
     theme.value = theme.value === 'dark' ? 'cupcake' : 'dark';
@@ -391,6 +448,10 @@ const columns = ref({
 
 // Authentication Handlers
 const checkAuth = async () => {
+    const hasCache = restoreLastState();
+    if (!hasCache) {
+        loading.value = true;
+    }
     try {
         const res = await api.checkAuth();
         if (res.config) {
@@ -402,7 +463,8 @@ const checkAuth = async () => {
             if (res.user.last_active_project) {
                 currentProject.value = res.user.last_active_project;
             }
-            await refreshTasks();
+            restoreLastState();
+            refreshTasks(false);
         } else {
             isAuthenticated.value = false;
         }
@@ -420,7 +482,11 @@ const handleAuthSuccess = async (user) => {
     if (user.last_active_project) {
         currentProject.value = user.last_active_project;
     }
-    await refreshTasks();
+    const hasCache = restoreLastState();
+    if (!hasCache) {
+        loading.value = true;
+    }
+    refreshTasks(false);
 };
 
 const handleLogout = async () => {
@@ -429,6 +495,7 @@ const handleLogout = async () => {
         isAuthenticated.value = false;
         authUser.value = null;
         currentProject.value = null;
+        tasks.value = {};
     } catch (e) {
         console.error("Logout failed:", e);
     }
@@ -475,12 +542,22 @@ onBeforeUnmount(() => {
 });
 
 const handleProjectSelected = async (projectName) => {
+    if (!projectName) {
+        currentProject.value = null;
+        tasks.value = {};
+        return;
+    }
+    const isSameProject = currentProject.value === projectName;
     currentProject.value = projectName;
-    await refreshTasks();
-    try {
-        await api.saveActiveProject(projectName);
-    } catch (e) {
-        console.error("Failed to save active project:", e);
+    persistLastState();
+
+    api.saveActiveProject(projectName).catch(e => console.error("Failed to save active project:", e));
+
+    if (!isSameProject) {
+        const hasCache = restoreLastState();
+        refreshTasks(!hasCache);
+    } else if (!refreshInFlight) {
+        refreshTasks(false);
     }
 };
 
@@ -489,13 +566,19 @@ const handleViewBoard = async (projectName) => {
     await handleProjectSelected(projectName);
 };
 
-const refreshTasks = async () => {
+const refreshTasks = async (showFullLoader = false) => {
     if (!isAuthenticated.value) return;
+    if (refreshInFlight) return;
 
-    // If we have existing projects from DB, default to the first one if not selected
-    try {
+    refreshInFlight = true;
+    isRefreshingTasks.value = true;
+
+    const hasVisibleTasks = tasks.value && Object.keys(tasks.value).some(k => tasks.value[k]?.length > 0);
+    if (showFullLoader && !hasVisibleTasks) {
         loading.value = true;
+    }
 
+    try {
         let targetProject = currentProject.value;
 
         // Fetch without project first to get existingProjects list if current is null
@@ -509,7 +592,6 @@ const refreshTasks = async () => {
         if (!targetProject && data.existingProjects && data.existingProjects.length > 0) {
             targetProject = data.existingProjects[0];
             currentProject.value = targetProject;
-            // Now refetch specifically for this project (though backend auto-resolves it too)
         }
 
         tasks.value = data.tasks || {};
@@ -521,6 +603,7 @@ const refreshTasks = async () => {
 
         // Enrich tasks with subtask counts
         enrichTasksWithSubtaskInfo();
+        persistLastState();
 
         if (data.config) {
             appConfig.value = { ...appConfig.value, ...data.config };
@@ -534,6 +617,8 @@ const refreshTasks = async () => {
         error.value = e.response?.data?.error || e.message;
     } finally {
         loading.value = false;
+        isRefreshingTasks.value = false;
+        refreshInFlight = false;
     }
 };
 

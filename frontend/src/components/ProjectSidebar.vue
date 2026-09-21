@@ -46,7 +46,7 @@
                             <div class="flex justify-between items-center mb-2">
                                 <label class="label font-bold p-0" for="promptInput">AI Prompt</label>
                                 <div class="dropdown dropdown-end">
-                                    <button tabindex="0" class="btn btn-xs btn-ghost text-info m-1">Load Default ▾</button>
+                                    <button type="button" tabindex="0" class="btn btn-xs btn-ghost text-info m-1">Load Default ▾</button>
                                     <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
                                         <li
                                             v-for="lang in supportedLanguages"
@@ -74,7 +74,9 @@
                         <div class="divider text-xs">OR UPLOAD SPEC</div>
 
                         <div class="form-control w-full">
+                            <label class="sr-only" for="spec-file-upload">Upload Spec File</label>
                             <input
+                                id="spec-file-upload"
                                 @change="handleFileUpload"
                                 :disabled="loading"
                                 type="file"
@@ -121,7 +123,9 @@
                 </li>
                 <li>
                     <div class="join w-full">
+                        <label class="sr-only" for="select-existing-project">Select Existing Project</label>
                         <select
+                            id="select-existing-project"
                             v-model="selectedProject"
                             @change="loadProject"
                             :disabled="loadingProjects || projects.length === 0"
@@ -260,7 +264,9 @@
                         Type <strong>{{ selectedProject?.name }}</strong> or <strong>delete</strong> to confirm.
                     </p>
                     <div class="py-2">
+                        <label class="sr-only" for="delete-confirmation-text">Delete confirmation</label>
                         <input
+                            id="delete-confirmation-text"
                             v-model="deleteConfirmationText"
                             type="text"
                             class="input input-bordered input-error w-full"
@@ -560,7 +566,9 @@ const tryRestoreSavedProject = async () => {
             const savedProj = projects.value.find((p) => p.id === savedId);
             if (savedProj) {
                 selectedProject.value = savedProj;
-                loadProject();
+                if (!props.activeProjectName || props.activeProjectName !== savedProj.name) {
+                    loadProject();
+                }
             }
         }
     } catch (e) {

@@ -80,16 +80,20 @@
                         class="collapse collapse-arrow bg-base-200 rounded-box"
                     >
                         <input
+                            :id="'config-group-' + group"
                             :checked="expandedGroups[group]"
                             @change="expandedGroups[group] = !expandedGroups[group]"
                             type="checkbox"
                         >
-                        <div class="collapse-title font-bold text-sm">
+                        <label
+                            :for="'config-group-' + group"
+                            class="collapse-title font-bold text-sm block cursor-pointer"
+                        >
                             {{ group }}
                             <span class="badge badge-sm badge-ghost ml-2">
                                 {{ Object.keys(items).length }}
                             </span>
-                        </div>
+                        </label>
                         <div class="collapse-content">
                             <table class="table table-xs w-full">
                                 <thead>
@@ -165,6 +169,132 @@
                                     {{ dashboardData.tawos.projects?.length || 0 }}
                                 </div>
                                 <div class="stat-desc">Open-source projects</div>
+                            </div>
+                        </div>
+
+                        <!-- TAWOS Dataset Status Banner -->
+                        <div
+                            class="alert alert-info bg-info/10 border-info/30"
+                        >
+                            <div class="flex-1">
+                                <div class="font-bold flex items-center gap-2">
+                                    <span>💾 Local Dataset Mode: Offline-First</span>
+                                    <span class="badge badge-sm badge-ghost">Local DB</span>
+                                </div>
+                                <div class="text-xs opacity-75 mt-1">
+                                    Powered by local tawos_issues database table. Sampled via ./setup.sh or php tools/tawos_sql_sampler.php.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAWOS Search Tool -->
+                        <div class="bg-base-200 p-4 rounded-box space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold">Search TAWOS Issues</h4>
+                                <span class="text-xs opacity-60">
+                                    Searching local database
+                                </span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input
+                                    v-model="tawosSearchQuery"
+                                    @keydown.enter="handleTawosSearch"
+                                    id="tawos-search-input"
+                                    aria-label="Search TAWOS issues"
+                                    type="text"
+                                    placeholder="Search by keyword, title, or description (e.g. auth, null pointer, UI)..."
+                                    class="input input-sm input-bordered flex-1"
+                                />
+                                <select
+                                    id="tawos-search-type"
+                                    aria-label="Filter by issue type"
+                                    v-model="tawosSearchType"
+                                    class="select select-sm select-bordered"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="Story">Story</option>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Task">Task</option>
+                                </select>
+                                <button
+                                    @click="handleTawosSearch"
+                                    :disabled="isSearchingTawos || !tawosSearchQuery.trim()"
+                                    class="btn btn-sm btn-primary"
+                                >
+                                    <span
+                                        v-if="isSearchingTawos"
+                                        class="loading loading-spinner loading-xs"
+                                    >
+                                    </span>
+                                    <span v-else>
+                                        Search
+                                    </span>
+                                </button>
+                                <button
+                                    v-if="tawosSearchResults || tawosSearchError"
+                                    @click="clearTawosSearch"
+                                    class="btn btn-sm btn-ghost"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+
+                            <div
+                                v-if="tawosSearchError"
+                                class="alert alert-warning text-xs mt-2 p-2"
+                            >
+                                <span>{{ tawosSearchError }}</span>
+                            </div>
+
+                            <!-- Search Results List -->
+                            <div
+                                v-if="tawosSearchResults"
+                                class="mt-3 space-y-2"
+                            >
+                                <div class="flex justify-between items-center text-xs opacity-75 px-1">
+                                    <span>
+                                        Found {{ tawosSearchResults.total }} issues
+                                    </span>
+                                    <span
+                                        class="badge badge-sm"
+                                        :class="tawosSearchResults.source === 'external_api' ? 'badge-primary' : 'badge-neutral'"
+                                    >
+                                        Source: {{ tawosSearchResults.source === 'external_api' ? 'External API (500k+)' : 'Local DB' }}
+                                    </span>
+                                </div>
+                                <div
+                                    v-if="tawosSearchResults.items.length === 0"
+                                    class="text-sm opacity-50 p-4 text-center"
+                                >
+                                    No issues matching "{{ tawosSearchQuery }}".
+                                </div>
+                                <div
+                                    v-for="item in tawosSearchResults.items"
+                                    :key="item.issue_key"
+                                    class="bg-base-100 p-3 rounded-lg border border-base-300 text-sm space-y-1"
+                                >
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="font-semibold text-base-content flex items-center gap-2">
+                                            <span class="font-mono text-xs opacity-70">{{ item.issue_key }}</span>
+                                            <span>{{ item.title }}</span>
+                                        </div>
+                                        <div class="flex gap-1 shrink-0">
+                                            <span :class="getTypeBadgeClass(item.type)" class="badge badge-sm">{{ item.type }}</span>
+                                            <span
+                                                v-if="item.priority"
+                                                class="badge badge-outline badge-sm"
+                                            >
+                                                {{ item.priority }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="item.description_text"
+                                        class="text-xs opacity-70 line-clamp-2"
+                                    >
+                                        {{ item.description_text }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -304,7 +434,11 @@
                                 </p>
 
                                 <div class="form-control w-full mt-2">
+                                    <label for="backup-file-input" class="label sr-only">
+                                        <span class="label-text">Restore Database Backup File</span>
+                                    </label>
                                     <input
+                                        id="backup-file-input"
                                         @change="onBackupFileChange"
                                         type="file"
                                         accept=".json"
@@ -407,7 +541,14 @@
                                     <span v-else class="opacity-40">—</span>
                                 </td>
                                 <td>
+                                    <label
+                                        :for="'project-active-' + project.id"
+                                        class="sr-only"
+                                    >
+                                        Toggle Simulation Activity for {{ project.name }}
+                                    </label>
                                     <input
+                                        :id="'project-active-' + project.id"
                                         :checked="project.is_active == 1"
                                         @change="toggleProjectActivity(project, $event)"
                                         type="checkbox"
@@ -487,6 +628,44 @@ const selectedBackupFile = ref(null);
 const importing = ref(false);
 const importError = ref(null);
 const importSuccess = ref(false);
+
+// TAWOS Search State
+const tawosSearchQuery = ref('');
+const tawosSearchType = ref('');
+const tawosSearchResults = ref(null);
+const tawosSearchError = ref(null);
+const isSearchingTawos = ref(false);
+
+const handleTawosSearch = async () => {
+    const q = tawosSearchQuery.value.trim();
+    if (!q) return;
+    isSearchingTawos.value = true;
+    tawosSearchError.value = null;
+    try {
+        const filters = {};
+        if (tawosSearchType.value) {
+            filters.type = tawosSearchType.value;
+        }
+        const res = await api.searchTawos(q, filters);
+        if (res.success) {
+            tawosSearchResults.value = res.data;
+        } else {
+            tawosSearchError.value = res.error || 'Failed to search TAWOS issues';
+        }
+    } catch (e) {
+        console.error('Failed to search TAWOS issues:', e);
+        tawosSearchError.value = e?.response?.data?.error || e?.message || 'Error communicating with server';
+    } finally {
+        isSearchingTawos.value = false;
+    }
+};
+
+const clearTawosSearch = () => {
+    tawosSearchQuery.value = '';
+    tawosSearchType.value = '';
+    tawosSearchResults.value = null;
+    tawosSearchError.value = null;
+};
 
 // Track which config groups are expanded (first group open by default)
 const expandedGroups = reactive({});
