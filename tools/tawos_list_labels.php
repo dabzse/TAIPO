@@ -24,7 +24,7 @@ $backendDir = $projectRoot . '/backend';
 $defaultCsv = $backendDir . '/data/tawos_seed.csv';
 
 // Command line arguments parsing
-$options = getopt('h', ['csv:', 'db', 'dimension:', 'json', 'no-color', 'help']);
+$options = getopt('h', ['csv:', 'source:', 'db', 'dimension:', 'json', 'no-color', 'help']);
 
 if (isset($options['h']) || isset($options['help'])) {
     echo <<<HELP
@@ -34,6 +34,7 @@ Használat:
   php tools/tawos_list_labels.php [opciók]
 
 Opciók:
+  --source=<elérési_út>,
   --csv=<elérési_út>   CSV fájl elemzése (alapértelmezett: backend/data/tawos_seed.csv)
   --db                 A TAIPO adatbázisból (tawos_issues tábla) kéri le az adatokat
   --dimension=<név>    Csak a megadott dimenzió listázása:
@@ -49,6 +50,7 @@ Opciók:
 
 Példák:
   php tools/tawos_list_labels.php
+  php tools/tawos_list_labels.php --source=backend/data/tawos_seed_350.csv
   php tools/tawos_list_labels.php --db
   php tools/tawos_list_labels.php --dimension=type
   php tools/tawos_list_labels.php --json
@@ -58,7 +60,7 @@ HELP;
 }
 
 $useDb = isset($options['db']);
-$csvPath = $options['csv'] ?? $defaultCsv;
+$csvPath = $options['source'] ?? ($options['csv'] ?? $defaultCsv);
 $dimension = strtolower((string)($options['dimension'] ?? 'all'));
 $isJson = isset($options['json']);
 $useColor = !isset($options['no-color']) && (function_exists('posix_isatty') ? posix_isatty(STDOUT) : true);

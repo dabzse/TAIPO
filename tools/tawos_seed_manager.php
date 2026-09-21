@@ -26,12 +26,17 @@ declare(strict_types=1);
 $projectRoot = dirname(__DIR__);
 $backendDir = $projectRoot . '/backend';
 $defaultCsv = $backendDir . '/data/tawos_seed.csv';
+$seed350Csv = $backendDir . '/data/tawos_seed_350.csv';
+$hasSeed350 = file_exists($seed350Csv);
 
 // Command line argument parsing
 $longOpts = [
     'count:',
+    'preset:',
     'types:',
     'priorities:',
+    'sql:',
+    'sql-source:',
     'source:',
     'output:',
     'db',
@@ -51,13 +56,15 @@ Használat:
   php tools/tawos_seed_manager.php [opciók]
 
 Opciók:
-  --count=<szám>         Kívánt összrekordszám (pl. 500, alapértelmezett: 80)
+  --count=<szám>         Kívánt összrekordszám (pl. 80, 350, 500, alapértelmezett: 80)
+  --preset=<80|350>      Beépített készlet kiválasztása (80: kompakt, 350: beépített kibővített)
+  --sql=<fájl>           Nyers TAWOS.sql vagy .zip forrásból valódi mintavételezés (alap: backend/data/TAWOS.sql)
   --types=<kvóták>       Konkrét eloszlás vagy fókusz issue típusonként:
                            Példa: --types="Story:300,Bug:150,Task:100"
                            vagy súlyozás: --types="Story:60%,Bug:30%,Task:10%"
   --priorities=<kvóták>  Prioritás eloszlás:
                            Példa: --priorities="Critical:50,Major:400,Minor:50"
-  --source=<fájl>        Forrás adatkészlet CSV (alapértelmezett: backend/data/tawos_seed.csv)
+  --source=<fájl>        Forrás adatkészlet CSV (alapértelmezett: backend/data/tawos_seed.csv vagy tawos_seed_350.csv)
   --output=<fájl>        Kimeneti CSV fájl (alapértelmezett: backend/data/tawos_seed.csv)
   --db                   Generálás után automatikusan beírja a TAIPO adatbázisba is
   --no-backup            Ne hozzon létre .bak másolatot a korábbi seed fájlról
@@ -66,7 +73,15 @@ Opciók:
   -h, --help             Segítség megjelenítése
 
 Példák:
-  # 500 elem generálása az alapértelmezett arányokkal:
+  # Beépített 350 rekordos készlet (tawos_seed_350.csv) betöltése azonnal adatbázisba:
+  php tools/tawos_seed_manager.php --source=backend/data/tawos_seed_350.csv --count=350 --db
+  # vagy egyszerűen:
+  php tools/tawos_seed_manager.php --count=350 --db
+
+  # 350 valódi rekord kinyerése nyers TAWOS.sql-ből adatbázisba írással:
+  php tools/tawos_seed_manager.php --count=350 --sql=backend/data/TAWOS.sql --db
+
+  # 500 elem generálása az alapértelmezett arányokkal meglévő mintákból:
   php tools/tawos_seed_manager.php --count=500
 
   # Fókuszálás hibákra (Bug) és sztorikra (Story), adatbázisba írással:
@@ -74,6 +89,11 @@ Példák:
 
   # Túllépés teszt (300+250 = 550 > 500) figyelmeztető kérdéssel (Y/N):
   php tools/tawos_seed_manager.php --count=500 --types="Story:300,Bug:250"
+
+Megjegyzés:
+  Átfogó rendszerbeállításhoz és interaktív konfiguráláshoz
+  használd a setup varázslót:
+    ./setup.sh  vagy  php tools/setup.php
 
 HELP;
     exit(0);
@@ -136,9 +156,25 @@ function askYesNo(string $question, bool $default = true, bool $autoYes = false,
 }
 
 // Banner
-echo "\n" . $color("╔══════════════════════════════════════════════════════╗", 'cyan') . "\n";
+echo "\n";
+echo $color("╔══════════════════════════════════════════════════════╗", 'cyan') . "\n";
 echo $color("║            TAWOS SEED KEZELŐ ÉS GENERÁLÓ             ║", 'cyan') . "\n";
 echo $color("╚══════════════════════════════════════════════════════╝", 'cyan') . "\n";
+
+// Preset / Auto-selection logic
+if (isset($options['preset'])) {
+    if ((string)$options['preset'] === '350' && $hasSeed350) {
+        $options['source'] = $options['source'] ?? $seed350Csv;
+        $options['count'] = $options['count'] ?? 350;
+    } elseif ((string)$options['preset'] === '80') {
+        $options['source'] = $options['source'] ?? $defaultCsv;
+        $options['count'] = $options['count'] ?? 80;
+    }
+} elseif (!isset($options['source']) && !isset($options['sql']) && !isset($options['sql-source'])) {
+    if (isset($options['count']) && (int)$options['count'] === 350 && $hasSeed350) {
+        $options['source'] = $seed350Csv;
+    }
+}
 
 $isInteractive = isset($options['i']) || isset($options['interactive']) || (count($argv) === 1);
 $autoYes = isset($options['y']) || isset($options['yes']);
@@ -146,6 +182,80 @@ $sourcePath = $options['source'] ?? $defaultCsv;
 $outputPath = $options['output'] ?? $defaultCsv;
 $writeToDb = isset($options['db']);
 $makeBackup = !isset($options['no-backup']);
+
+$sqlSource = $options['sql'] ?? ($options['sql-source'] ?? null);
+$defaultSqlPath = 'backend/data/TAWOS.sql';
+$defaultSqlZip = 'backend/data/TAWOS.sql.zip';
+$hasDefaultSql = file_exists($projectRoot . '/' . $defaultSqlPath) || file_exists($projectRoot . '/' . $defaultSqlZip);
+
+if ($sqlSource === null && $isInteractive) {
+    echo $color("💡 Választhatsz valódi TAWOS.sql / .zip nyers adatbázis-dumpból való mintavételezést is,\n", 'cyan');
+    echo $color("   amely valódi, egyedi agilis feladatokat és kommenteket emel be ismétlések nélkül.\n\n", 'cyan');
+    $promptMsg = $hasDefaultSql
+        ? "Található valódi TAWOS.sql/zip forrás! Szeretnél a nyers dumpból valódi mintát venni?"
+        : "Szeretnél nyers TAWOS.sql (vagy .zip) adatbázisból valódi mintát venni?";
+    if (askYesNo($promptMsg, $hasDefaultSql, $autoYes, $color)) {
+        $suggestedPath = $defaultSqlPath;
+        if ($hasDefaultSql && !file_exists($projectRoot . '/' . $defaultSqlPath)) {
+            $suggestedPath = $defaultSqlZip;
+        }
+        $sqlSource = promptUser("TAWOS.sql vagy .zip fájl elérési útja", $suggestedPath);
+    }
+}
+
+if ($sqlSource !== null && trim($sqlSource) !== '') {
+    $targetCount = isset($options['count']) ? (int)$options['count'] : null;
+    if ($targetCount === null) {
+        if ($isInteractive) {
+            $inp = promptUser("Hány valódi TAWOS rekordot szeretnél kinyerni?", "350");
+            $targetCount = max(1, (int)$inp);
+        } else {
+            $targetCount = 350;
+        }
+    }
+
+    require_once __DIR__ . '/tawos_sql_sampler.php';
+    $sampler = new TawosSqlSampler([
+        'count' => $targetCount,
+        'types' => $options['types'] ?? null,
+        'priorities' => $options['priorities'] ?? null,
+        'output' => $outputPath,
+        'no-backup' => !$makeBackup,
+    ], function (string $msg): void {
+        echo $msg;
+    });
+
+    try {
+        $generatedRows = $sampler->run($sqlSource);
+    } catch (Exception $e) {
+        fwrite(STDERR, $color("Hiba az SQL mintavételezés során: " . $e->getMessage() . "\n", 'red'));
+        exit(1);
+    }
+
+    if ($writeToDb) {
+        echo $color("Adatok betöltése az adatbázisba...\n", 'bold');
+        $autoloadPath = $backendDir . '/vendor/autoload.php';
+        if (file_exists($autoloadPath)) {
+            require_once $autoloadPath;
+            $envFile = $backendDir . '/.env';
+            if (file_exists($envFile)) {
+                $dotenv = Dotenv\Dotenv::createImmutable($backendDir);
+                $dotenv->load();
+            }
+            try {
+                $db = new App\Database();
+                $tawosService = new App\Service\TawosService($db->getPdo(), $db->getDbType());
+                $inserted = $tawosService->reseedFromCsv(realpath($outputPath) ?: $outputPath);
+                echo "✅ " . $color("Sikeres adatbázis seedelés! {$inserted} rekord beillesztve a tawos_issues táblába.\n", 'green');
+            } catch (Exception $e) {
+                fwrite(STDERR, $color("Adatbázis hiba: " . $e->getMessage() . "\n", 'red'));
+            }
+        }
+    }
+
+    echo "\n" . $color("Kész!", 'green') . "\n";
+    exit(0);
+}
 
 # 1. Read and analyze source templates
 if (!file_exists($sourcePath) || !is_readable($sourcePath)) {
@@ -243,7 +353,8 @@ if (!empty($typeQuotas)) {
 
     if ($quotaSum > $targetCount) {
         // Exceeds warning
-        echo "\n" . $color("───────────────────────────────────────────────────────────────────", 'yellow') . "\n";
+        echo "\n";
+        echo $color("───────────────────────────────────────────────────────────────────", 'yellow') . "\n";
         echo $color("⚠️  FIGYELMEZTETÉS: A megadott címkekvóták összege túllépi a beállított értéket!", 'yellow') . "\n";
         echo "   • Beállított kívánt összérték: " . $color("{$targetCount} db", 'bold') . "\n";
         echo "   • Címkék (kvóták) összege:     " . $color("{$quotaSum} db", 'bold') . " (" . implode(', ', array_map(fn($k, $v) => "$k: $v", array_keys($typeQuotas), $typeQuotas)) . ")\n";
@@ -338,36 +449,40 @@ echo "\n";
 $generatedRows = [];
 $issueSeq = 101;
 
-foreach ($typeQuotas as $tName => $countNeeded) {
-    $pool = $templatesByType[$tName] ?? $sourceRecords;
-    $poolCount = count($pool);
+if ($rawTypes === null && $targetCount === count($sourceRecords)) {
+    $generatedRows = $sourceRecords;
+} else {
+    foreach ($typeQuotas as $tName => $countNeeded) {
+        $pool = $templatesByType[$tName] ?? $sourceRecords;
+        $poolCount = count($pool);
 
-    for ($i = 0; $i < $countNeeded; $i++) {
-        $base = $pool[$i % $poolCount];
-        $repeatIndex = (int)floor($i / $poolCount);
+        for ($i = 0; $i < $countNeeded; $i++) {
+            $base = $pool[$i % $poolCount];
+            $repeatIndex = (int)floor($i / $poolCount);
 
-        $issueKey = sprintf("PROJ-%d", $issueSeq++);
-        $title = $base['title'];
-        $desc = $base['description_text'];
-        $comment = $base['comment_text'];
+            $issueKey = sprintf("PROJ-%d", $issueSeq++);
+            $title = $base['title'];
+            $desc = $base['description_text'];
+            $comment = $base['comment_text'];
 
-        if ($repeatIndex > 0) {
-            // Slight variation for duplicated templates
-            $title = $title . " (Phase " . ($repeatIndex + 1) . ")";
+            if ($repeatIndex > 0) {
+                // Slight variation for duplicated templates
+                $title = $title . " (Phase " . ($repeatIndex + 1) . ")";
+            }
+
+            $generatedRows[] = [
+                'issue_key' => $issueKey,
+                'title' => $title,
+                'description_text' => $desc,
+                'type' => $tName,
+                'priority' => $base['priority'],
+                'status' => $base['status'],
+                'resolution' => $base['resolution'],
+                'story_point' => $base['story_point'],
+                'comment_text' => $comment,
+                'project_name' => $base['project_name'],
+            ];
         }
-
-        $generatedRows[] = [
-            'issue_key' => $issueKey,
-            'title' => $title,
-            'description_text' => $desc,
-            'type' => $tName,
-            'priority' => $base['priority'],
-            'status' => $base['status'],
-            'resolution' => $base['resolution'],
-            'story_point' => $base['story_point'],
-            'comment_text' => $comment,
-            'project_name' => $base['project_name'],
-        ];
     }
 }
 
