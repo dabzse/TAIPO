@@ -155,6 +155,22 @@ class TawosServiceTest extends TestCase
         $this->assertTrue($this->service->isSeeded());
     }
 
+    public function testSearchIssuesLocalDb(): void
+    {
+        $this->insertSampleData();
+        $result = $this->service->searchIssues('Auth');
+
+        $this->assertSame('local_db', $result['source']);
+        $this->assertGreaterThanOrEqual(1, $result['total']);
+        $this->assertSame('PROJ-1', $result['items'][0]['issue_key']);
+
+        // Filter by type
+        $bugResult = $this->service->searchIssues('', ['type' => 'Bug']);
+        $this->assertSame('local_db', $bugResult['source']);
+        $this->assertCount(1, $bugResult['items']);
+        $this->assertSame('Fix XSS Bug', $bugResult['items'][0]['title']);
+    }
+
     private function insertSampleData(): void
     {
         $stmt = $this->pdo->prepare(

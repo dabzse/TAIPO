@@ -117,17 +117,28 @@ class TawosService
     /**
      * Auto-seed on first boot if the table is empty.
      */
-    public function autoSeed(): void
+    public function autoSeed(?string $customPath = null): void
     {
         if ($this->isSeeded()) {
             return;
         }
 
-        $csvPath = realpath(__DIR__ . '/../../data/tawos_seed.csv');
-        if ($csvPath) {
-            $inserted = $this->seedFromCsv($csvPath);
-            if ($inserted > 0) {
-                error_log("TawosService: Auto-seeded {$inserted} TAWOS records.");
+        $seedFile = $customPath ?? ($_ENV['TAWOS_SEED_FILE'] ?? null);
+        $candidatePaths = [];
+        if ($seedFile) {
+            $candidatePaths[] = realpath(__DIR__ . '/../../data/' . basename($seedFile));
+            $candidatePaths[] = realpath(__DIR__ . '/../../' . ltrim($seedFile, '/'));
+            $candidatePaths[] = realpath($seedFile);
+        }
+        $candidatePaths[] = realpath(__DIR__ . '/../../data/tawos_seed.csv');
+
+        foreach ($candidatePaths as $csvPath) {
+            if ($csvPath && file_exists($csvPath)) {
+                $inserted = $this->seedFromCsv($csvPath);
+                if ($inserted > 0) {
+                    error_log("TawosService: Auto-seeded {$inserted} TAWOS records from " . basename($csvPath));
+                    break;
+                }
             }
         }
     }
@@ -190,6 +201,69 @@ class TawosService
         );
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    /**
+     * Search in TAWOS issues from the local database.
+     *
+     * @param string $query Keyword to search
+     * @param array $filters Optional filters (e.g. ['type' => 'Bug'])
+     * @param int $limit Maximum results
+     * @return array [ 'source' => 'local_db', 'items' => [...], 'total' => int ]
+     */
+    public function searchIssues(string $query, array $filters = [], int $limit = 20): array
+    {
+        $query = trim($query);
+
+        // Local DB search
+        $whereClauses = [];
+        $params = [];
+
+        if ($query !== '') {
+            $whereClauses[] = "(title LIKE :q1 OR description_text LIKE :q2 OR comment_text LIKE :q3 OR issue_key LIKE :q4)";
+            $params[':q1'] = "%{$query}%";
+            $params[':q2'] = "%{$query}%";
+            $params[':q3'] = "%{$query}%";
+            $params[':q4'] = "%{$query}%";
+        }
+
+        if (!empty($filters['type'])) {
+            $whereClauses[] = "type = :type";
+            $params[':type'] = $filters['type'];
+        }
+
+        if (!empty($filters['priority'])) {
+            $whereClauses[] = "priority = :priority";
+            $params[':priority'] = $filters['priority'];
+        }
+
+        $whereSql = !empty($whereClauses) ? "WHERE " . implode(' AND ', $whereClauses) : "";
+        $stmt = $this->pdo->prepare(
+            "SELECT issue_key, title, description_text, type, priority, status, resolution, story_point, comment_text, project_name
+            FROM {$this->prefix}tawos_issues
+                {$whereSql}
+            ORDER BY id ASC
+            LIMIT :lim"
+        );
+
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v, PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
+
+        try {
+            $stmt->execute();
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            error_log("TawosService: Local search failed: " . $e->getMessage());
+            $items = [];
+        }
+
+        return [
+            'source' => 'local_db',
+            'items' => $items,
+            'total' => count($items),
+        ];
     }
 
     /**

@@ -394,6 +394,17 @@ export const api = {
         return response.data;
     },
 
+    async searchTawos(query, filters = {}, limit = 20) {
+        const params = new URLSearchParams({
+            action: 'search_tawos',
+            q: query,
+            limit: String(limit),
+            ...filters
+        });
+        const response = await client.get(`/?${params.toString()}`);
+        return response.data;
+    },
+
     getExportBackupUrl() {
         return `${API_BASE}/?action=export_backup`;
     },

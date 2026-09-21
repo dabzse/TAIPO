@@ -68,10 +68,24 @@ class DashboardController
         header(Config::APP_JSON);
         try {
             if ($action === 'get_tawos_stats') {
-                echo json_encode(['success' => true, 'data' => $this->tawosService->getStats()]);
+                $stats = $this->tawosService->getStats();
+                $stats['external_enabled'] = false;
+                echo json_encode(['success' => true, 'data' => $stats]);
             } elseif ($action === 'get_tawos_sample') {
                 $limit = (int)($_GET['limit'] ?? 5);
                 echo json_encode(['success' => true, 'data' => $this->tawosService->getSample(min($limit, 20))]);
+            } elseif ($action === 'search_tawos') {
+                $q = (string)($_GET['q'] ?? '');
+                $limit = min(50, max(1, (int)($_GET['limit'] ?? 20)));
+                $filters = [];
+                if (!empty($_GET['type'])) {
+                    $filters['type'] = (string)$_GET['type'];
+                }
+                if (!empty($_GET['priority'])) {
+                    $filters['priority'] = (string)$_GET['priority'];
+                }
+                $result = $this->tawosService->searchIssues($q, $filters, $limit);
+                echo json_encode(['success' => true, 'data' => $result]);
             }
         } catch (Exception $e) {
             http_response_code(500);
@@ -170,6 +184,10 @@ class DashboardController
                 'DB_USER' => $_ENV['DB_USER'] ?? '',
                 'DB_PASS' => $_ENV['DB_PASS'] ?? '',
                 'TABLE_PREFIX' => $_ENV['TABLE_PREFIX'] ?? '',
+            ],
+            'TAWOS Dataset' => [
+                'MODE' => 'Local Database (Offline-first)',
+                'SEED_FILE' => $_ENV['TAWOS_SEED_FILE'] ?? 'backend/data/tawos_seed.csv',
             ],
             'Network' => [
                 'ALLOWED_ORIGINS' => $_ENV['ALLOWED_ORIGINS'] ?? '',

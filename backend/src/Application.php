@@ -196,7 +196,7 @@ class Application
                 break;
         }
 
-        if (in_array($action, ['get_tawos_stats', 'get_tawos_sample'])) {
+        if (in_array($action, ['get_tawos_stats', 'get_tawos_sample', 'search_tawos'])) {
             $this->dashboardController->handleTawosAction($action);
             exit;
         }
