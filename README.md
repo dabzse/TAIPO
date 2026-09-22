@@ -60,6 +60,19 @@ Default values are 6 and 8, but built-in values are 3 and 6.
 `MIN_PASSWORD_LENGTH` is the minimum length of the password.  
 Maximum lengths of the username and password are built-in, and those are: 16 and 31.
 
+### 3.3 TAWOS Dataset & Setup Wizard
+
+TAIPO comes with CLI tools to configure agile dataset seeding and sampling:
+
+* **Interactive Setup Wizard:** Run `./setup.sh` (or `php tools/setup.php`) to configure seed size, label quotas, external API settings, and database synchronization.
+* **Raw TAWOS SQL Streaming Sampler:** If you have the official ~4GB `TAWOS.sql` or `TAWOS.sql.zip` dump (Tawosi et al., MSR 2022), you can sample authentic agile issues with zero extra disk space without decompressing the zip:
+
+  ```bash
+  php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql --count=350 --db
+  ```
+
+* **Operations Documentation:** See [TAWOS Operations Guide (EN)](TAWOS_EN.md) or [TAWOS Útmutató (HU)](TAWOS_HU.md) for full instructions on labels, streaming architecture, quotas, and CLI options.
+
 ---
 
 ### 4. 🎮 How to Use the App
@@ -128,7 +141,7 @@ TAIPO now acts as a proactive Product Owner by simulating background activity.
 * **Check-in Comments**: Every **2 hours** (during working hours), TAIPO will pick a task and add a professional, Jira-style comment asking for progress or offering guidance.
 * **Change Requests**: Approximately every **3 days**, TAIPO will generate a realistic, unforeseen **Change Request** and add it to the *Sprint Backlog* to simulate project dynamics.
 * **Working Hours**: The simulation is active between **8:00 AM and 4:00 PM** (Mon-Fri) to reflect a standard industrial environment.
-* **TAWOS Data Grounding**: The simulation is enriched with real-world agile patterns from the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022). A curated subset of 458K+ Jira issues is used to calibrate comment tone and change request realism. See [LICENCE.md](LICENCE.md) for full attribution.
+* **TAWOS Data Grounding**: The simulation is enriched with real-world agile patterns from the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022). A curated subset of 458K+ Jira issues is used to calibrate comment tone and change request realism (configurable via `tools/setup.php`, `tools/tawos_seed_manager.php`, or streaming sampling from raw `TAWOS.sql` via `tools/tawos_sql_sampler.php`). See [TAWOS_EN.md](TAWOS_EN.md) / [TAWOS_HU.md](TAWOS_HU.md) and [LICENCE.md](LICENCE.md) for full attribution.
 
 ---
 
@@ -312,6 +325,8 @@ Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rend
 * [Project Structure](PROJECT.md)
 * [Development Roadmap](DEVPLAN.md)
 * [Use Case Study](USE_CASE_STUDY.md)
+* [TAWOS Operations Guide (EN)](TAWOS_EN.md)
+* [TAWOS Útmutató (HU)](TAWOS_HU.md)
 * [Licences & Attributions](LICENCE.md)
 
 ## 7. References

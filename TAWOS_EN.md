@@ -11,11 +11,15 @@ This document provides a comprehensive guide to the **TAWOS (Tawosi Agile Web-ho
 3. [Tooling Overview](#3-tooling-overview)
    - [tawos_list_labels.php](#tawos_list_labelsphp)
    - [tawos_seed_manager.php](#tawos_seed_managerphp)
+   - [tawos_sql_sampler.php (Real SQL Dump Sampler)](#tawos_sql_samplerphp-real-sql-dump-sampler)
+   - [setup.php and setup.sh](#setupphp-and-setupsh)
 4. [Execution Workflows & Sequence](#4-execution-workflows--sequence)
    - [Scenario A: Preparation BEFORE Server Startup (Offline / Pre-boot)](#scenario-a-preparation-before-server-startup-offline--pre-boot)
    - [Scenario B: Reseeding with RUNNING Server/Database (Live Reseeding)](#scenario-b-reseeding-with-running-serverdatabase-live-reseeding)
+   - [Scenario C: Sampling Real Dataset from Raw TAWOS SQL Dump (Zero-Decompression Streaming)](#scenario-c-sampling-real-dataset-from-raw-tawos-sql-dump-zero-decompression-streaming)
 5. [Quota Exceeds Warning & Decision Logic (Y/N)](#5-quota-exceeds-warning--decision-logic-yn)
-6. [Command Reference & Examples](#6-command-reference--examples)
+6. [Local Database & Offline-First Architecture](#6-local-database--offline-first-architecture)
+7. [Command Reference & Examples](#7-command-reference--examples)
 
 ---
 
@@ -25,7 +29,9 @@ TAIPO's AI-driven Product Owner (PO) simulation relies on real-world agile engin
 
 - **Tone Calibration:** `Prompts::getPoCheckInPrompt()` incorporates real-world developer comments from TAWOS (`TawosService::getRandomComment()`) to calibrate the Gemini PO assistant to a concise, industrial Jira/GitHub tone.
 - **Change Request Patterns:** `Prompts::getChangeRequestPrompt()` references real agile stories and bug templates to formulate realistic sprint change requests.
-- **Default Seed File:** `backend/data/tawos_seed.csv`
+- **Built-in Seed Files:**
+  - `backend/data/tawos_seed.csv` (80 records - compact default, auto-loaded on first boot)
+  - `backend/data/tawos_seed_350.csv` (350 records - built-in expanded curated dataset containing 249 stories, 74 bugs, and 27 tasks across 14 projects, immediately available without the 4GB SQL dump)
 - **Database Table:** `tawos_issues` (or prefixed, e.g., `taipo_tawos_issues`)
 
 ---
@@ -57,11 +63,30 @@ Inspects and visualizes dataset labels, distributions, and percentages via forma
 
 Configures, generates, and seeds TAWOS records into CSV and/or the database:
 
-- **Configurable count:** Generate any volume (e.g. 80, 500, 1000).
+- **Configurable count:** Generate any volume (e.g. 80, 350, 500, 1000).
+- **Real SQL Sampling (`--sql`):** Extracts real records directly from the raw TAWOS MySQL dump (`TAWOS.sql` or `.zip`) instead of multiplying synthetic templates.
 - **Label focus / quotas:** Set specific counts or percentage ratios per issue type and priority.
 - **Automatic backup:** Creates a `.bak` copy of the previous seed before overwriting.
 - **Database synchronization:** Directly empties and repopulates the `tawos_issues` table.
 - **Path:** `tools/tawos_seed_manager.php`
+
+### `tawos_sql_sampler.php` (Real SQL Dump Sampler)
+
+Dedicated, streaming sampler engine designed to process the official ~4GB raw `TAWOS.sql` (or `TAWOS.sql.zip`) MySQL dump:
+
+- **Zero-Decompression Streaming:** Streams directly from compressed `.zip` files into memory via PHP `zip://` stream wrappers or `unzip -p` pipes with **zero extra disk space overhead**.
+- **Default Source Path:** `backend/data/TAWOS.sql` (automatically checks for `.zip` if not specified).
+- **Early Termination ($O(N)$ scanning):** Scans the `Project`, `Issue`, and `Comment` tables; once target quotas and matching comments are reached, skips the remaining multi-gigabyte tables (e.g., `Change_Log`), completing in seconds.
+- **Authentic Agile Data:** Real Jira keys (`MESOS-1234`, `SPARK-5678`), authentic issue descriptions, types, priorities, actual story points, developer comments, and project names.
+- **Path:** `tools/tawos_sql_sampler.php`
+
+### `setup.php` and `setup.sh`
+
+Comprehensive, interactive system & TAWOS configuration wizard:
+
+- **Built-in Datasets & Sampling:** Select between the built-in 80 and 350 record datasets (`tawos_seed.csv` / `tawos_seed_350.csv`), or extract custom samples from the raw `TAWOS.sql` / `.zip` dump.
+- **Direct database synchronization:** Immediately seeds the selected dataset into the local `tawos_issues` table (`--db`).
+- **Path:** `tools/setup.php` and `./setup.sh` in the project root.
 
 ---
 
@@ -159,6 +184,57 @@ flowchart TD
 
 ---
 
+### Scenario C: Sampling Real Dataset from Raw TAWOS SQL Dump (Zero-Decompression Streaming)
+
+> **When to use:** When you do not want to multiply the 80 default template records, but instead want to extract authentic, diverse agile tasks (Stories, Bugs, Tasks), comments, and projects from the official ~4GB raw `TAWOS.sql` or `TAWOS.sql.zip` MySQL dump without needing to decompress 4GB onto your hard disk.
+
+```mermaid
+flowchart TD
+    A["TAWOS.sql or TAWOS.sql.zip downloaded\n(default: backend/data/TAWOS.sql[.zip])"] --> B["Streaming reader initialized\n(zip:// wrapper or pipe)"]
+    B --> C["1. Parse Project table (resolve names)"]
+    C --> D["2. Filter & sample Issue table\n(quotas: Story, Bug, Task)"]
+    D --> E["3. Match Comment table to sampled issues"]
+    E --> F["4. Early termination (skip Change_Log table)"]
+    F --> G["5. Write real seed CSV\n(backend/data/tawos_seed.csv)"]
+    G --> H{"--db flag specified?"}
+    H -- Yes --> I["TawosService::reseedFromCsv()\nInstantly loads into database"]
+    H -- No --> J["Done, auto-seeded on next server boot"]
+```
+
+#### Step-by-Step Instructions: C
+
+1. **Place the raw dataset:**
+   Download the TAWOS dataset (e.g. UCL / Figshare DOI: 10.5522/04/21308124) into the `backend/data/` folder:
+   - `backend/data/TAWOS.sql` (if uncompressed)
+   - or `backend/data/TAWOS.sql.zip` (compressed zip, 0 extra disk space required!)
+
+2. **Run the sampling process (e.g. sample 350 authentic records):**
+   Directly with the sampler tool:
+
+   ```bash
+   php tools/tawos_sql_sampler.php --count=350 --db
+   ```
+
+   Or via the setup wizard:
+
+   ```bash
+   php tools/setup.php --count=350 --sql=backend/data/TAWOS.sql --db -y
+   ```
+
+   Or via the seed manager:
+
+   ```bash
+   php tools/tawos_seed_manager.php --count=350 --sql=backend/data/TAWOS.sql --db
+   ```
+
+3. **Verify the imported data:**
+
+   ```bash
+   php tools/tawos_list_labels.php --db
+   ```
+
+---
+
 ## 5. Quota Exceeds Warning & Decision Logic (Y/N)
 
 If the sum of specified label quotas exceeds the configured target count, the tool's safeguard is triggered.
@@ -203,9 +279,43 @@ Túllépi a beállított értéket (500). Mindenképpen a magasabb értékkel (5
 
 ---
 
-## 6. Command Reference & Examples
+## 6. Local Database & Offline-First Architecture
 
-### A) Inspecting Labels (`tawos_list_labels.php`)
+TAWOS data management in TAIPO is built on a **100% local, offline-first** architecture:
+
+### Operating Rules
+
+1. **Local Database (`tawos_issues` Table):**
+   - The system exclusively uses the local database (`tawos_issues` table) and seed CSV (`backend/data/tawos_seed.csv`).
+   - Zero network overhead, zero latency, fully offline-safe.
+2. **Search and Filtering:**
+   - The TAWOS search feature in the Dashboard Modal and the backend `?action=search_tawos` endpoint perform full-text queries directly across the indexed records in the local database (searching key, summary, description, and project).
+3. **Scalability and Sampling:**
+   - Any volume of real agile records can be sampled from the official raw `TAWOS.sql` or `.zip` dump using `tools/tawos_sql_sampler.php` or `setup.sh` (e.g., 80, 350, 500, or thousands of records).
+   - No external API keys or external network dependencies are needed.
+
+---
+
+## 7. Command Reference & Examples
+
+### A) System & TAWOS Setup Wizard (`setup.sh` / `setup.php`)
+
+```bash
+# Launch interactive configuration wizard (choose between 80, 350, or raw SQL dump):
+./setup.sh
+# or:
+php tools/setup.php -i
+
+# Seed the built-in 350-item dataset (tawos_seed_350.csv) immediately into the database:
+php tools/setup.php --count=350 --db -y
+# or with explicit source:
+php tools/setup.php --source=backend/data/tawos_seed_350.csv --count=350 --db -y
+
+# Sample 500 records from the raw ~4GB TAWOS.sql dump and seed into the database:
+php tools/setup.php --count=500 --sql=backend/data/TAWOS.sql --db -y
+```
+
+### B) Inspecting Labels (`tawos_list_labels.php`)
 
 ```bash
 # Full breakdown from CSV
@@ -228,7 +338,7 @@ php tools/tawos_list_labels.php --csv=/path/to/custom_tawos.csv
 php tools/tawos_list_labels.php --json
 ```
 
-### B) Configuring & Seeding (`tawos_seed_manager.php`)
+### C) Local Seed Generation (`tawos_seed_manager.php`)
 
 ```bash
 # 1. Generate 500 records into CSV keeping natural distribution
@@ -248,4 +358,20 @@ php tools/tawos_seed_manager.php -i
 
 # 6. Automated non-interactive seeding with no backup
 php tools/tawos_seed_manager.php --count=1000 -y --no-backup --db
+```
+
+### D) Real TAWOS SQL Streaming Sampling (`tawos_sql_sampler.php`)
+
+```bash
+# 1. Sample 350 authentic records from default path (backend/data/TAWOS.sql or .zip)
+php tools/tawos_sql_sampler.php --count=350
+
+# 2. Sample directly from compressed ZIP with automatic database seeding
+php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql.zip --count=350 --db
+
+# 3. Enforce custom type and priority quota distributions
+php tools/tawos_sql_sampler.php --count=500 --types="Story:60%,Bug:30%,Task:10%" --priorities="Critical:50,Major:250,Minor:50" --db
+
+# 4. Output to custom CSV file without backup
+php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql --count=200 --output=backend/data/custom_sample.csv --no-backup
 ```

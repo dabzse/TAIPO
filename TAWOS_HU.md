@@ -11,11 +11,15 @@ Ez a dokumentum részletesen bemutatja a **TAWOS (Tawosi Agile Web-hosted Open-S
 3. [Eszközök áttekintése](#3-eszközök-áttekintése)
    - [tawos_list_labels.php](#tawos_list_labelsphp)
    - [tawos_seed_manager.php](#tawos_seed_managerphp)
+   - [tawos_sql_sampler.php (Valódi SQL dump mintavételező)](#tawos_sql_samplerphp-valódi-sql-dump-mintavételező)
+   - [setup.php és setup.sh](#setupphp-és-setupsh)
 4. [Működési forgatókönyvek és sorrend](#4-működési-forgatókönyvek-és-sorrend)
    - [A) forgatókönyv: Előkészítés a szerver indítása ELŐTT (Offline / Pre-boot)](#a-forgatókönyv-előkészítés-a-szerver-indítása-előtt-offline--pre-boot)
    - [B) forgatókönyv: Frissítés futó szerver / adatbázis MELLETT (Live Reseeding)](#b-forgatókönyv-frissítés-futó-szerver--adatbázis-mellett-live-reseeding)
+   - [C) forgatókönyv: Valódi adathalmaz mintavételezése nyers TAWOS SQL dumpból (Zero-Decompression Streaming)](#c-forgatókönyv-valódi-adathalmaz-mintavételezése-nyers-tawos-sql-dumpból-zero-decompression-streaming)
 5. [Túllépési figyelmeztetés és döntési logika (Y/N)](#5-túllépési-figyelmeztetés-és-döntési-logika-yn)
-6. [Parancsreferencia és példák](#6-parancsreferencia-és-példák)
+6. [Helyi adatbázis és offline működés (Offline-First Architecture)](#6-helyi-adatbázis-és-offline-működés-offline-first-architecture)
+7. [Parancsreferencia és példák](#7-parancsreferencia-és-példák)
 
 ---
 
@@ -25,7 +29,9 @@ A TAIPO mesterséges intelligencia által vezérelt Product Owner (PO) szimulác
 
 - **Tone Calibration (Hangnem kalibrálás):** A `Prompts::getPoCheckInPrompt()` valós TAWOS kommenteket használ fel (`TawosService::getRandomComment()`), hogy a Gemini PO modell professzionális, ipari Jira/GitHub stílusban adjon visszajelzést a fejlesztőknek.
 - **Change Request minták:** A `Prompts::getChangeRequestPrompt()` valós felhasználói sztorik és hiba leírások mintázatát használja fel az életszerű módosítási kérések (Change Request) generálásához.
-- **Alapértelmezett seed fájl:** `backend/data/tawos_seed.csv`
+- **Beépített seed fájlok:**
+  - `backend/data/tawos_seed.csv` (80 rekord - kompakt alapértelmezett készlet, első indításkor automatikusan betöltődik)
+  - `backend/data/tawos_seed_350.csv` (350 rekord - beépített kibővített készlet 249 sztorival, 74 hibával és 27 feladattal 14 projektből, azonnal használható a 4GB SQL dump nélkül)
 - **Adatbázistábla:** `tawos_issues` (vagy táblaprefixszel, pl. `taipo_tawos_issues`)
 
 ---
@@ -57,11 +63,30 @@ Címkék, megoszlások és arányok lekérdezése és formázott megjelenítése
 
 A seedelendő rekordok számának és címkearányainak beállítása, mintavételezése és kiírása:
 
-- **Seed rekordszám beállítása:** tetszőleges elemszám generálása (pl. 80, 500, 1000).
+- **Seed rekordszám beállítása:** tetszőleges elemszám generálása (pl. 80, 350, 500, 1000).
+- **Valódi SQL mintavételezés (`--sql`):** Képes közvetlenül a nyers TAWOS adatbázis-dumpból (`TAWOS.sql` vagy `.zip`) kinyerni valós rekordokat a szintetikus sokszorosítás helyett.
 - **Címkefókusz / kvóták:** arányok vagy konkrét darabszámok megadása típusonként és prioritásonként.
 - **Biztonsági mentés:** a meglévő CSV-ről automatikusan `.bak` másolatot készít.
 - **Adatbázis szinkronizáció:** közvetlenül képes betölteni a generált adatokat a `tawos_issues` táblába.
 - **Elérési út:** `tools/tawos_seed_manager.php`
+
+### `tawos_sql_sampler.php` (Valódi SQL dump mintavételező)
+
+Önálló, stream-alapú mintavételező motor a hivatalos, kb. 4GB-os nyers `TAWOS.sql` (vagy `TAWOS.sql.zip`) MySQL dump feldolgozására:
+
+- **Nulla lemezterület-igény (Zero-Decompression Streaming):** A 600MB-os tömörített `.zip` fájlból közvetlenül a memóriába olvassa a bájtokat a PHP `zip://` stream vagy `unzip -p` pipe segítségével, így **nem szükséges a 4GB-os fájlt a lemezre kicsomagolni**!
+- **Alapértelmezett forrás útvonal:** `backend/data/TAWOS.sql` (ha nincs megadva, automatikusan keresi a `.zip` változatot is).
+- **Korai leállítás ($O(N)$ scanning):** A dump elején lévő `Project`, `Issue` és `Comment` táblákat olvassa; amint eléri a kért kvótákat és a kommentek párosítását, a többi hatalmas táblát (pl. a 3GB+ méretű `Change_Log`-ot) azonnal átugorja, így másodpercek alatt végez.
+- **Valós adatok kinyerése:** Eredeti Jira kulcsok (`MESOS-1234`, `SPARK-5678`), valódi issue leírások, típusok, prioritások, valós story pointok, valódi fejlesztői kommentek és eredeti projektnevek.
+- **Elérési út:** `tools/tawos_sql_sampler.php`
+
+### `setup.php` és `setup.sh`
+
+Kibővített, interaktív rendszer- és TAWOS konfigurációs varázsló:
+
+- **Beépített készletek és mintavételezés:** Választási lehetőség a beépített 80 és 350 rekordos készletek (`tawos_seed.csv` / `tawos_seed_350.csv`), illetve a nyers `TAWOS.sql` / `.zip` dumpból történő kinyerés között.
+- **Közvetlen adatbázis-szinkronizáció:** Lehetőséget biztosít az új minták azonnali betöltésére a helyi `tawos_issues` táblába (`--db`).
+- **Elérési út:** `tools/setup.php` és a gyökérben `./setup.sh`
 
 ---
 
@@ -159,6 +184,57 @@ flowchart TD
 
 ---
 
+### C) forgatókönyv: Valódi adathalmaz mintavételezése nyers TAWOS SQL dumpból (Zero-Decompression Streaming)
+
+> **Mikor használandó?** Ha nem a meglévő 80 sablonrekordot szeretnéd sokszorosítani, hanem a hivatalos, 4GB-os nyers `TAWOS.sql` vagy `TAWOS.sql.zip` adatbázis-dumpból szeretnél valós, reprezentatív agilis feladatokat (Story, Bug, Task), kommenteket és projekteket kinyerni anélkül, hogy a lemezre ki kellene csomagolni a teljes 4GB-ot.
+
+```mermaid
+flowchart TD
+    A["TAWOS.sql vagy TAWOS.sql.zip letöltve\n(alap: backend/data/TAWOS.sql[.zip])"] --> B["Streaming olvasás indítása\n(zip:// wrapper vagy pipe)"]
+    B --> C["1. Project tábla beolvasása (névfeloldás)"]
+    C --> D["2. Issue tábla szűrése & mintavételezés\n(kvóták: Story, Bug, Task)"]
+    D --> E["3. Comment tábla párosítása a kinyert Issue-khoz"]
+    E --> F["4. Korai leállítás (Change_Log átugorva)"]
+    F --> G["5. Új valódi seed CSV kiírása\n(backend/data/tawos_seed.csv)"]
+    G --> H{"--db opció megadva?"}
+    H -- Igen --> I["TawosService::reseedFromCsv()\nAzonnal betölti az adatbázisba"]
+    H -- Nem --> J["Kész, következő szerverindításkor töltődik be"]
+```
+
+#### Lépések: C
+
+1. **A nyers fájl elhelyezése:**
+   Helyezd a letöltött TAWOS adathalmazt a `backend/data/` könyvtárba:
+   - `backend/data/TAWOS.sql` (ha ki van csomagolva)
+   - vagy `backend/data/TAWOS.sql.zip` (közvetlen tömörített fájl, 0 extra lemezterülettel!)
+
+2. **Mintavételezés futtatása (pl. 350 valódi rekord kinyerése):**
+   Közvetlenül a samplerrel:
+
+   ```bash
+   php tools/tawos_sql_sampler.php --count=350 --db
+   ```
+
+   Vagy a beállító varázslón keresztül:
+
+   ```bash
+   php tools/setup.php --count=350 --sql=backend/data/TAWOS.sql --db -y
+   ```
+
+   Vagy a seed kezelővel:
+
+   ```bash
+   php tools/tawos_seed_manager.php --count=350 --sql=backend/data/TAWOS.sql --db
+   ```
+
+3. **Eredmény ellenőrzése:**
+
+   ```bash
+   php tools/tawos_list_labels.php --db
+   ```
+
+---
+
 ## 5. Túllépési figyelmeztetés és döntési logika (Y/N)
 
 Ha a megadott típus- vagy címkekvóták összege túllépi az előre beállított összértéket, a rendszer védelmi mechanizmusa aktiválódik.
@@ -203,9 +279,43 @@ Túllépi a beállított értéket (500). Mindenképpen a magasabb értékkel (5
 
 ---
 
-## 6. Parancsreferencia és példák
+## 6. Helyi adatbázis és offline működés (Offline-First Architecture)
 
-### A) Címkék listázása (`tawos_list_labels.php`)
+A TAWOS adathalmaz kezelése a TAIPO-ban **100%-ban helyi és offline-first** architektúrára épül:
+
+### A működés szabályai
+
+1. **Helyi adatbázis (`tawos_issues` tábla):**
+   - A rendszer a működéséhez kizárólag a helyi adatbázist (`tawos_issues` táblát) és a minta CSV-t (`backend/data/tawos_seed.csv`) használja.
+   - 0 hálózati forgalom, 0 késleltetés, teljes offline működőképesség.
+2. **Keresés és szűrés:**
+   - A Dashboard felületén lévő TAWOS kereső és a backend `?action=search_tawos` végpont közvetlenül a helyi adatbázisban indexelt rekordok között végez teljes szöveges keresést (cím, leírás, projekt és kulcs alapján).
+3. **Méretezhetőség és frissítés:**
+   - Tetszőleges számú valós rekord mintavételezhető a nyers `TAWOS.sql` vagy `.zip` dumpból a `tools/tawos_sql_sampler.php` vagy a `setup.sh` segítségével (pl. 80, 350, 500 vagy több ezer rekord).
+   - Nincs szükség külső API kulcsokra vagy hálózati függőségekre.
+
+---
+
+## 7. Parancsreferencia és példák
+
+### A) Rendszer és TAWOS Setup Varázsló (`setup.sh` / `setup.php`)
+
+```bash
+# Interaktív beállító varázsló indítása (választható 80, 350 rekord vagy SQL dump):
+./setup.sh
+# vagy:
+php tools/setup.php -i
+
+# Beépített 350 rekordos készlet (tawos_seed_350.csv) betöltése azonnal adatbázisba:
+php tools/setup.php --count=350 --db -y
+# vagy explicit forrással:
+php tools/setup.php --source=backend/data/tawos_seed_350.csv --count=350 --db -y
+
+# 500 rekord mintavételezése valódi SQL dumpból és azonnali adatbázis seedeléssel:
+php tools/setup.php --count=500 --sql=backend/data/TAWOS.sql --db -y
+```
+
+### B) Címkék listázása (`tawos_list_labels.php`)
 
 ```bash
 # Teljes statisztika a seed CSV-ből
@@ -228,7 +338,7 @@ php tools/tawos_list_labels.php --csv=/eleresi/ut/egyedi_tawos.csv
 php tools/tawos_list_labels.php --json
 ```
 
-### B) Seed beállítása és generálása (`tawos_seed_manager.php`)
+### C) Helyi seed generálás (`tawos_seed_manager.php`)
 
 ```bash
 # 1. 500 rekord generálása CSV-be az alapértelmezett megoszlás szerint
@@ -248,4 +358,20 @@ php tools/tawos_seed_manager.php -i
 
 # 6. Biztonsági mentés kihagyása és automatikus megerősítés
 php tools/tawos_seed_manager.php --count=1000 -y --no-backup --db
+```
+
+### D) Valódi TAWOS SQL Streaming Mintavételezés (`tawos_sql_sampler.php`)
+
+```bash
+# 1. 350 valódi rekord kinyerése az alapértelmezett forrásból (backend/data/TAWOS.sql vagy .zip)
+php tools/tawos_sql_sampler.php --count=350
+
+# 2. Mintavételezés közvetlenül tömörített ZIP-ből, azonnali adatbázis-feltöltéssel
+php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql.zip --count=350 --db
+
+# 3. Speciális típus és prioritás kvóták érvényesítése
+php tools/tawos_sql_sampler.php --count=500 --types="Story:60%,Bug:30%,Task:10%" --priorities="Critical:50,Major:250,Minor:50" --db
+
+# 4. Egyedi célfájl megadása biztonsági mentés nélkül
+php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql --count=200 --output=backend/data/custom_sample.csv --no-backup
 ```

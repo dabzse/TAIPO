@@ -64,7 +64,7 @@ The application features **on-the-fly SQL normalization** and will automatically
 TAIPO includes a `tawos_issues` table that stores a curated subset of the [TAWOS dataset](https://github.com/SOLAR-group/TAWOS) (Tawosi et al., MSR 2022). This data is auto-seeded on first boot from `backend/data/tawos_seed.csv`.
 
 | Column             | Type         | Description                                            |
-| ------------------ | ------------ | ------------------------------------------------------ |
+| :----------------- | :----------- | :----------------------------------------------------- |
 | `id`               | INTEGER (PK) | Auto-increment primary key                             |
 | `issue_key`        | VARCHAR(64)  | TAWOS issue identifier (e.g., `PROJ-101`)              |
 | `title`            | VARCHAR(512) | Issue title/summary                                    |
@@ -80,3 +80,39 @@ TAIPO includes a `tawos_issues` table that stores a curated subset of the [TAWOS
 
 The TAWOS data is used internally by `PoActivityService` to enrich AI-generated comments and change requests with real-world agile patterns. See [LICENCE.md](LICENCE.md) for dataset attribution and terms of use.
 
+### Seeding and Sampling Tools
+
+You can adjust, expand, or resample the data stored in `tawos_issues` at any time:
+
+1. **Built-in Curated Seed Datasets:**
+   - **80 records (Compact default):** Auto-seeded from `backend/data/tawos_seed.csv` on first boot.
+   - **350 records (Expanded built-in):** Pre-selected and bundled in `backend/data/tawos_seed_350.csv` (contains 249 Stories, 74 Bugs, 27 Tasks across 14 projects). You can load it immediately without downloading or sampling the ~4GB raw SQL dump:
+
+     ```bash
+     php tools/setup.php --source=backend/data/tawos_seed_350.csv --count=350 --db -y
+     # or using the seed manager:
+     php tools/tawos_seed_manager.php --source=backend/data/tawos_seed_350.csv --count=350 --db
+     ```
+
+2. **Real Raw SQL Sampling (Zero-Decompression Streaming):**
+   If you have downloaded the official ~4GB raw `TAWOS.sql` or `TAWOS.sql.zip` dump, you can extract fresh authentic records directly without needing to uncompress it to disk:
+
+   ```bash
+   php tools/tawos_sql_sampler.php --sql=backend/data/TAWOS.sql --count=500 --db
+   ```
+
+3. **Interactive Setup Wizard:**
+   Guided wizard that lets you pick between the built-in 80 seed, the built-in 350 seed, or raw SQL dump sampling:
+
+   ```bash
+   ./setup.sh
+   ```
+
+4. **Seed Manager & Quotas:**
+   Customize distribution quotas (e.g. prioritize Stories and Bugs):
+
+   ```bash
+   php tools/tawos_seed_manager.php --source=backend/data/tawos_seed_350.csv --count=350 --types="Story:200,Bug:100,Task:50" --db
+   ```
+
+For full details on streaming architecture, quotas, labels, and operations, see the [TAWOS Operations Guide (EN)](TAWOS_EN.md) or [TAWOS Útmutató (HU)](TAWOS_HU.md).
