@@ -12,6 +12,19 @@ const client = axios.create({
     withCredentials: true // Important for sending/receiving session cookies
 });
 
+// Add a request interceptor to send active session Gemini API key if present
+client.interceptors.request.use((config) => {
+    try {
+        const sessionKey = sessionStorage.getItem('geminiApiKey');
+        if (sessionKey) {
+            config.headers['X-User-Gemini-Api-Key'] = sessionKey;
+        }
+    } catch (e) {
+        // sessionStorage might be restricted in some environments
+    }
+    return config;
+});
+
 // Add a response interceptor to handle global 401s
 client.interceptors.response.use(
     (response) => response,

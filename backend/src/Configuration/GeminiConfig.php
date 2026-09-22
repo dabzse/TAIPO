@@ -16,14 +16,18 @@ class GeminiConfig
         return $_ENV['GEMINI_BASE_MODEL'] ?? $_ENV['GEMINI_FALLBACK_MODEL'];
     }
 
-    public static function getGeminiApiKey(): string
+    public static function getGeminiApiKey(?string $override = null): string
     {
+        if ($override !== null && $override !== '') {
+            return $override;
+        }
         return $_ENV['GEMINI_API_KEY'] ?? '';
     }
 
-    public static function getGeminiApiKeyHeader(): string
+    public static function getGeminiApiKeyHeader(?string $apiKey = null): string
     {
-        return self::GEMINI_API_KEY_HEADER . ': ' . self::getGeminiApiKey();
+        $key = $apiKey !== null && $apiKey !== '' ? $apiKey : self::getGeminiApiKey();
+        return self::GEMINI_API_KEY_HEADER . ': ' . $key;
     }
 
     public static function getGeminiFullUrl(): string

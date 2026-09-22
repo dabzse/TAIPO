@@ -22,6 +22,9 @@ backend/phpunit.xml
 ## Environment files (secrets passed via env vars)
 
 backend/.env
+.apikey
+.apikeyusb
+*.apikey*
 
 ## Helpers and docs which are not public
 

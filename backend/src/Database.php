@@ -202,10 +202,10 @@ class Database
         $this->ensureColumnsExist($prefix . 'api_usage', ['user_id', 'team_id']);
 
         // User migrations
-        $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project']);
+        $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project', 'api_key_encrypted']);
 
         // Team migrations
-        $this->ensureColumnsExist($prefix . 'teams', ['sim_min_feedback_sec', 'sim_max_feedback_sec', 'sim_min_cr_sec', 'sim_max_cr_sec']);
+        $this->ensureColumnsExist($prefix . 'teams', ['sim_min_feedback_sec', 'sim_max_feedback_sec', 'sim_min_cr_sec', 'sim_max_cr_sec', 'api_key_encrypted']);
     }
 
     private function seedDefaultRoles(string $prefix): void

@@ -72,7 +72,7 @@ class Application
             header("Access-Control-Allow-Origin: $origin");
         }
         header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
-        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-User-Gemini-Api-Key");
         header("Access-Control-Allow-Credentials: true");
 
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -167,6 +167,26 @@ class Application
             case 'get_setting':
             case 'save_setting':
                 $this->handleSettingAction($action);
+                exit;
+
+            case 'get_api_key_status':
+                $this->authController->handleGetApiKeyStatus();
+                exit;
+
+            case 'set_session_api_key':
+                $this->authController->handleSetSessionApiKey();
+                exit;
+
+            case 'clear_session_api_key':
+                $this->authController->handleClearSessionApiKey();
+                exit;
+
+            case 'save_user_api_key':
+                $this->authController->handleSaveUserApiKey();
+                exit;
+
+            case 'delete_user_api_key':
+                $this->authController->handleDeleteUserApiKey();
                 exit;
 
             case 'save_requirement':

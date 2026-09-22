@@ -6,10 +6,17 @@ __OFFLINE
 # Backend
 backend/.env
 backend/.phpunit.cache/*
+backend/data/TAWOS.sql.zip
 backend/vendor/*
 backend/composer.lock
 backend/kanban.sqlite
 
 # Frontend
+frontend/.pnpm-store
 frontend/dist/*
 frontend/node_modules/*
+
+# API Keys
+.apikey
+.apikeyusb
+*.apikey*

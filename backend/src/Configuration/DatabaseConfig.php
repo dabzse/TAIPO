@@ -28,6 +28,7 @@ class DatabaseConfig
                 'teams' => "CREATE TABLE IF NOT EXISTS teams (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name VARCHAR(191) NOT NULL UNIQUE,
+                    api_key_encrypted TEXT DEFAULT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'users' => "CREATE TABLE IF NOT EXISTS users (
@@ -36,6 +37,7 @@ class DatabaseConfig
                     password_hash TEXT NOT NULL,
                     is_instructor INTEGER DEFAULT 0,
                     last_active_project VARCHAR(191) DEFAULT NULL,
+                    api_key_encrypted TEXT DEFAULT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'projects' => "CREATE TABLE IF NOT EXISTS projects (
