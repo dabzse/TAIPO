@@ -5,6 +5,8 @@ namespace App\Controller;
 use PDO;
 use Exception;
 use App\Config;
+use App\Configuration\GeminiConfig;
+use App\Service\SecurityService;
 
 class AuthController
 {
@@ -288,5 +290,249 @@ class AuthController
 
         header("Location: http://localhost:5173/?error=user_data_failed");
         exit;
+    }
+
+    public function handleGetApiKeyStatus(): void
+    {
+        header(Config::APP_JSON);
+        $userId = $_SESSION['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        // 1. Student Session Key
+        $sessionKey = $_SESSION['user_gemini_api_key'] ?? null;
+        $hasSessionKey = $sessionKey && SecurityService::isValidGeminiKey((string)$sessionKey);
+        $sessionKeySource = $_SESSION['user_gemini_api_key_source'] ?? null;
+
+        // 2. Student Database Key
+        $userKeyPlain = $this->fetchSavedKey('users', (int)$userId);
+        $hasSavedUserKey = ($userKeyPlain !== null);
+
+        // 3. Team Session Key & Database Key
+        $teamId = $this->resolveUserTeamId((int)$userId);
+        $teamSessionKey = $_SESSION['team_gemini_api_key'] ?? null;
+        $hasTeamSessionKey = $teamSessionKey && SecurityService::isValidGeminiKey((string)$teamSessionKey);
+        $teamKeyPlain = $teamId ? $this->fetchSavedKey('teams', $teamId) : null;
+        $hasTeamSavedKey = ($teamKeyPlain !== null);
+
+        // 4. University Key
+        $envKey = GeminiConfig::getGeminiApiKey();
+        $hasUniversityKey = SecurityService::isValidGeminiKey($envKey);
+
+        // Determine active source and key
+        [$activeSource, $activeKey] = $this->determineActiveKey(
+            $hasSessionKey ? (string)$sessionKey : null,
+            $sessionKeySource,
+            $userKeyPlain,
+            $hasTeamSessionKey ? (string)$teamSessionKey : null,
+            $teamKeyPlain,
+            $hasUniversityKey ? $envKey : null
+        );
+
+        echo json_encode([
+            'success' => true,
+            'active_source' => $activeSource,
+            'masked_key' => SecurityService::maskApiKey($activeKey),
+            'has_session_key' => $hasSessionKey,
+            'session_key_source' => $sessionKeySource,
+            'has_saved_user_key' => $hasSavedUserKey,
+            'has_team_session_key' => $hasTeamSessionKey,
+            'has_team_saved_key' => $hasTeamSavedKey,
+            'has_university_key' => $hasUniversityKey,
+            'team_id' => $teamId
+        ]);
+    }
+
+    private function determineActiveKey(
+        ?string $sessionKey,
+        ?string $sessionSource,
+        ?string $userKey,
+        ?string $teamSessionKey,
+        ?string $teamKey,
+        ?string $envKey
+    ): array {
+        $source = 'none';
+        $key = null;
+
+        if ($sessionKey) {
+            $source = ($sessionSource === 'usb') ? 'student_usb' : 'student_session';
+            $key = $sessionKey;
+        } elseif ($userKey) {
+            $source = 'student_database';
+            $key = $userKey;
+        } elseif ($teamSessionKey) {
+            $source = 'team_session';
+            $key = $teamSessionKey;
+        } elseif ($teamKey) {
+            $source = 'team_database';
+            $key = $teamKey;
+        } elseif ($envKey) {
+            $source = 'university';
+            $key = $envKey;
+        }
+
+        return [$source, $key];
+    }
+
+    private function fetchSavedKey(string $table, int $id): ?string
+    {
+        try {
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->prepare("SELECT api_key_encrypted FROM {$prefix}{$table} WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $enc = $stmt->fetchColumn();
+            if ($enc && is_string($enc)) {
+                $dec = SecurityService::decryptApiKey($enc);
+                if ($dec && SecurityService::isValidGeminiKey($dec)) {
+                    return $dec;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Error reading {$table} API key: " . $e->getMessage());
+        }
+        return null;
+    }
+
+    public function handleSetSessionApiKey(): void
+    {
+        header(Config::APP_JSON);
+        $key = trim($_POST['api_key'] ?? '');
+        $source = $_POST['source'] ?? 'manual';
+        $target = $_POST['target'] ?? 'student';
+
+        if (!SecurityService::isValidGeminiKey($key)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid Gemini API key format (must start with AIza).']);
+            return;
+        }
+
+        if ($target === 'team') {
+            $_SESSION['team_gemini_api_key'] = $key;
+            $_SESSION['team_gemini_api_key_source'] = $source;
+        } else {
+            $_SESSION['user_gemini_api_key'] = $key;
+            $_SESSION['user_gemini_api_key_source'] = $source;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'API key stored in session memory.',
+            'target' => $target,
+            'source' => $source
+        ]);
+    }
+
+    public function handleClearSessionApiKey(): void
+    {
+        header(Config::APP_JSON);
+        $target = $_POST['target'] ?? 'all';
+
+        if ($target === 'team' || $target === 'all') {
+            unset($_SESSION['team_gemini_api_key'], $_SESSION['team_gemini_api_key_source']);
+        }
+        if ($target === 'student' || $target === 'all') {
+            unset($_SESSION['user_gemini_api_key'], $_SESSION['user_gemini_api_key_source']);
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Session key cleared.']);
+    }
+
+    public function handleSaveUserApiKey(): void
+    {
+        header(Config::APP_JSON);
+        $userId = $_SESSION['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        $key = trim($_POST['api_key'] ?? '');
+        $target = $_POST['target'] ?? 'student';
+
+        if (!SecurityService::isValidGeminiKey($key)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid Gemini API key format (must start with AIza).']);
+            return;
+        }
+
+        try {
+            $prefix = Config::getTablePrefix();
+            $encrypted = SecurityService::encryptApiKey($key);
+
+            if ($target === 'team') {
+                $teamId = $this->resolveUserTeamId((int)$userId);
+                if (!$teamId) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'You are not assigned to any team.']);
+                    return;
+                }
+                $stmt = $this->pdo->prepare("UPDATE {$prefix}teams SET api_key_encrypted = :enc WHERE id = :id");
+                $stmt->execute([':enc' => $encrypted, ':id' => $teamId]);
+                $_SESSION['team_gemini_api_key'] = $key;
+            } else {
+                $stmt = $this->pdo->prepare("UPDATE {$prefix}users SET api_key_encrypted = :enc WHERE id = :id");
+                $stmt->execute([':enc' => $encrypted, ':id' => $userId]);
+                $_SESSION['user_gemini_api_key'] = $key;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'API key encrypted with AES-256 and saved to database successfully.'
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to save API key: ' . $e->getMessage()]);
+        }
+    }
+
+    public function handleDeleteUserApiKey(): void
+    {
+        header(Config::APP_JSON);
+        $userId = $_SESSION['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        $target = $_POST['target'] ?? 'student';
+        $prefix = Config::getTablePrefix();
+
+        try {
+            if ($target === 'team') {
+                $teamId = $this->resolveUserTeamId((int)$userId);
+                if ($teamId) {
+                    $stmt = $this->pdo->prepare("UPDATE {$prefix}teams SET api_key_encrypted = NULL WHERE id = :id");
+                    $stmt->execute([':id' => $teamId]);
+                }
+                unset($_SESSION['team_gemini_api_key'], $_SESSION['team_gemini_api_key_source']);
+            } else {
+                $stmt = $this->pdo->prepare("UPDATE {$prefix}users SET api_key_encrypted = NULL WHERE id = :id");
+                $stmt->execute([':id' => $userId]);
+                unset($_SESSION['user_gemini_api_key'], $_SESSION['user_gemini_api_key_source']);
+            }
+
+            echo json_encode(['success' => true, 'message' => 'Saved API key deleted from database.']);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to delete API key: ' . $e->getMessage()]);
+        }
+    }
+
+    private function resolveUserTeamId(int $userId): ?int
+    {
+        $prefix = Config::getTablePrefix();
+        try {
+            $stmt = $this->pdo->prepare("SELECT team_id FROM {$prefix}team_users WHERE user_id = :user_id LIMIT 1");
+            $stmt->execute([':user_id' => $userId]);
+            $teamId = $stmt->fetchColumn();
+            return $teamId ? (int)$teamId : null;
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Config;
 use App\Configuration\GeminiConfig;
 use App\Exception\GeminiApiException;
+use App\Service\SecurityService;
 use PDO;
 
 class GeminiService
@@ -18,7 +19,7 @@ class GeminiService
     {
         $this->pdo = $pdo;
         $apiKey = GeminiConfig::getGeminiApiKey();
-        $this->isConfigured = !empty($apiKey) && strpos($apiKey, 'AIza') === 0;
+        $this->isConfigured = SecurityService::isValidGeminiKey($apiKey);
     }
 
     public function setContext(?int $userId, ?int $teamId = null): void
@@ -27,9 +28,104 @@ class GeminiService
         $this->currentTeamId = $teamId;
     }
 
+    /**
+     * Resolves the active Gemini API key according to hierarchy:
+     * ?hallgató -> ?csapat -> :egyetemi
+     *
+     * @return array{key: string, source: string}
+     */
+    public function resolveApiKeyDetails(): array
+    {
+        $studentKey = $this->resolveStudentKey();
+        if ($studentKey !== null) {
+            return $studentKey;
+        }
+
+        $teamKey = $this->resolveTeamKey();
+        if ($teamKey !== null) {
+            return $teamKey;
+        }
+
+        return $this->resolveUniversityKey();
+    }
+
+    private function resolveStudentKey(): ?array
+    {
+        // 1. Session memory key (from .apikeyusb, .apikey, or manual paste)
+        $sessionKey = $_SESSION['user_gemini_api_key'] ?? ($_SERVER['HTTP_X_USER_GEMINI_API_KEY'] ?? null);
+        if ($sessionKey && SecurityService::isValidGeminiKey((string)$sessionKey)) {
+            $source = $_SESSION['user_gemini_api_key_source'] ?? 'student_session';
+            return ['key' => trim((string)$sessionKey), 'source' => $source === 'usb' ? 'student_usb' : 'student_session'];
+        }
+
+        // 2. Database saved key (AES-256 encrypted)
+        $userId = $this->currentUserId ?? ($_SESSION['user_id'] ?? null);
+        if ($userId && $this->pdo) {
+            $key = $this->fetchEncryptedKeyFromTable('users', (int)$userId);
+            if ($key !== null) {
+                return ['key' => $key, 'source' => 'student_database'];
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveTeamKey(): ?array
+    {
+        $teamSessionKey = $_SESSION['team_gemini_api_key'] ?? null;
+        if ($teamSessionKey && SecurityService::isValidGeminiKey((string)$teamSessionKey)) {
+            return ['key' => trim((string)$teamSessionKey), 'source' => 'team_session'];
+        }
+
+        $teamId = $this->currentTeamId ?? null;
+        if ($teamId && $this->pdo) {
+            $key = $this->fetchEncryptedKeyFromTable('teams', (int)$teamId);
+            if ($key !== null) {
+                return ['key' => $key, 'source' => 'team_database'];
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveUniversityKey(): array
+    {
+        $envKey = GeminiConfig::getGeminiApiKey();
+        if ($envKey && SecurityService::isValidGeminiKey($envKey)) {
+            return ['key' => $envKey, 'source' => 'university'];
+        }
+
+        return ['key' => '', 'source' => 'none'];
+    }
+
+    private function fetchEncryptedKeyFromTable(string $table, int $id): ?string
+    {
+        try {
+            $prefix = Config::getTablePrefix();
+            $stmt = $this->pdo->prepare("SELECT api_key_encrypted FROM {$prefix}{$table} WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $encrypted = $stmt->fetchColumn();
+            if ($encrypted && is_string($encrypted)) {
+                $decrypted = SecurityService::decryptApiKey($encrypted);
+                if ($decrypted && SecurityService::isValidGeminiKey($decrypted)) {
+                    return $decrypted;
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to resolve {$table} API key: " . $e->getMessage());
+        }
+        return null;
+    }
+
+    public function resolveApiKey(): string
+    {
+        return $this->resolveApiKeyDetails()['key'];
+    }
+
     public function askTaipo(string $prompt, bool $isFallback = false): string
     {
-        if (!$this->isConfigured) {
+        $apiKey = $this->resolveApiKey();
+        if (!SecurityService::isValidGeminiKey($apiKey)) {
             throw new GeminiApiException("Gemini API key is not set or invalid.");
         }
 
@@ -40,7 +136,7 @@ class GeminiService
         $data = $this->buildRequestPayload($prompt);
 
         try {
-            $response = $this->makeRequest($url, $data);
+            $response = $this->makeRequest($url, $data, $apiKey);
             return $this->processResponse($response, $model, $isFallback);
         } catch (GeminiApiException $e) {
             $code = $e->getCode();
@@ -213,16 +309,16 @@ class GeminiService
         return $message;
     }
 
-    private function makeRequest(string $url, array $data): array
+    private function makeRequest(string $url, array $data, ?string $apiKey = null): array
     {
         if (function_exists('curl_init')) {
-            return $this->makeCurlRequest($url, $data);
+            return $this->makeCurlRequest($url, $data, $apiKey);
         } else {
-            return $this->makeFileGetContentsRequest($url, $data);
+            return $this->makeFileGetContentsRequest($url, $data, $apiKey);
         }
     }
 
-    private function makeCurlRequest(string $url, array $data): array
+    private function makeCurlRequest(string $url, array $data, ?string $apiKey = null): array
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -230,7 +326,7 @@ class GeminiService
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             Config::APP_JSON,
-            GeminiConfig::getGeminiApiKeyHeader()
+            GeminiConfig::getGeminiApiKeyHeader($apiKey)
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
@@ -250,12 +346,12 @@ class GeminiService
         return ['body' => $response, 'http_code' => $httpCode];
     }
 
-    private function makeFileGetContentsRequest(string $url, array $data): array
+    private function makeFileGetContentsRequest(string $url, array $data, ?string $apiKey = null): array
     {
         $options = [
             'http' => [
                 'header'  => Config::APP_JSON . "\r\n" .
-                    GeminiConfig::getGeminiApiKeyHeader() . "\r\n",
+                    GeminiConfig::getGeminiApiKeyHeader($apiKey) . "\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => 60,
@@ -276,13 +372,7 @@ class GeminiService
             $error = error_get_last();
             $safeErrorMessage = "Network request failed.";
             if (isset($error['message'])) {
-                $msg = $error['message'];
-                // Sanitize key (both old URL query param style and header presence)
-                $msg = preg_replace('/key=[^&\s]+/', 'key=***', $msg);
-                if (GeminiConfig::getGeminiApiKey() !== '') {
-                    $msg = str_replace(GeminiConfig::getGeminiApiKey(), '***', $msg);
-                }
-                $safeErrorMessage .= " Details: " . $msg;
+                $safeErrorMessage .= " Details: " . $this->sanitizeErrorMessage($error['message'], $apiKey);
             }
             throw new GeminiApiException($safeErrorMessage);
         }
@@ -298,5 +388,18 @@ class GeminiService
         }
 
         return ['body' => $response, 'http_code' => $httpCode];
+    }
+
+    private function sanitizeErrorMessage(string $msg, ?string $apiKey): string
+    {
+        $sanitized = preg_replace('/key=[^&\s]+/', 'key=***', $msg);
+        if ($apiKey !== null && $apiKey !== '') {
+            $sanitized = str_replace($apiKey, '***', $sanitized);
+        }
+        $envKey = GeminiConfig::getGeminiApiKey();
+        if ($envKey !== '') {
+            $sanitized = str_replace($envKey, '***', $sanitized);
+        }
+        return $sanitized;
     }
 }

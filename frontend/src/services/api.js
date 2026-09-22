@@ -432,5 +432,47 @@ export const api = {
             }
         });
         return response.data;
+    },
+
+    // API Key Management (?hallgató -> ?csapat -> :egyetemi)
+    async getApiKeyStatus(teamId = null) {
+        const url = teamId ? `/?action=get_api_key_status&team_id=${encodeURIComponent(teamId)}` : '/?action=get_api_key_status';
+        const response = await client.get(url);
+        return response.data;
+    },
+
+    async setSessionApiKey(apiKey, source = 'manual', target = 'student') {
+        const response = await client.post('/', {
+            action: 'set_session_api_key',
+            api_key: apiKey,
+            source: source,
+            target: target
+        });
+        return response.data;
+    },
+
+    async clearSessionApiKey(target = 'all') {
+        const response = await client.post('/', {
+            action: 'clear_session_api_key',
+            target: target
+        });
+        return response.data;
+    },
+
+    async saveUserApiKey(apiKey, target = 'student') {
+        const response = await client.post('/', {
+            action: 'save_user_api_key',
+            api_key: apiKey,
+            target: target
+        });
+        return response.data;
+    },
+
+    async deleteUserApiKey(target = 'student') {
+        const response = await client.post('/', {
+            action: 'delete_user_api_key',
+            target: target
+        });
+        return response.data;
     }
 };
