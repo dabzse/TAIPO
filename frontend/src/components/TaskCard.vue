@@ -262,8 +262,8 @@ const canAskAi = computed(() => true);
 // Delete: PO/Instructor only, not DONE
 const canDelete = computed(() => isPo.value && !isDone.value);
 
-// Priority stars: PO/Instructor only, not DONE
-const canChangePriority = computed(() => isPo.value && !isDone.value);
+// Priority stars: all roles, but not DONE
+const canChangePriority = computed(() => !isDone.value);
 
 const formattedPoComments = computed(() => {
     if (!props.task.po_comments) return "";
