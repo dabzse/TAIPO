@@ -1,12 +1,12 @@
 # ============================================================
 # TAIPO: AI-Driven Kanban Board — Frontend Dev Service
 # ============================================================
-FROM node:22.22.2-alpine3.22
+FROM node:24-alpine
 
 WORKDIR /app/frontend
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # In dev, we expect package.json and pnpm-lock.yaml to be mounted or copied
 # We run install to ensure node_modules is populated in the volume if needed

@@ -48,7 +48,7 @@ services:
     # WEB SERVERS
     # ------------------------------------------------------------
 
-    # Apache (Default)
+    # Apache 2.4 (Default)
     apache:
         profiles: ["apache", "all"]
         build:
@@ -63,7 +63,7 @@ services:
         networks:
             - taipo-network
 
-    # Nginx
+    # Nginx 1.27
     nginx:
         profiles: ["nginx", "all"]
         build:
@@ -82,7 +82,7 @@ services:
     # DATABASE ENGINES
     # ------------------------------------------------------------
 
-    # MariaDB (Default)
+    # MariaDB 11.4 LTS (Default)
     mariadb:
         profiles: ["mariadb", "all"]
         image: mariadb:11.4
@@ -98,10 +98,10 @@ services:
         networks:
             - taipo-network
 
-    # PostgreSQL
+    # PostgreSQL 17 LTS
     postgres:
         profiles: ["postgres", "all"]
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         container_name: taipo-db-postgres
         environment:
             - POSTGRES_DB=${DB_NAME:-taipo}
@@ -113,7 +113,7 @@ services:
         networks:
             - taipo-network
 
-    # MySQL
+    # MySQL 8.4 LTS
     mysql:
         profiles: ["mysql", "all"]
         image: mysql:8.4

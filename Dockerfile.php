@@ -3,7 +3,7 @@
 # ======================================================================
 
 # Base Stage (Common for Dev & Prod)
-FROM php:8.5.5-fpm-alpine3.22 AS base
+FROM php:8.5.10-fpm-alpine3.23 AS base
 
 # Install system dependencies and PHP extensions
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
@@ -20,13 +20,14 @@ WORKDIR /var/www/html
 # Development Stage
 FROM base AS development
 # In dev, we don't copy files; we use bind mounts in docker-compose
+USER www-data
 EXPOSE 9000
 CMD ["php-fpm"]
 
 # Frontend Build Stage (for Prod)
-FROM node:22.22.2-alpine3.22 AS frontend-build
+FROM node:24-alpine AS frontend-build
 WORKDIR /app/frontend
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./

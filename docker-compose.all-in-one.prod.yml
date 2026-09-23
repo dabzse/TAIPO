@@ -37,7 +37,7 @@ services:
     # DATABASE ENGINES (Optional via Profiles)
     # ------------------------------------------------------------
 
-    # MariaDB
+    # MariaDB 11.4 LTS
     mariadb:
         profiles: ["mariadb", "all"]
         image: mariadb:11.4
@@ -53,10 +53,10 @@ services:
         networks:
             - taipo-network
 
-    # PostgreSQL
+    # PostgreSQL 17 LTS
     postgres:
         profiles: ["postgres", "all"]
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         container_name: taipo-db-postgres-aio-prod
         environment:
             - POSTGRES_DB=${DB_NAME:-taipo}
@@ -68,7 +68,7 @@ services:
         networks:
             - taipo-network
 
-    # MySQL
+    # MySQL 8.4 LTS
     mysql:
         profiles: ["mysql", "all"]
         image: mysql:8.4

@@ -1,39 +1,41 @@
 # TAIPO: AI Kanban - dockerization
 
 ## Dependencies (installed during build)
-
 backend/vendor
 frontend/node_modules
+frontend/.pnpm-store
 
-backend/tests
-backend/tools
-backend/phpcs.xml
-backend/phpunit.xml
+## Tests and dev tools
+backend/.phpunit*
 
-## Git
-
+## Git & Docker config
 .git
 .gitignore
+.dockerignore
 
-## IDE
-
+## Editor or IDE
 .vscode
+.idea
 
-## Environment files (secrets passed via env vars)
-
+## Environment & secret files
 backend/.env
 .apikey
 .apikeyusb
 *.apikey*
 
-## Helpers and docs which are not public
+## Local databases, dumps and large archives
+backend/kanban.sqlite
+backend/*.sqlite
+backend/data/*.sqlite
+backend/*.db
+backend/data/*.db
+backend/data/*.zip
 
+## Local offline, tools, helper and scratch files
 __OFFLINE
 
-## PHPUnit cache
-
-backend/.phpunit.cache
+## Docker Compose configuration
+docker-compose*.yml
 
 ## Build artifacts
-
 frontend/dist

@@ -1,16 +1,16 @@
 # ======================================================================
 # TAIPO: AI-Driven Kanban Board — All-in-One Docker Image (Alpine)
 # ======================================================================
-FROM node:22.22.2-alpine3.22 AS frontend-build
+FROM node:24-alpine AS frontend-build
 WORKDIR /app/frontend
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build
 
 # Stage 2: Alpine-based PHP 8.5 + Apache
-FROM php:8.5.5-fpm-alpine3.22 AS production
+FROM php:8.5.10-fpm-alpine3.23 AS production
 
 # Install Apache2 and PHP extensions via installer
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
@@ -53,5 +53,9 @@ ProxyPassMatch ^/(.*\.php(/.*)?)$ \
     mkdir -p /var/www/html/backend/data && \
     chown -R www-data:www-data /var/www/html/backend
 
+# Security (SonarQube docker:S6471):
+# Master processes start as root to bind privileged port 80 and initialize services.
+# Apache workers drop privileges to user 'apache' and PHP-FPM pool workers run as 'www-data'.
+# No client request is executed as root.
 EXPOSE 80
 CMD ["sh", "-c", "php-fpm -D && httpd -D FOREGROUND"]
