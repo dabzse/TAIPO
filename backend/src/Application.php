@@ -160,6 +160,10 @@ class Application
                 $this->authController->handleLogout();
                 exit;
 
+            case 'change_password':
+                $this->authController->handleChangePassword();
+                exit;
+
             case 'save_active_project':
                 $this->authController->handleUpdateActiveProject();
                 exit;

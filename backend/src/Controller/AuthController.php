@@ -96,6 +96,7 @@ class AuthController
                 'id' => $userId,
                 'username' => $username,
                 'is_instructor' => $isInstructor,
+                'must_change_password' => false,
                 'last_active_project' => null
             ]]);
         }
@@ -114,7 +115,7 @@ class AuthController
 
         try {
             $prefix = Config::getTablePrefix();
-            $stmt = $this->pdo->prepare("SELECT id, username, password_hash, is_instructor, last_active_project FROM {$prefix}users WHERE username = :username");
+            $stmt = $this->pdo->prepare("SELECT id, username, password_hash, is_instructor, last_active_project, must_change_password FROM {$prefix}users WHERE username = :username");
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -131,6 +132,7 @@ class AuthController
                     'id' => $user['id'],
                     'username' => $user['username'],
                     'is_instructor' => (bool)$user['is_instructor'],
+                    'must_change_password' => (bool)($user['must_change_password'] ?? false),
                     'last_active_project' => $user['last_active_project']
                 ]]);
             } else {
@@ -176,9 +178,11 @@ class AuthController
         if (isset($_SESSION['user_id'])) {
             // Also refresh is_instructor from DB just in case it changed
             $prefix = Config::getTablePrefix();
-            $stmt = $this->pdo->prepare("SELECT is_instructor FROM {$prefix}users WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT is_instructor, must_change_password FROM {$prefix}users WHERE id = :id");
             $stmt->execute([':id' => $_SESSION['user_id']]);
-            $isInstructor = (bool)$stmt->fetchColumn();
+            $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+            $isInstructor = (bool)($userData['is_instructor'] ?? false);
+            $mustChangePassword = (bool)($userData['must_change_password'] ?? false);
             $_SESSION['is_instructor'] = $isInstructor;
 
             echo json_encode([
@@ -188,7 +192,8 @@ class AuthController
                     'id' => $_SESSION['user_id'],
                     'username' => $_SESSION['username'],
                     'is_instructor' => $isInstructor,
-                    'last_active_project' => $this->getLastActiveProject($_SESSION['user_id'])
+                    'must_change_password' => $mustChangePassword,
+                    'last_active_project' => $this->getLastActiveProject((int)$_SESSION['user_id'])
                 ],
                 'config' => $config
             ]);
@@ -228,6 +233,7 @@ class AuthController
         $stmt->execute([':id' => $userId]);
         return $stmt->fetchColumn() ?: null;
     }
+
     public function handleGitHubLogin()
     {
         // Directly combine URL with environment variable, without variables
@@ -312,7 +318,9 @@ class AuthController
         $hasSavedUserKey = ($userKeyPlain !== null);
 
         // 3. Team Session Key & Database Key
-        $teamId = $this->resolveUserTeamId((int)$userId);
+        $team = $this->resolveUserTeam((int)$userId);
+        $teamId = $team['id'] ?? null;
+        $teamName = $team['name'] ?? null;
         $teamSessionKey = $_SESSION['team_gemini_api_key'] ?? null;
         $hasTeamSessionKey = $teamSessionKey && SecurityService::isValidGeminiKey((string)$teamSessionKey);
         $teamKeyPlain = $teamId ? $this->fetchSavedKey('teams', $teamId) : null;
@@ -342,7 +350,8 @@ class AuthController
             'has_team_session_key' => $hasTeamSessionKey,
             'has_team_saved_key' => $hasTeamSavedKey,
             'has_university_key' => $hasUniversityKey,
-            'team_id' => $teamId
+            'team_id' => $teamId,
+            'team_name' => $teamName
         ]);
     }
 
@@ -464,7 +473,8 @@ class AuthController
             $encrypted = SecurityService::encryptApiKey($key);
 
             if ($target === 'team') {
-                $teamId = $this->resolveUserTeamId((int)$userId);
+                $team = $this->resolveUserTeam((int)$userId);
+                $teamId = $team['id'] ?? null;
                 if (!$teamId) {
                     http_response_code(400);
                     echo json_encode(['success' => false, 'error' => 'You are not assigned to any team.']);
@@ -504,7 +514,8 @@ class AuthController
 
         try {
             if ($target === 'team') {
-                $teamId = $this->resolveUserTeamId((int)$userId);
+                $team = $this->resolveUserTeam((int)$userId);
+                $teamId = $team['id'] ?? null;
                 if ($teamId) {
                     $stmt = $this->pdo->prepare("UPDATE {$prefix}teams SET api_key_encrypted = NULL WHERE id = :id");
                     $stmt->execute([':id' => $teamId]);
@@ -523,16 +534,63 @@ class AuthController
         }
     }
 
-    private function resolveUserTeamId(int $userId): ?int
+    private function resolveUserTeam(int $userId): ?array
     {
         $prefix = Config::getTablePrefix();
         try {
-            $stmt = $this->pdo->prepare("SELECT team_id FROM {$prefix}team_users WHERE user_id = :user_id LIMIT 1");
+            $stmt = $this->pdo->prepare("
+                SELECT t.id, t.name
+                FROM {$prefix}teams t
+                JOIN {$prefix}team_users tu ON tu.team_id = t.id
+                WHERE tu.user_id = :user_id
+                LIMIT 1
+            ");
             $stmt->execute([':user_id' => $userId]);
-            $teamId = $stmt->fetchColumn();
-            return $teamId ? (int)$teamId : null;
+            $team = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $team ? ['id' => (int)$team['id'], 'name' => (string)$team['name']] : null;
         } catch (Exception $e) {
             return null;
+        }
+    }
+
+    public function handleChangePassword(): void
+    {
+        header(Config::APP_JSON);
+        $userId = $_SESSION['user_id'] ?? null;
+        $currentPassword = $_POST['current_password'] ?? '';
+        $newPassword = $_POST['new_password'] ?? '';
+        $minLen = Config::getMinPasswordLength();
+
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        } elseif (empty($currentPassword) || empty($newPassword)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Current password and new password are required.']);
+        } elseif (strlen($newPassword) < $minLen || strlen($newPassword) > 31) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => "New password must be between {$minLen} and 31 characters."]);
+        } else {
+            try {
+                $prefix = Config::getTablePrefix();
+                $stmt = $this->pdo->prepare("SELECT password_hash FROM {$prefix}users WHERE id = :id");
+                $stmt->execute([':id' => $userId]);
+                $currentHash = $stmt->fetchColumn();
+
+                if (!$currentHash || !password_verify($currentPassword, $currentHash)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Incorrect current password.']);
+                } else {
+                    $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+                    $updateStmt = $this->pdo->prepare("UPDATE {$prefix}users SET password_hash = :hash, must_change_password = 0 WHERE id = :id");
+                    $updateStmt->execute([':hash' => $newHash, ':id' => $userId]);
+
+                    echo json_encode(['success' => true, 'message' => 'Password updated successfully.']);
+                }
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to update password: ' . $e->getMessage()]);
+            }
         }
     }
 }

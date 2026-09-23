@@ -235,3 +235,40 @@ TAIPO implements a dynamic three-tier API key resolution hierarchy to support in
 > - When a file named `.apikeyusb` is uploaded or dropped in the Settings modal, the frontend automatically enforces ephemeral session-only storage (`source: usb`). Database storage is disabled to prevent accidental credential retention on public lab computers.
 > - Plaintext keys are never stored in the database. Saved keys are encrypted using AES-256-CBC with an initialization vector (IV) and the server's encryption key.
 > - On logout or session expiration, temporary session keys are wiped from both browser `sessionStorage` and backend PHP sessions.
+
+### 12. Authentication & Password Management
+
+**Action Parameter:** `action` (in POST body)
+
+TAIPO provides session-based user authentication supporting both Student and Instructor roles, as well as a mandatory password change workflow for newly created accounts.
+
+| Action | Method | Required Fields | Description |
+| :--- | :--- | :--- | :--- |
+| `login` | POST | `username`, `password` | Authenticates the user. Returns user info, `is_instructor` flag, and `must_change_password` boolean. |
+| `register` | POST | `username`, `password` | Creates a new user account (if registration is enabled in `.env`). |
+| `logout` | POST | None | Destroys the current PHP session and clears session memory. |
+| `check_auth` | POST | None | Validates the current session and returns user details (`must_change_password`, `is_instructor`, `last_active_project`) and system config. |
+| `change_password` | POST | `current_password`, `new_password` | Verifies current password against stored hash, validates new password length (4-31 chars), updates hash with `PASSWORD_DEFAULT`, and resets `must_change_password = 0`. |
+
+#### Security Notice & Initial Password Flow
+
+When student accounts are created with a standardized initial password (e.g. via `tools/add_students.php`), the `must_change_password` column is set to `1`:
+
+- Upon login, the user receives an alert toast and persistent warning banner prompting them to update their initial password.
+- Opening the **Settings** modal automatically focuses the **Password** tab and displays a security notice.
+- After a successful `change_password` request, `must_change_password` is reset to `0` and warning indicators are cleared.
+
+#### Batch Student Creation CLI Tool (`tools/add_students.php`)
+
+Instructors can batch-create student accounts using `tools/add_students.php`. All created students receive an initial default password and have `must_change_password` set to `1`.
+
+```bash
+# Using the pre-configured $students array inside the script:
+php tools/add_students.php
+
+# Specifying a custom initial password:
+php tools/add_students.php --password="TemporarySecurePass2026!"
+
+# Reading usernames from a text file (one username per line):
+php tools/add_students.php --file=students.txt --password="DefaultPassword123!"
+```

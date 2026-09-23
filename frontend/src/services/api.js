@@ -13,35 +13,39 @@ const client = axios.create({
 });
 
 // Add a request interceptor to send active session Gemini API key if present
-client.interceptors.request.use((config) => {
-    try {
-        const sessionKey = sessionStorage.getItem('geminiApiKey');
-        if (sessionKey) {
-            config.headers['X-User-Gemini-Api-Key'] = sessionKey;
+if (client?.interceptors?.request?.use) {
+    client.interceptors.request.use((config) => {
+        try {
+            const sessionKey = sessionStorage.getItem('geminiApiKey');
+            if (sessionKey) {
+                config.headers['X-User-Gemini-Api-Key'] = sessionKey;
+            }
+        } catch (e) {
+            // sessionStorage might be restricted in some environments
         }
-    } catch (e) {
-        // sessionStorage might be restricted in some environments
-    }
-    return config;
-});
+        return config;
+    });
+}
 
 // Add a response interceptor to handle global 401s
-client.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error?.response?.status === 401) {
-            // If we get an unauthorized error and we're not already trying to login/check auth
-            const action = error.config?.data ? JSON.parse(error.config.data).action : '';
-            if (!['login', 'register', 'check_auth'].includes(action)) {
-                // Dispatch event so App.vue can log the user out visually
-                if (typeof globalThis !== 'undefined' && globalThis.window) {
-                    globalThis.window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
+if (client?.interceptors?.response?.use) {
+    client.interceptors.response.use(
+        (response) => response,
+        (error) => {
+            if (error?.response?.status === 401) {
+                // If we get an unauthorized error and we're not already trying to login/check auth
+                const action = error.config?.data ? JSON.parse(error.config.data).action : '';
+                if (!['login', 'register', 'check_auth'].includes(action)) {
+                    // Dispatch event so App.vue can log the user out visually
+                    if (typeof globalThis !== 'undefined' && globalThis.window) {
+                        globalThis.window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
+                    }
                 }
             }
+            return Promise.reject(error);
         }
-        return Promise.reject(error);
-    }
-);
+    );
+}
 
 export const api = {
     async getKanbanTasks(project) {
@@ -284,6 +288,15 @@ export const api = {
     async checkAuth() {
         const response = await client.post('/', {
             action: 'check_auth'
+        });
+        return response.data;
+    },
+
+    async changePassword(currentPassword, newPassword) {
+        const response = await client.post('/', {
+            action: 'change_password',
+            current_password: currentPassword,
+            new_password: newPassword
         });
         return response.data;
     },

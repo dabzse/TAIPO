@@ -42,13 +42,32 @@ TAIPO features a dynamic **`?student -> ?team -> :university`** hierarchy for ma
 3. **`:university` (Central Server Fallback):**
    * Default environment key configured in `backend/.env` (`GEMINI_API_KEY`).
 
-#### Drag & Drop Key Files (`.apikey` vs. `.apikeyusb`)
+#### Settings Modal (API Key & Password Tabs)
 
 In the frontend header, click the **⚙️ Settings** button:
 
-* **`.apikey` or `*.txt`:** Dragging this file or pasting the key allows running in volatile session memory or opting into **"Remember this key"** (AES-256 database storage).
-* **`.apikeyusb` (Lab / Shared Machine Mode):** Specifically tailored for university computer labs. Keys are loaded **strictly into ephemeral session memory** and database persistence is disabled for security. Session keys are destroyed on logout or tab close.
-* **Git Protection:** `.apikey`, `.apikeyusb`, and `*.apikey*` are pre-configured in `.gitignore` to prevent credential leaks.
+* **API Key Tab:**
+  * **`.apikey` or `*.txt`:** Dragging this file or pasting the key allows running in volatile session memory or opting into **"Remember this key"** (AES-256 database storage).
+  * **`.apikeyusb` (Lab / Shared Machine Mode):** Specifically tailored for university computer labs. Keys are loaded **strictly into ephemeral session memory** and database persistence is disabled for security. Session keys are destroyed on logout or tab close.
+  * **Key Hierarchy:** Displays current active tier (`?student` → `?team` → `:university`).
+* **Password Tab:**
+  * Allows any authenticated student or instructor to change their password securely.
+  * Checks current password and validates new password length (8–31 characters).
+  * **Default Password Notice:** If a student account was created with a temporary initial password, a prominent warning alert appears both in the main dashboard and inside the Password tab, strongly recommending a password update.
+
+### 2.2 Batch Student Account Importer (`tools/add_students.php`)
+
+Instructors can batch-create student user accounts from an array of usernames using a `while` loop queue:
+
+```bash
+# Process default $students array inside the script:
+php tools/add_students.php
+
+# Custom initial password and external username file:
+php tools/add_students.php --password="TemporaryPass123!" --file=students.txt
+```
+
+Each created student receives the initial default password and has `must_change_password` set to `1`. Upon first login, they are prompted to set their personal password.
 
 ### 3. Configuration
 
@@ -328,6 +347,10 @@ cd frontend
 pnpm install
 pnpm test
 ```
+
+> [!CAUTION]
+> **Do NOT upgrade frontend dependencies blindly (avoid `pnpm update` or `npm update`)!**
+> The frontend dependencies (especially DaisyUI v5, Vue, and Tailwind plugins) are carefully pinned to tested, compatible versions. Running blanket package upgrades introduces breaking UI changes and component layout regressions. Always stick to the versions specified in `package.json` and `pnpm-lock.yaml`.
 
 Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rendering, and TaskCard interactions.
 

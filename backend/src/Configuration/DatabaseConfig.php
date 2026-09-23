@@ -38,6 +38,7 @@ class DatabaseConfig
                     is_instructor INTEGER DEFAULT 0,
                     last_active_project VARCHAR(191) DEFAULT NULL,
                     api_key_encrypted TEXT DEFAULT NULL,
+                    must_change_password INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )",
                 'projects' => "CREATE TABLE IF NOT EXISTS projects (

@@ -202,7 +202,7 @@ class Database
         $this->ensureColumnsExist($prefix . 'api_usage', ['user_id', 'team_id']);
 
         // User migrations
-        $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project', 'api_key_encrypted']);
+        $this->ensureColumnsExist($prefix . 'users', ['is_instructor', 'last_active_project', 'api_key_encrypted', 'must_change_password']);
 
         // Team migrations
         $this->ensureColumnsExist($prefix . 'teams', ['sim_min_feedback_sec', 'sim_max_feedback_sec', 'sim_min_cr_sec', 'sim_max_cr_sec', 'api_key_encrypted']);
@@ -355,6 +355,7 @@ class Database
             'sim_max_feedback_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
             'sim_min_cr_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
             'sim_max_cr_sec' => ['type' => 'INTEGER', 'default' => 'NULL'],
+            'must_change_password' => ['type' => 'INTEGER', 'default' => '0'],
         ];
     }
 
