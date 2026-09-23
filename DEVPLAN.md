@@ -344,6 +344,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 [X] Authentication and authorization are implemented  
 [X] API keys are stored securely (environment variables/secrets)  
+[X] Dynamic API key hierarchy (?student -> ?team -> :university) with OpenSSL AES-256-CBC database encryption and ephemeral session memory (.apikey / .apikeyusb)  
 [X] Input validation prevents injection attacks  
 [X] HTTPS is enforced  
 [X] Data privacy regulations are considered  

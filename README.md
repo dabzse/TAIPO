@@ -30,6 +30,26 @@ For detailed API usage, please refer to the [Developer API Documentation](API_DO
 * **GitHub Personal Access Token (PAT):** Navigate to your GitHub Settings > Developer Settings > Personal Access Tokens > Tokens (classic).
   * Generate a token with the `repo` scope enabled [3].
 
+### 2.1 Gemini API Key Management & Resolution Hierarchy
+
+TAIPO features a dynamic **`?student -> ?team -> :university`** hierarchy for managing Gemini API keys:
+
+1. **`?student` (Session or User Database):**
+   * Active session memory (`sessionStorage` / PHP session) provided via drag-and-drop or manual input.
+   * If opted-in, stored in the database with **OpenSSL AES-256-CBC encryption**.
+2. **`?team` (Team Session or Team Database):**
+   * Keys shared across a student team for group projects and collaborative coursework.
+3. **`:university` (Central Server Fallback):**
+   * Default environment key configured in `backend/.env` (`GEMINI_API_KEY`).
+
+#### Drag & Drop Key Files (`.apikey` vs. `.apikeyusb`)
+
+In the frontend header, click the **⚙️ Settings** button:
+
+* **`.apikey` or `*.txt`:** Dragging this file or pasting the key allows running in volatile session memory or opting into **"Remember this key"** (AES-256 database storage).
+* **`.apikeyusb` (Lab / Shared Machine Mode):** Specifically tailored for university computer labs. Keys are loaded **strictly into ephemeral session memory** and database persistence is disabled for security. Session keys are destroyed on logout or tab close.
+* **Git Protection:** `.apikey`, `.apikeyusb`, and `*.apikey*` are pre-configured in `.gitignore` to prevent credential leaks.
+
 ### 3. Configuration
 
 Copy the `.env.example` file to `.env`. This file is located in the `backend` directory. Fill in the following:
@@ -77,7 +97,10 @@ TAIPO comes with CLI tools to configure agile dataset seeding and sampling:
 
 ### 4. 🎮 How to Use the App
 
-The application follows a streamlined workflow to take you from a project idea to committed source code.
+The application follows a streamlined workflow to take you from a project idea to committed source code:
+
+1. **Configure Gemini API Key:** Open **⚙️ Settings** in the navbar and drop your `.apikey` or `.apikeyusb` file, or paste your Gemini key.
+2. **Select or Create a Project:** Use the sidebar menu to create or select an Agile project.
 
 ---
 

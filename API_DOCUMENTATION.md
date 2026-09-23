@@ -206,3 +206,32 @@ TAIPO ships a curated subset of the [TAWOS dataset](https://github.com/SOLAR-gro
 - `tawos`: Object — Dataset statistics including `total` record count, `types` breakdown array, and `projects` list.
 - `projects`: Array — All projects with `id`, `name`, `team_id`, `is_active`, `created_at`, and a `metrics` object (`total_tasks`, `done_tasks`, `completion_rate`, `stalled`).
 - `teams`: Array — All registered teams, their members count, associated projects, and specific simulation parameter overrides.
+
+### 11. API Key & Hierarchy Management (`?student -> ?team -> :university`)
+
+TAIPO implements a dynamic three-tier API key resolution hierarchy to support individual students, shared teams, and university lab environments without requiring hardcoded credentials or compromising privacy:
+
+1. **`?student` (Highest Priority):**
+   - Evaluates active session memory (`$_SESSION['user_gemini_api_key']` or `X-User-Gemini-Api-Key` HTTP header).
+   - If not in session, checks for a persistently saved key in `users.api_key_encrypted` (decrypted using OpenSSL AES-256-CBC).
+2. **`?team` (Secondary Priority):**
+   - If no student key exists, checks the team session key (`$_SESSION['team_gemini_api_key']`) or team database key in `teams.api_key_encrypted`.
+3. **`:university` (Central Fallback):**
+   - If neither student nor team keys are configured, falls back to the server `.env` key (`GEMINI_API_KEY`).
+
+**Endpoints:**
+
+| Action                  | Method | Required Fields                                  | Description                                                                                                                                                   |
+| :---------------------- | :----- | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_api_key_status`    | GET    | `team_id` (opt)                                  | Returns active key tier (`student_usb`, `student_session`, `student_database`, `team_session`, `team_database`, `university`, `none`), masked key, and flags. |
+| `set_session_api_key`   | POST   | `api_key`, `source` (opt), `target`              | Stores key in volatile session memory. Target can be `'student'` or `'team'`. Source can be `'manual'`, `'file'`, or `'usb'`.                                 |
+| `clear_session_api_key` | POST   | `target` (opt: `'student'`, `'team'`, `'all'`)   | Clears the active session key from server session memory.                                                                                                     |
+| `save_user_api_key`     | POST   | `api_key`, `target` (opt: `'student'`, `'team'`) | Encrypts key with **OpenSSL AES-256-CBC** and stores it in the database (`users` or `teams` table).                                                           |
+| `delete_user_api_key`   | POST   | `target` (opt: `'student'`, `'team'`)            | Removes the encrypted key from the database and clears the corresponding session key.                                                                         |
+
+> [!NOTE]
+> **Key Protection & Ephemeral Lab Mode:**
+>
+> - When a file named `.apikeyusb` is uploaded or dropped in the Settings modal, the frontend automatically enforces ephemeral session-only storage (`source: usb`). Database storage is disabled to prevent accidental credential retention on public lab computers.
+> - Plaintext keys are never stored in the database. Saved keys are encrypted using AES-256-CBC with an initialization vector (IV) and the server's encryption key.
+> - On logout or session expiration, temporary session keys are wiped from both browser `sessionStorage` and backend PHP sessions.
