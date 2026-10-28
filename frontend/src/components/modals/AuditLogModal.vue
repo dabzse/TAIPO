@@ -1,23 +1,25 @@
 <template>
     <dialog
         :class="{ 'modal-open': isOpen }"
-        class="modal"
+        :open="isOpen"
+        class="modal z-50"
         id="audit_log_modal"
     >
-        <div class="modal-box w-11/12 max-w-5xl flex flex-col h-[80vh]">
+        <div class="modal-box w-11/12 max-w-[1400px] flex flex-col h-[85vh] bg-base-100 rounded-2xl border border-base-300 shadow-2xl">
             <!-- Header -->
             <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-xl flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <h3 class="font-bold text-xl flex items-center gap-2 text-base-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6 text-primary">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
-                    Audit Log: {{ projectName }}
+                    <span>Audit Log: {{ projectName }}</span>
                 </h3>
                 <div class="flex gap-2">
                     <button
                         @click="exportCsv"
                         class="btn btn-sm btn-outline btn-accent gap-2"
                         :disabled="!filteredLogs.length || loading"
+                        type="button"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -27,6 +29,8 @@
                     <button
                         @click="closeModal"
                         class="btn btn-sm btn-circle btn-ghost"
+                        type="button"
+                        aria-label="Close"
                     >
                         ✕
                     </button>
@@ -34,16 +38,20 @@
             </div>
 
             <!-- Controls -->
-            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <label for="audit-search-input" class="sr-only">Search logs</label>
                 <input
+                    id="audit-search-input"
                     v-model="searchQuery"
                     type="text"
-                    class="input input-bordered input-sm w-full sm:max-w-xs"
+                    class="input input-bordered input-sm w-full sm:max-w-xs text-xs"
                     placeholder="Search logs..."
                 >
+                <label for="audit-action-filter" class="sr-only">Filter by action</label>
                 <select
+                    id="audit-action-filter"
                     v-model="actionFilter"
-                    class="select select-bordered select-sm w-full sm:flex-1"
+                    class="select select-bordered select-sm w-full sm:flex-1 text-xs"
                 >
                     <option value="">All Actions</option>
                     <option
@@ -54,9 +62,11 @@
                         {{ action }}
                     </option>
                 </select>
+                <label for="audit-user-filter" class="sr-only">Filter by user</label>
                 <select
+                    id="audit-user-filter"
                     v-model="userFilter"
-                    class="select select-bordered select-sm w-full sm:flex-1"
+                    class="select select-bordered select-sm w-full sm:flex-1 text-xs"
                 >
                     <option value="">All Users</option>
                     <option
@@ -72,21 +82,21 @@
             <!-- Error -->
             <div
                 v-if="error"
-                class="alert alert-error mb-4"
+                class="alert alert-error mb-4 text-xs"
             >
                 <span>{{ error }}</span>
             </div>
 
             <!-- Table content -->
-            <div class="flex-1 overflow-x-auto border border-base-300 rounded-box relative">
+            <div class="flex-1 overflow-x-auto border border-base-300 rounded-xl relative custom-scrollbar">
                 <div
                     v-if="loading"
-                    class="absolute inset-0 flex items-center justify-center bg-base-100 bg-opacity-50 z-10"
+                    class="absolute inset-0 flex items-center justify-center bg-base-100/60 backdrop-blur-xs z-10"
                 >
                     <span class="loading loading-spinner loading-lg text-primary"></span>
                 </div>
 
-                <table class="table table-sm table-pin-rows">
+                <table class="table table-xs table-pin-rows">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -101,26 +111,26 @@
                             v-for="log in filteredLogs"
                             :key="log.id"
                         >
-                            <td class="whitespace-nowrap">{{ formatDate(log.created_at) }}</td>
-                            <td>{{ log.username || 'System (AI)' }}</td>
+                            <td class="whitespace-nowrap font-mono text-[11px]">{{ formatDate(log.created_at) }}</td>
+                            <td class="font-medium">{{ log.username || 'System (AI)' }}</td>
                             <td>
                                 <div
                                     :class="getActionBadgeClass(log.action)"
-                                    class="badge"
+                                    class="badge badge-xs font-semibold py-1 px-1.5"
                                 >
                                     {{ log.action }}
                                 </div>
                             </td>
                             <td
                                 :title="log.task_title"
-                                class="max-w-xs truncate"
+                                class="max-w-md truncate"
                             >
-                                {{ log.task_title || `Task #${log.task_id}` }}
+                                {{ log.task_title || (log.task_id ? `Task #${log.task_id}` : '-') }}
                             </td>
-                            <td class="max-w-md">
+                            <td class="max-w-xl">
                                 <div
                                     v-if="log.old_value || log.new_value"
-                                    class="text-xs"
+                                    class="text-[11px]"
                                 >
                                     <span
                                         v-if="log.old_value"
@@ -143,14 +153,14 @@
                                 <div
                                     v-if="log.details"
                                     :title="log.details"
-                                    class="text-xs mt-1 truncate"
+                                    class="text-[11px] opacity-75 truncate"
                                 >
                                     {{ log.details }}
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="!loading && filteredLogs.length === 0">
-                            <td colspan="5" class="text-center py-4 text-base-content/50 italic">
+                            <td colspan="5" class="text-center py-8 text-base-content/50 italic text-xs">
                                 No audit logs found.
                             </td>
                         </tr>
@@ -159,23 +169,37 @@
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button @click="closeModal">close</button>
+            <button @click="closeModal" type="button">close</button>
         </form>
     </dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { api } from '../../services/api';
 
-const props = defineProps({
-    isOpen: Boolean,
-    projectName: String,
-});
+interface LogItem {
+    id: number;
+    created_at?: string;
+    username?: string;
+    action: string;
+    task_id?: number;
+    task_title?: string;
+    old_value?: string;
+    new_value?: string;
+    details?: string;
+}
 
-const emit = defineEmits(['close']);
+const props = defineProps<{
+    isOpen: boolean;
+    projectName?: string | null;
+}>();
 
-const logs = ref([]);
+const emit = defineEmits<{
+    (e: 'close'): void;
+}>();
+
+const logs = ref<LogItem[]>([]);
 const loading = ref(false);
 const error = ref('');
 
@@ -191,13 +215,13 @@ const fetchLogs = async () => {
     error.value = '';
 
     try {
-        const res = await api.getProjectHistory(props.projectName);
+        const res: any = await api.getProjectHistory(props.projectName);
         if (res.success) {
             logs.value = res.data || [];
         } else {
-            error.value = res.error || "Failed to fetch audit log.";
+            error.value = res.error || 'Failed to fetch audit log.';
         }
-    } catch (err) {
+    } catch (err: any) {
         error.value = err.response?.data?.error || err.message;
     } finally {
         loading.value = false;
@@ -217,13 +241,13 @@ const closeModal = () => {
     emit('close');
 };
 
-const formatDate = (dateString) => {
+const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     const d = new Date(dateString);
     return d.toLocaleString();
 };
 
-const getActionBadgeClass = (action) => {
+const getActionBadgeClass = (action: string) => {
     if (!action) return 'badge-neutral';
     const a = action.toLowerCase();
     if (a.includes('create') || a.includes('add')) return 'badge-success';
@@ -246,18 +270,15 @@ const uniqueUsers = computed(() => {
 
 const filteredLogs = computed(() => {
     return logs.value.filter(log => {
-        // Action filter
         if (actionFilter.value && log.action !== actionFilter.value) {
             return false;
         }
 
-        // User filter
         const user = log.username || 'System (AI)';
         if (userFilter.value && user !== userFilter.value) {
             return false;
         }
 
-        // Search query
         if (searchQuery.value) {
             const query = searchQuery.value.toLowerCase();
             const searchableText = `
@@ -281,10 +302,8 @@ const filteredLogs = computed(() => {
 const exportCsv = () => {
     if (!filteredLogs.value.length) return;
 
-    // Headers
     const headers = ['Date', 'User/System', 'Action', 'Task ID', 'Task Title', 'Old Value', 'New Value', 'Details'];
 
-    // Rows
     const rows = filteredLogs.value.map(log => [
         log.created_at || '',
         log.username || 'System (AI)',
@@ -296,13 +315,11 @@ const exportCsv = () => {
         log.details || ''
     ]);
 
-    // Combine into CSV string
     const csvContent = [
         headers.join(','),
         ...rows.map(row => row.map(val => `"${String(val).replaceAll('"', '""')}"`).join(','))
     ].join('\n');
 
-    // Create blob and download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

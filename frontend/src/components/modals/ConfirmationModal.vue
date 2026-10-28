@@ -36,6 +36,7 @@
                 <div class="flex flex-col sm:flex-row-reverse gap-2 mt-6">
                     <button
                         @click="handleConfirm"
+                        type="button"
                         :class="[
                             'px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg',
                             isDanger 
@@ -48,6 +49,7 @@
                     <button
                         v-if="!isAlert"
                         @click="handleCancel"
+                        type="button"
                         class="px-6 py-2.5 rounded-xl font-semibold text-sm text-base-content/70 hover:text-base-content hover:bg-base-200 transition-all duration-200"
                     >
                         {{ cancelText }}
@@ -58,35 +60,33 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
 
-const props = defineProps({
-    isOpen: Boolean,
-    title: {
-        type: String,
-        default: 'Confirmation'
-    },
-    message: String,
-    confirmText: {
-        type: String,
-        default: 'Confirm'
-    },
-    cancelText: {
-        type: String,
-        default: 'Cancel'
-    },
-    isDanger: {
-        type: Boolean,
-        default: false
-    },
-    isAlert: {
-        type: Boolean,
-        default: false
+const props = withDefaults(
+    defineProps<{
+        isOpen: boolean;
+        title?: string;
+        message?: string;
+        confirmText?: string;
+        cancelText?: string;
+        isDanger?: boolean;
+        isAlert?: boolean;
+    }>(),
+    {
+        title: 'Confirmation',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        isDanger: false,
+        isAlert: false,
     }
-});
+);
 
-const emit = defineEmits(['confirm', 'cancel', 'close']);
+const emit = defineEmits<{
+    (e: 'confirm'): void;
+    (e: 'cancel'): void;
+    (e: 'close'): void;
+}>();
 
 const handleConfirm = () => {
     emit('confirm');
@@ -98,17 +98,21 @@ const handleCancel = () => {
     emit('close');
 };
 
-const handleEsc = (e) => {
+const handleEsc = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && props.isOpen) {
         handleCancel();
     }
 };
 
 onMounted(() => {
-    globalThis.addEventListener('keydown', handleEsc);
+    if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
+        globalThis.addEventListener('keydown', handleEsc);
+    }
 });
 
 onUnmounted(() => {
-    globalThis.removeEventListener('keydown', handleEsc);
+    if (typeof globalThis !== 'undefined' && globalThis.removeEventListener) {
+        globalThis.removeEventListener('keydown', handleEsc);
+    }
 });
 </script>

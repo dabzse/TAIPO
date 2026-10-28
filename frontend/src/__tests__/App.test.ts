@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 
 // Mock the API module
-vi.mock('../services/api.js', () => ({
+vi.mock('../services/api', () => ({
     api: {
         checkAuth: vi.fn().mockResolvedValue({
             success: true,
@@ -23,15 +23,20 @@ vi.mock('../services/api.js', () => ({
 const stubComponents = {
     KanbanBoard: { template: '<div class="kanban-stub" />' },
     ProjectSidebar: { template: '<div class="sidebar-stub" />' },
+    AiAssistantPanel: { template: '<div class="ai-panel-stub" />' },
     CodeGenerationModal: { template: '<div />' },
     TaskQueryModal: { template: '<div />' },
     RequirementModal: { template: '<div />' },
+    AuditLogModal: { template: '<div />' },
     ApiCostModal: { template: '<div />' },
-    PrivacyModal: { template: '<div />' },
     TeamModal: { template: '<div />' },
+    DashboardModal: { template: '<div />' },
+    SettingsModal: { template: '<div />' },
+    HelpModal: { template: '<div />' },
     LoginView: { template: '<div class="login-stub" />', props: ['config'] },
     CookieBanner: { template: '<div />' },
     ConfirmationModal: { template: '<div />' },
+    PrivacyModal: { template: '<div />' },
 };
 
 describe('App.vue', () => {
@@ -43,7 +48,11 @@ describe('App.vue', () => {
             globalThis.localStorage = {
                 getItem: vi.fn().mockReturnValue('dark'),
                 setItem: vi.fn(),
-            };
+                removeItem: vi.fn(),
+                clear: vi.fn(),
+                length: 0,
+                key: vi.fn(),
+            } as any;
         }
     });
 
@@ -84,7 +93,7 @@ describe('App.vue', () => {
         // The login-stub should receive config with default values
         const loginStub = wrapper.findComponent(stubComponents.LoginView);
         if (loginStub.exists()) {
-            const config = loginStub.props('config');
+            const config = loginStub.props('config') as any;
             expect(config.maxTitleLength).toBe(42);
             expect(config.maxDescriptionLength).toBe(512);
         }

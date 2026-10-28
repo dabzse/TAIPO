@@ -401,12 +401,13 @@ class TaskController
         $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT);
         $code = $_POST['code'] ?? '';
 
-        $userToken = $_POST['user_token'] ?? null;
-        $userUsername = $_POST['user_username'] ?? null;
+        $userToken = $_POST['user_token'] ?? ($_SESSION['github_token'] ?? null);
+        $userUsername = $_POST['user_username'] ?? ($_SESSION['github_username'] ?? null);
+        $userRepo = $_POST['user_repo'] ?? ($_SESSION['github_repo'] ?? null);
 
         $token = $userToken ?: ($_ENV['GITHUB_TOKEN'] ?? getenv('GITHUB_TOKEN'));
         $username = $userUsername ?: ($_ENV['GITHUB_USERNAME'] ?? getenv('GITHUB_USERNAME'));
-        $repo = $_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO');
+        $repo = $userRepo ?: ($_ENV['GITHUB_REPO'] ?? getenv('GITHUB_REPO'));
 
         $ghService = new \App\Service\GitHubService($token, $username, $repo);
 

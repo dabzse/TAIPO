@@ -35,7 +35,7 @@
                             ref="confirmInput"
                             id="safe-delete-input"
                             type="text"
-                            class="w-full bg-base-200 border border-base-300 text-base-content rounded-xl p-3 focus:ring-2 focus:ring-error/50 focus:border-error outline-none transition-all duration-300 shadow-sm placeholder:text-base-content/40"
+                            class="w-full bg-base-200 border border-base-300 text-base-content rounded-xl p-3 focus:ring-2 focus:ring-error/50 focus:border-error outline-none transition-all duration-300 shadow-sm placeholder:text-base-content/40 text-sm"
                             placeholder="Type 'delete'..."
                         >
                     </div>
@@ -46,12 +46,14 @@
                     <button
                         @click="confirm"
                         :disabled="inputText !== 'delete'"
+                        type="button"
                         class="px-6 py-2.5 rounded-xl font-bold text-sm bg-error hover:bg-error/90 text-error-content shadow-lg shadow-error/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300"
                     >
                         Delete Task
                     </button>
                     <button
                         @click="$emit('close')"
+                        type="button"
                         class="px-6 py-2.5 rounded-xl font-semibold text-sm text-base-content/70 hover:text-base-content hover:bg-base-200 transition-all duration-200"
                     >
                         Cancel
@@ -62,34 +64,37 @@
     </div>
 </template>
 
-<script setup>
-import { ref, watch, nextTick } from "vue";
+<script setup lang="ts">
+import { ref, watch, nextTick } from 'vue';
 
-const props = defineProps({
-    isOpen: Boolean,
-    taskDescription: String,
-});
+const props = defineProps<{
+    isOpen: boolean;
+    taskDescription: string;
+}>();
 
-const emit = defineEmits(["close", "confirm"]);
+const emit = defineEmits<{
+    (e: 'close'): void;
+    (e: 'confirm'): void;
+}>();
 
-const inputText = ref("");
-const confirmInput = ref(null);
+const inputText = ref('');
+const confirmInput = ref<HTMLInputElement | null>(null);
 
 watch(
     () => props.isOpen,
     (newVal) => {
         if (newVal) {
-            inputText.value = "";
+            inputText.value = '';
             nextTick(() => {
                 confirmInput.value?.focus();
             });
         }
-    },
+    }
 );
 
 const confirm = () => {
-    if (inputText.value === "delete") {
-        emit("confirm");
+    if (inputText.value === 'delete') {
+        emit('confirm');
     }
 };
 </script>

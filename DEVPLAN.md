@@ -11,6 +11,7 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [X] Epic 5: Quality and Safety Features  
 [X] Epic 6: Educational Use Cases  
 [X] Epic 7: Technical Debt and Infrastructure  
+[ ] Epic 8: Modernization, Offline Typography & Unified DevOps Workflow  
 
 ---
 
@@ -351,6 +352,63 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 
 **Story Points:** 8
 
+## [X] Story 8.1: Full TypeScript Architecture Migration (Priority: HIGH)
+
+**As a** software engineering student / developer  
+**I want** the entire frontend codebase converted from JavaScript to TypeScript  
+**So that** we have compile-time type safety, robust domain interfaces, zero runtime type errors, and enhanced maintainability.
+
+**Acceptance Criteria:**
+
+[X] All `.vue` components use `<script setup lang="ts">` with strictly typed props and emits  
+[X] Central domain types defined in `src/types/index.ts` (Tasks, Roles, Projects, AuthUser, API response structures)  
+[X] Fully typed API service client (`src/services/api.ts`) with typed endpoints and return promises  
+[X] Vitest test suites completely converted to TypeScript with 100% green pass rate  
+[X] Clean build passing with `npx tsc --noEmit` and modern tooling (Vite, Pinia/Vue 3, DaisyUI, Tailwind)  
+
+**Story Points:** 13
+
+## [X] Story 8.2: Offline University Typography & Fonts System (Priority: MEDIUM)
+
+**As an** instructor / system administrator in a university computer lab  
+**I want** all fonts to be served offline without external Google Fonts CDN dependencies  
+**So that** TAIPO operates reliably on isolated university lab subnets and allows simple typography customization.
+
+**Acceptance Criteria:**
+
+[X] Variable font packages locally hosted in `frontend/src/fonts/` (Inter, Outfit, JetBrains Mono, Oswald, Playfair Display, Roboto Serif)  
+[X] Modular `@font-face` definitions unified into `frontend/src/fonts.css` without duplications  
+[X] Google Fonts CDN link tags removed from `index.html` to eliminate external network requests  
+[X] Comprehensive English and Hungarian guide (`frontend/src/fonts/README.md`) detailing how universities can swap font families  
+[X] Optimized bundle size with clean directory structure (redundant static files pruned)  
+
+**Story Points:** 5
+
+## [X] Story 8.3: Unified `.apikeyusb` Multi-Credential Lab Provisioning & GitHub Integration (Priority: HIGH)
+
+**As a** student in a shared university computer lab  
+**I want** to load both my Gemini API key and GitHub credentials (PAT & username) in one step from my `.apikeyusb` flash drive into ephemeral session memory  
+**So that** I can generate code and push commits directly to my repository without leaving any credentials on the lab workstation.
+
+**Acceptance Criteria:**
+
+[X] `.apikeyusb` format parser supporting multi-key configuration:
+    - `GEMINI_KEY = "..."`
+    - `GH_UNAME = "..."`
+    - `GH_PAT = "..."`
+    - Backwards-compatible with single-key raw strings  
+[X] Credentials stored strictly in ephemeral session memory (`sessionStorage` / in-memory reactive state), destroyed on logout or browser close  
+[X] Settings modal displays live connection status for both Gemini AI and GitHub  
+[X] Direct helper link in UI to GitHub Personal Access Token settings with pre-configured `repo` scope (`https://github.com/settings/tokens/new?scopes=repo&description=TAIPO%20Lab%20Token`)  
+[X] Backend `commit_to_github` endpoint accepts session-provided GitHub PAT and username for individual student commit attribution  
+[X] Intelligent key conflict resolution between USB key and database keys:
+    - Silent activation without prompting if USB Gemini key matches database key
+    - Confirmation prompt if USB key differs from saved personal DB key (session-only override vs. update DB key vs. keep DB key)
+    - Team quota prompt if shared team key is configured (personal USB quota vs. team shared quota)
+    - GitHub credentials (`GH_UNAME`, `GH_PAT`) always activate in session memory regardless of Gemini key choice  
+
+**Story Points:** 8
+
 ---
 
 ## Release Planning
@@ -363,17 +421,21 @@ This plan tracks the step-by-step progress of **T**he **AI**-based **P**roduct *
 [X] Epic 5: Story 5.3 (External Modification Resilience)  
 [X] Security implementation (Story 7.2)  
 
-### Release 2.0 (Educational Features)
+### [X] Release 2.0 (Educational Features)
 
 [X] Epic 3: Project Simulation Capabilities  
 [X] Epic 2: Stories 2.4, 2.5 (Enhanced AI features)  
 [X] Epic 5: Stories 5.1, 5.2 (Quality features)  
 [X] Epic 4: Story 4.3 (TAWOS integration)  
 
-### Release 3.0 (Scale and Polish)
+### [X] Release 3.0 (Scale and Polish)
 
 [X] Epic 6: Educational Use Cases  
 [X] Epic 3: Story 3.3 (Multi-team support)  
 [X] Deployment optimization (Story 7.1)  
 
-**100%** of the whole project is done.
+### Release 4.0 (Modern Architecture & Lab DevOps Experience)
+
+[X] Story 8.1: Full TypeScript Architecture Migration  
+[X] Story 8.2: Offline University Typography & Fonts System  
+[ ] Story 8.3: Unified `.apikeyusb` Multi-Credential Lab Provisioning & GitHub Integration

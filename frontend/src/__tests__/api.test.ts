@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// We test the API service by verifying the payload shapes of each method.
-// Since the module uses axios.create() at import time, we mock at a lower level.
-
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 
@@ -19,12 +16,12 @@ vi.mock('axios', () => ({
 }));
 
 describe('API Service', () => {
-    let api;
+    let api: any;
 
     beforeEach(async () => {
         vi.clearAllMocks();
         // Dynamic import to get fresh module with mocks applied
-        const module = await import('../services/api.js');
+        const module = await import('../services/api');
         api = module.api;
     });
 
@@ -148,6 +145,29 @@ describe('API Service', () => {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('setSessionGitHubKeys sends correct payload', async () => {
+        mockPost.mockResolvedValue({ data: { success: true } });
+        const result = await api.setSessionGitHubKeys('ghp_test123', 'testuser', 'testrepo');
+
+        expect(mockPost).toHaveBeenCalledWith('/', {
+            action: 'set_session_github_keys',
+            github_token: 'ghp_test123',
+            github_username: 'testuser',
+            github_repo: 'testrepo'
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('clearSessionGitHubKeys sends clear_session_github_keys action', async () => {
+        mockPost.mockResolvedValue({ data: { success: true } });
+        const result = await api.clearSessionGitHubKeys();
+
+        expect(mockPost).toHaveBeenCalledWith('/', {
+            action: 'clear_session_github_keys'
         });
         expect(result.success).toBe(true);
     });

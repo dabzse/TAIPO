@@ -22,71 +22,53 @@ class AuthController
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
 
+        $error = null;
         if (!Config::isRegistrationEnabled()) {
             header(Config::APP_JSON, true, 403);
-            echo json_encode(['success' => false, 'error' => 'Registration is currently disabled.']);
+            $error = 'Registration is currently disabled.';
+        } elseif (empty($username) || empty($password)) {
+            http_response_code(400);
+            $error = 'Username and password are required.';
+        } elseif (strlen($username) < Config::getMinUsernameLength() || strlen($username) > 16 || !preg_match('/^\w+$/', $username)) {
+            http_response_code(400);
+            $error = 'Invalid username format (' . Config::getMinUsernameLength() . '-16 letters/numbers/underscore).';
+        } elseif (strlen($password) < Config::getMinPasswordLength() || strlen($password) > 31) {
+            http_response_code(400);
+            $error = 'Password must be between ' . Config::getMinPasswordLength() . ' and 31 characters long.';
+        }
+
+        if ($error !== null) {
+            echo json_encode(['success' => false, 'error' => $error]);
             return;
         }
 
-        if (empty($username) || empty($password)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Username and password are required.']);
-        } elseif (strlen($username) < Config::getMinUsernameLength() || strlen($username) > 16 || !preg_match('/^\w+$/', $username)) {
-            // Validate username length and characters
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Invalid username format (' . Config::getMinUsernameLength() . '-16 letters/numbers/underscore).']);
-        } elseif (strlen($password) < Config::getMinPasswordLength() || strlen($password) > 31) {
-            // Validate password length
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Password must be between ' . Config::getMinPasswordLength() . ' and 31 characters long.']);
-        } else {
-            try {
-                $this->doRegister($username, $password);
-            } catch (Exception $e) {
-                if ($this->pdo->inTransaction()) {
-                    $this->pdo->rollBack();
-                }
-                http_response_code(500);
-                error_log("Registration error: " . $e->getMessage());
-                echo json_encode(['success' => false, 'error' => "Server error during registration."]);
-            }
-        }
-    }
+        try {
+            $this->pdo->beginTransaction();
 
-    private function doRegister(string $username, string $password): void
-    {
-        $this->pdo->beginTransaction();
-
-        $prefix = Config::getTablePrefix();
-        // Check if user already exists
-        $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}users WHERE username = :username");
-        $stmt->execute([':username' => $username]);
-
-        if ($stmt->fetch()) {
-            $this->pdo->rollBack();
-            http_response_code(409);
-            echo json_encode(['success' => false, 'error' => 'Username already exists.']);
-        } else {
             $prefix = Config::getTablePrefix();
-            // Secure Hash
+            $stmt = $this->pdo->prepare("SELECT id FROM {$prefix}users WHERE username = :username");
+            $stmt->execute([':username' => $username]);
+
+            if ($stmt->fetch()) {
+                $this->pdo->rollBack();
+                http_response_code(409);
+                echo json_encode(['success' => false, 'error' => 'Username already exists.']);
+                return;
+            }
+
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $this->pdo->prepare("INSERT INTO {$prefix}users (username, password_hash) VALUES (:username, :hash)");
             $stmt->execute([':username' => $username, ':hash' => $hash]);
             $userId = (int) $this->pdo->lastInsertId();
 
-            $prefix = Config::getTablePrefix();
-            // If this is the FIRST user, assign all current projects to this user
             $countStmt = $this->pdo->query("SELECT COUNT(*) FROM {$prefix}users");
             if ($countStmt->fetchColumn() == 1) {
-                // First user! Claim all projects and tasks.
                 $this->pdo->exec("UPDATE {$prefix}projects SET user_id = $userId WHERE user_id IS NULL");
-                // Tasks are queried by project, but if we need a direct relation in future, its handled globally
             }
 
             $this->pdo->commit();
 
-            // Auto-login
-            $isInstructor = ($userId === 1); // By default, user id 1 is toggled to instructor
+            $isInstructor = ($userId === 1);
             $_SESSION['user_id'] = $userId;
             $_SESSION['username'] = $username;
             $_SESSION['is_instructor'] = $isInstructor;
@@ -99,6 +81,13 @@ class AuthController
                 'must_change_password' => false,
                 'last_active_project' => null
             ]]);
+        } catch (Exception $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            http_response_code(500);
+            error_log("Registration error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'error' => "Server error during registration."]);
         }
     }
 
@@ -178,7 +167,7 @@ class AuthController
         if (isset($_SESSION['user_id'])) {
             // Also refresh is_instructor from DB just in case it changed
             $prefix = Config::getTablePrefix();
-            $stmt = $this->pdo->prepare("SELECT is_instructor, must_change_password FROM {$prefix}users WHERE id = :id");
+            $stmt = $this->pdo->prepare("SELECT is_instructor, must_change_password, last_active_project FROM {$prefix}users WHERE id = :id");
             $stmt->execute([':id' => $_SESSION['user_id']]);
             $userData = $stmt->fetch(PDO::FETCH_ASSOC);
             $isInstructor = (bool)($userData['is_instructor'] ?? false);
@@ -193,7 +182,7 @@ class AuthController
                     'username' => $_SESSION['username'],
                     'is_instructor' => $isInstructor,
                     'must_change_password' => $mustChangePassword,
-                    'last_active_project' => $this->getLastActiveProject((int)$_SESSION['user_id'])
+                    'last_active_project' => $userData['last_active_project'] ?? null
                 ],
                 'config' => $config
             ]);
@@ -224,14 +213,6 @@ class AuthController
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
-    }
-
-    private function getLastActiveProject(int $userId): ?string
-    {
-        $prefix = Config::getTablePrefix();
-        $stmt = $this->pdo->prepare("SELECT last_active_project FROM {$prefix}users WHERE id = :id");
-        $stmt->execute([':id' => $userId]);
-        return $stmt->fetchColumn() ?: null;
     }
 
     public function handleGitHubLogin()
@@ -340,6 +321,25 @@ class AuthController
             $hasUniversityKey ? $envKey : null
         );
 
+        $savedUserKeyHash = $userKeyPlain ? hash('sha256', $userKeyPlain) : null;
+        $savedTeamKeyHash = $teamKeyPlain ? hash('sha256', $teamKeyPlain) : null;
+
+        // GitHub session credentials status
+        $githubToken = $_SESSION['github_token'] ?? null;
+        $githubUsername = $_SESSION['github_username'] ?? null;
+        $githubRepo = $_SESSION['github_repo'] ?? null;
+        $hasSessionGitHub = !empty($githubToken);
+
+        $maskedGithubToken = null;
+        if ($githubToken && is_string($githubToken)) {
+            $len = strlen($githubToken);
+            if ($len > 8) {
+                $maskedGithubToken = substr($githubToken, 0, 4) . '...' . substr($githubToken, -4);
+            } else {
+                $maskedGithubToken = '***';
+            }
+        }
+
         echo json_encode([
             'success' => true,
             'active_source' => $activeSource,
@@ -347,11 +347,19 @@ class AuthController
             'has_session_key' => $hasSessionKey,
             'session_key_source' => $sessionKeySource,
             'has_saved_user_key' => $hasSavedUserKey,
+            'saved_user_key_hash' => $savedUserKeyHash,
             'has_team_session_key' => $hasTeamSessionKey,
             'has_team_saved_key' => $hasTeamSavedKey,
+            'saved_team_key_hash' => $savedTeamKeyHash,
             'has_university_key' => $hasUniversityKey,
             'team_id' => $teamId,
-            'team_name' => $teamName
+            'team_name' => $teamName,
+            'github_status' => [
+                'has_session_github' => $hasSessionGitHub,
+                'github_username' => $githubUsername,
+                'github_repo' => $githubRepo,
+                'masked_github_token' => $maskedGithubToken
+            ]
         ]);
     }
 
@@ -447,6 +455,55 @@ class AuthController
         }
 
         echo json_encode(['success' => true, 'message' => 'Session key cleared.']);
+    }
+
+    public function handleSetSessionGitHubKeys(): void
+    {
+        header(Config::APP_JSON);
+        $userId = $_SESSION['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        $token = trim($_POST['github_token'] ?? '');
+        $username = trim($_POST['github_username'] ?? '');
+        $repo = trim($_POST['github_repo'] ?? '');
+
+        if (empty($token) || empty($username)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'GitHub token and username are required.']);
+            return;
+        }
+
+        $_SESSION['github_token'] = $token;
+        $_SESSION['github_username'] = $username;
+        if (!empty($repo)) {
+            $_SESSION['github_repo'] = $repo;
+        } else {
+            unset($_SESSION['github_repo']);
+        }
+
+        $maskedToken = strlen($token) > 8 ? substr($token, 0, 4) . '...' . substr($token, -4) : '***';
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'GitHub credentials stored in session memory.',
+            'github_username' => $username,
+            'github_repo' => $repo ?: null,
+            'masked_github_token' => $maskedToken
+        ]);
+    }
+
+    public function handleClearSessionGitHubKeys(): void
+    {
+        header(Config::APP_JSON);
+        unset($_SESSION['github_token'], $_SESSION['github_username'], $_SESSION['github_repo']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'GitHub session credentials cleared.'
+        ]);
     }
 
     public function handleSaveUserApiKey(): void

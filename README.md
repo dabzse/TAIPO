@@ -49,6 +49,16 @@ In the frontend header, click the **⚙️ Settings** button:
 * **API Key Tab:**
   * **`.apikey` or `*.txt`:** Dragging this file or pasting the key allows running in volatile session memory or opting into **"Remember this key"** (AES-256 database storage).
   * **`.apikeyusb` (Lab / Shared Machine Mode):** Specifically tailored for university computer labs. Keys are loaded **strictly into ephemeral session memory** and database persistence is disabled for security. Session keys are destroyed on logout or tab close.
+  * **Multi-Credential Format:** `.apikeyusb` supports unified lab provisioning with multiple environment-style key-value pairs:
+
+    ```ini
+    GEMINI_KEY = "AIzaSy..."
+    GH_UNAME = "dabzse"
+    GH_PAT = "github_pat_..."
+    ```
+
+    *(Single-line raw Gemini keys remain fully supported for backward compatibility).*
+  * **GitHub Integration Direct Link:** Generate a classic GitHub PAT with the required `repo` scope directly using the [GitHub PAT Generator Shortcut](https://github.com/settings/tokens/new?scopes=repo&description=TAIPO%20Lab%20Token).
   * **Key Hierarchy:** Displays current active tier (`?student` → `?team` → `:university`).
 * **Password Tab:**
   * Allows any authenticated student or instructor to change their password securely.
@@ -340,11 +350,16 @@ vendor/bin/phpunit
 
 Tests cover: Config, Database schema, TaskService, ProjectService, GeminiService, and PoActivityService.
 
-### Frontend (Vitest)
+### Frontend (TypeScript & Vitest)
 
 ```bash
 cd frontend
 pnpm install
+
+# Run static type checking
+npx tsc --noEmit
+
+# Run unit and component test suite
 pnpm test
 ```
 
@@ -352,14 +367,14 @@ pnpm test
 > **Do NOT upgrade frontend dependencies blindly (avoid `pnpm update` or `npm update`)!**
 > The frontend dependencies (especially DaisyUI v5, Vue, and Tailwind plugins) are carefully pinned to tested, compatible versions. Running blanket package upgrades introduces breaking UI changes and component layout regressions. Always stick to the versions specified in `package.json` and `pnpm-lock.yaml`.
 
-Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rendering, and TaskCard interactions.
+Tests cover: API service payloads, App.vue authentication flow, KanbanBoard rendering, TaskCard interactions, and CodeGenerationModal tabs. All 40 unit and component tests are fully typed in TypeScript.
 
 ---
 
 ## 📝 Academic Background
 
 * **Author:** Judit Szabó *(Software Engineering Student)*  
-* **Contributor:** Mihaly Nyilas *(Software Engineering Student)*  
+* **Contributor:** Mihaly Nyilas *(Software Engineeri̶n̶g̶ ̶s̶t̶u̶d̶e̶n̶t̶)*  
 * **Supervisor:** Dr. Gábor Kusper  
 * **Institution:** Eszterházy Károly Catholic University  
 

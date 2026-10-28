@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 // Mock API
-vi.mock('../services/api.js', () => ({
+vi.mock('../services/api', () => ({
     api: {
         toggleImportance: vi.fn().mockResolvedValue({ data: { success: true } }),
     }
@@ -22,11 +22,13 @@ describe('TaskCard.vue', () => {
         subtaskCount: 0,
     };
 
-    const mountCard = async (taskOverrides = {}) => {
+    const mountCard = async (taskOverrides: Record<string, any> = {}) => {
         const TaskCard = (await import('../components/TaskCard.vue')).default;
         return mount(TaskCard, {
             props: {
-                task: { ...defaultTask, ...taskOverrides },
+                task: { ...defaultTask, ...taskOverrides } as any,
+                status: (taskOverrides.status || defaultTask.status) as string,
+                userRole: 'Product Owner',
             },
         });
     };
@@ -111,7 +113,7 @@ describe('TaskCard.vue', () => {
         const wrapper = await mountCard();
         const editBtn = wrapper.findAll('.dropdown-content li button').find(b => b.text().includes('Edit'));
 
-        await editBtn.trigger('click');
+        await editBtn?.trigger('click');
         expect(wrapper.emitted('request-edit')).toBeTruthy();
     });
 
@@ -119,7 +121,7 @@ describe('TaskCard.vue', () => {
         const wrapper = await mountCard();
         const btn = wrapper.findAll('.dropdown-content li button').find(b => b.text().includes('Decompose'));
 
-        await btn.trigger('click');
+        await btn?.trigger('click');
         expect(wrapper.emitted('decompose')).toBeTruthy();
     });
 

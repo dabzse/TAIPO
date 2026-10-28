@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 // Mock API and draggable
-vi.mock('../services/api.js', () => ({
+vi.mock('../services/api', () => ({
     api: {
         addTask: vi.fn().mockResolvedValue({ data: { success: true } }),
         deleteTask: vi.fn().mockResolvedValue({ data: { success: true } }),
@@ -51,6 +51,7 @@ describe('KanbanBoard.vue', () => {
         currentProject: 'TestProject',
         maxTitleLength: 42,
         maxDescriptionLength: 512,
+        userRole: 'Product Owner' as const,
     };
 
     it('renders 5 columns', async () => {
@@ -73,7 +74,7 @@ describe('KanbanBoard.vue', () => {
 
         // There should be 5 column containers
         const columns = wrapper.findAll(String.raw`.min-w-\[280px\]`);
-        expect(columns.length).toBe(5);
+        expect(columns).toHaveLength(5);
     });
 
     it('displays formatted column titles with WIP counts', async () => {
@@ -122,7 +123,7 @@ describe('KanbanBoard.vue', () => {
 
         const addButtons = wrapper.findAll('button').filter(b => b.text().includes('Add Task'));
         // Should have 2 Add Task buttons (top + bottom of backlog)
-        expect(addButtons.length).toBe(2);
+        expect(addButtons).toHaveLength(2);
     });
 
     it('renders task data in backlog column', async () => {
@@ -131,7 +132,6 @@ describe('KanbanBoard.vue', () => {
             props: defaultProps,
             global: {
                 stubs: {
-                    // Use a draggable stub that renders the actual TaskCard stub with scoped slots
                     TaskCard: {
                         template: '<div class="task-card-stub">{{ task.title }}</div>',
                         props: ['task'],

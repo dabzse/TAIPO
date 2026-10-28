@@ -185,6 +185,14 @@ class Application
                 $this->authController->handleClearSessionApiKey();
                 exit;
 
+            case 'set_session_github_keys':
+                $this->authController->handleSetSessionGitHubKeys();
+                exit;
+
+            case 'clear_session_github_keys':
+                $this->authController->handleClearSessionGitHubKeys();
+                exit;
+
             case 'save_user_api_key':
                 $this->authController->handleSaveUserApiKey();
                 exit;

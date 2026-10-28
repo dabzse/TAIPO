@@ -1,24 +1,25 @@
 <template>
     <dialog
         ref="modalRef"
-        class="modal modal-bottom sm:modal-middle"
+        class="modal modal-bottom sm:modal-middle z-50"
         :class="{ 'modal-open': isOpen }"
+        :open="isOpen"
     >
-        <div class="modal-box max-w-2xl bg-base-100 border border-base-300 shadow-2xl">
+        <div class="modal-box max-w-2xl bg-base-100 border border-base-300 shadow-2xl rounded-2xl">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary">
+                <h3 class="text-xl font-bold flex items-center gap-2 text-base-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6 text-primary">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
-                    Project Requirements
+                    <span>Project Requirements</span>
                 </h3>
-                <button @click="close" class="btn btn-sm btn-circle btn-ghost">✕</button>
+                <button @click="close" class="btn btn-sm btn-circle btn-ghost" type="button" aria-label="Close">✕</button>
             </div>
 
             <div class="form-control gap-4">
                 <div class="flex justify-between items-end">
                     <label for="requirement-textarea" class="label p-0 cursor-pointer">
-                        <span class="label-text font-semibold opacity-70 uppercase text-xs tracking-widest">Requirements (Text/Markdown)</span>
+                        <span class="label-text font-semibold opacity-70 uppercase text-xs tracking-widest">Requirements Specification</span>
                     </label>
                     <div class="flex gap-2">
                         <input
@@ -44,28 +45,27 @@
                     <textarea
                         id="requirement-textarea"
                         v-model="content"
-                        class="textarea textarea-bordered h-64 font-mono text-sm focus:textarea-primary transition-colors w-full"
-                        placeholder="Enter project requirements here (Markdown supported). These will be used as context for AI code generation and task decomposition..."
+                        class="textarea textarea-bordered h-64 font-mono text-xs focus:textarea-primary transition-colors w-full leading-relaxed"
+                        placeholder="Enter project requirements here (Markdown supported). These are used as ground context for AI code generation and autonomous simulation..."
                     ></textarea>
                 </div>
 
-                <div v-if="message" class="alert shadow-sm py-2" :class="messageType === 'error' ? 'alert-error' : 'alert-success'">
-                    <svg v-if="messageType === 'success'" xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div v-if="message" class="alert shadow-sm py-2 text-xs" :class="messageType === 'error' ? 'alert-error' : 'alert-success'">
                     <span class="text-xs">{{ message }}</span>
                 </div>
             </div>
 
-            <div class="modal-action flex justify-between items-center mt-8">
+            <div class="modal-action flex justify-between items-center mt-6">
                 <p class="text-[10px] opacity-40 italic max-w-[60%] leading-tight">
                     * Requirements are shared across the team and used to guide AI suggestions.
                 </p>
                 <div class="flex gap-2">
-                    <button @click="close" class="btn btn-ghost">Dismiss</button>
+                    <button @click="close" class="btn btn-ghost btn-sm" type="button">Dismiss</button>
                     <button
                         @click="save"
                         :disabled="isSaving || !content.trim()"
-                        class="btn btn-primary px-8 shadow-lg"
+                        class="btn btn-primary btn-sm px-6 font-bold shadow-md shadow-primary/20"
+                        type="button"
                     >
                         <span v-if="isSaving" class="loading loading-spinner loading-xs"></span>
                         {{ isSaving ? 'Saving' : 'Save' }}
@@ -74,54 +74,56 @@
             </div>
         </div>
         <form method="dialog" class="modal-backdrop" @click="close">
-            <button>close</button>
+            <button type="button">close</button>
         </form>
     </dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { api } from '../services/api';
 
-const props = defineProps({
-    isOpen: Boolean,
-    projectName: String
-});
+const props = defineProps<{
+    isOpen: boolean;
+    projectName?: string | null;
+}>();
 
-const emit = defineEmits(['close']);
-const modalRef = ref(null);
+const emit = defineEmits<{
+    (e: 'close'): void;
+}>();
 
+const modalRef = ref<HTMLDialogElement | null>(null);
 const content = ref('');
 const isSaving = ref(false);
 const message = ref('');
-const messageType = ref('');
+const messageType = ref<'success' | 'error' | ''>('');
 
 const close = () => {
     emit('close');
     message.value = '';
 };
 
-const handleFileUpload = (event) => {
+const handleFileUpload = (event: any) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (file.size > 1024 * 1024) {
-        message.value = "File is too large (max 1MB).";
-        messageType.value = "error";
+        message.value = 'File is too large (max 1MB).';
+        messageType.value = 'error';
         return;
     }
 
-    file.text().then(text => {
+    file.text().then((text: string) => {
         content.value = text;
         message.value = `Loaded ${file.name} successfully.`;
-        messageType.value = "success";
+        messageType.value = 'success';
 
         setTimeout(() => {
             if (messageType.value === 'success') message.value = '';
         }, 3000);
     }).catch(() => {
-        message.value = "Failed to read file.";
-        messageType.value = "error";
+        message.value = 'Failed to read file.';
+        messageType.value = 'error';
     });
 
     event.target.value = '';
@@ -131,14 +133,14 @@ const loadRequirements = async () => {
     if (!props.projectName) return;
 
     try {
-        const result = await api.getRequirements(props.projectName);
+        const result: any = await api.getRequirements(props.projectName);
         if (result.success && result.data && result.data.length > 0) {
             content.value = result.data[0].content;
         } else {
             content.value = '';
         }
     } catch (error) {
-        console.error("Failed to load requirements", error);
+        console.error('Failed to load requirements', error);
     }
 };
 
@@ -149,9 +151,9 @@ watch(() => props.isOpen, (newVal) => {
 });
 
 const save = async () => {
-    if (!content.value.trim()) {
-        message.value = "Content cannot be empty.";
-        messageType.value = "error";
+    if (!props.projectName || !content.value.trim()) {
+        message.value = 'Content cannot be empty.';
+        messageType.value = 'error';
         return;
     }
 
@@ -159,26 +161,22 @@ const save = async () => {
     message.value = '';
 
     try {
-        const result = await api.saveRequirement(props.projectName, content.value);
-        if (result.data.success) {
+        const result: any = await api.saveRequirement(props.projectName, content.value);
+        if (result.data?.success || result.success) {
             message.value = 'Requirements saved successfully!';
             messageType.value = 'success';
             setTimeout(() => {
                 close();
             }, 1000);
         } else {
-            message.value = 'Error saving requirements: ' + (result.data.error || 'Unknown error');
+            message.value = 'Error saving requirements: ' + (result.data?.error || result.error || 'Unknown error');
             messageType.value = 'error';
         }
-    } catch (error) {
-        message.value = 'Error saving requirements: ' + error.message;
+    } catch (error: any) {
+        message.value = 'Error saving requirements: ' + (error.response?.data?.error || error.message);
         messageType.value = 'error';
     } finally {
         isSaving.value = false;
     }
 };
 </script>
-
-<style scoped>
-/* No manual styles needed, using DaisyUI classes */
-</style>

@@ -8,7 +8,6 @@ backend/.env
 backend/.phpunit.cache/*
 backend/data/TAWOS.sql.zip
 backend/vendor/*
-backend/composer.lock
 backend/kanban.sqlite
 
 # Frontend

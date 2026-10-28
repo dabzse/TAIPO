@@ -1,0 +1,171 @@
+/** ==========================================================================
+    TAIPO OFFLINE FONTS CONFIGURATION (fonts.css)
+    ==========================================================================
+    Ez a fájl tartalmazza az összes helyben tárolt offline betűtípus (@font-face)
+    definícióját. A duplikációk elkerülésére az index.css legelején van importálva.
+
+    Elérhető és konfigurált betűtípusok:
+    1. Inter (Modern Sans - Alapértelmezett UI / Szövegtörzs)
+    2. Outfit (Geometric Sans / Display - Fejlécek, kiemelt szövegek)
+    3. JetBrains Mono (Monospace - Kódgenerálás, Ticket ID-k, JSON, naplók)
+    4. Oswald (Condensed Display Sans - Opcionális alternatíva)
+    5. Playfair Display (Elegáns Serif Display - Opcionális alternatíva)
+    6. Roboto Serif (Modern Variable Serif - Opcionális alternatíva)
+
+    Egyetemi csere esetén:
+    Csak a lenti :root CSS változókban kell átállítani az aktív családot!
+    ==========================================================================
+**/
+
+:root {
+    /* Aktív betűtípusok a TAIPO felületén */
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Egyetemen választható egyéb alternatívák */
+    --font-condensed: 'Oswald', sans-serif;
+    --font-serif-display: 'Playfair Display', Georgia, serif;
+    --font-serif: 'Roboto Serif', Georgia, serif;
+}
+
+/** ==========================================================================
+    1. INTER (Variable Font: 100-900 súlyok, normál és dőlt)
+    ==========================================================================
+**/
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src:
+        local('Inter'),
+        url('./fonts/Inter/Inter-VariableFont_opsz,wght.ttf') format('truetype-variations'),
+        url('./fonts/Inter/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: italic;
+    font-weight: 100 900;
+    font-display: swap;
+    src:
+        local('Inter Italic'),
+        local('Inter-Italic'),
+        url('./fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype-variations'),
+        url('./fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+}
+
+/** ==========================================================================
+    2. OUTFIT (Variable Font: 100-900 súlyok)
+    ==========================================================================
+**/
+@font-face {
+    font-family: 'Outfit';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src:
+        local('Outfit'),
+        url('./fonts/Outfit/Outfit-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/Outfit/Outfit-VariableFont_wght.ttf') format('truetype');
+}
+
+/** ==========================================================================
+    3. JETBRAINS MONO (Variable Font: 100-800 súlyok, normál és dőlt)
+    ==========================================================================
+**/
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: swap;
+    src:
+        local('JetBrains Mono'),
+        local('JetBrainsMono-Regular'),
+        url('./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: italic;
+    font-weight: 100 800;
+    font-display: swap;
+    src:
+        local('JetBrains Mono Italic'),
+        local('JetBrainsMono-Italic'),
+        url('./fonts/JetBrains_Mono/JetBrainsMono-Italic-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/JetBrains_Mono/JetBrainsMono-Italic-VariableFont_wght.ttf') format('truetype');
+}
+
+/** ==========================================================================
+    4. OSWALD (Variable Font: 200-700 súlyok)
+    ==========================================================================
+**/
+@font-face {
+    font-family: 'Oswald';
+    font-style: normal;
+    font-weight: 200 700;
+    font-display: swap;
+    src:
+        local('Oswald'),
+        url('./fonts/Oswald/Oswald-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/Oswald/Oswald-VariableFont_wght.ttf') format('truetype');
+}
+
+/** ==========================================================================
+    5. PLAYFAIR DISPLAY (Variable Font: 400-900 súlyok, normál és dőlt)
+    ==========================================================================
+**/
+@font-face {
+    font-family: 'Playfair Display';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src:
+        local('Playfair Display'),
+        local('PlayfairDisplay-Regular'),
+        url('./fonts/Playfair_Display/PlayfairDisplay-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/Playfair_Display/PlayfairDisplay-VariableFont_wght.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Playfair Display';
+    font-style: italic;
+    font-weight: 400 900;
+    font-display: swap;
+    src:
+        local('Playfair Display Italic'),
+        local('PlayfairDisplay-Italic'),
+        url('./fonts/Playfair_Display/PlayfairDisplay-Italic-VariableFont_wght.ttf') format('truetype-variations'),
+        url('./fonts/Playfair_Display/PlayfairDisplay-Italic-VariableFont_wght.ttf') format('truetype');
+}
+
+/** ==========================================================================
+    6. ROBOTO SERIF (Variable Font: 100-900 súlyok, normál és dőlt)
+    ==========================================================================
+**/ 
+@font-face {
+    font-family: 'Roboto Serif';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src:
+        local('Roboto Serif'),
+        local('RobotoSerif-Regular'),
+        url('./fonts/Roboto_Serif/RobotoSerif-VariableFont_GRAD,opsz,wdth,wght.ttf') format('truetype-variations'),
+        url('./fonts/Roboto_Serif/RobotoSerif-VariableFont_GRAD,opsz,wdth,wght.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Roboto Serif';
+    font-style: italic;
+    font-weight: 100 900;
+    font-display: swap;
+    src:
+        local('Roboto Serif Italic'),
+        local('RobotoSerif-Italic'),
+        url('./fonts/Roboto_Serif/RobotoSerif-Italic-VariableFont_GRAD,opsz,wdth,wght.ttf') format('truetype-variations'),
+        url('./fonts/Roboto_Serif/RobotoSerif-Italic-VariableFont_GRAD,opsz,wdth,wght.ttf') format('truetype');
+}

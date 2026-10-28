@@ -1,10 +1,17 @@
-import axios from 'axios';
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import type {
+    KanbanTasksResponse,
+    AuthResponse,
+    ApiUsageResponse,
+    GenericApiResponse,
+    ApiKeyStatusResponse
+} from '../types';
 
 const API_BASE = '/TAIPO/api';
 
 // Create axios instance with base URL pointing to the proxy or direct backend
-const client = axios.create({
-    baseURL: API_BASE, // Uses Vite proxy or direct backend in production
+const client: AxiosInstance = axios.create({
+    baseURL: API_BASE,
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -14,11 +21,14 @@ const client = axios.create({
 
 // Add a request interceptor to send active session Gemini API key if present
 if (client?.interceptors?.request?.use) {
-    client.interceptors.request.use((config) => {
+    client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
         try {
-            const sessionKey = sessionStorage.getItem('geminiApiKey');
-            if (sessionKey) {
-                config.headers['X-User-Gemini-Api-Key'] = sessionKey;
+            if (typeof sessionStorage !== 'undefined') {
+                const sessionKey = sessionStorage.getItem('geminiApiKey');
+                if (sessionKey) {
+                    config.headers = config.headers || {};
+                    config.headers['X-User-Gemini-Api-Key'] = sessionKey;
+                }
             }
         } catch (e) {
             // sessionStorage might be restricted in some environments
@@ -33,12 +43,20 @@ if (client?.interceptors?.response?.use) {
         (response) => response,
         (error) => {
             if (error?.response?.status === 401) {
-                // If we get an unauthorized error and we're not already trying to login/check auth
-                const action = error.config?.data ? JSON.parse(error.config.data).action : '';
+                let action = '';
+                try {
+                    if (error.config?.data) {
+                        const parsed = typeof error.config.data === 'string'
+                            ? JSON.parse(error.config.data)
+                            : error.config.data;
+                        action = parsed.action || '';
+                    }
+                } catch (e) {
+                    // ignore JSON parse error
+                }
                 if (!['login', 'register', 'check_auth'].includes(action)) {
-                    // Dispatch event so App.vue can log the user out visually
-                    if (typeof globalThis !== 'undefined' && globalThis.window) {
-                        globalThis.window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
+                    if (typeof globalThis !== 'undefined' && (globalThis as any).window) {
+                        (globalThis as any).window.dispatchEvent(new CustomEvent('taipo:unauthorized'));
                     }
                 }
             }
@@ -48,15 +66,13 @@ if (client?.interceptors?.response?.use) {
 }
 
 export const api = {
-    async getKanbanTasks(project) {
+    async getKanbanTasks(project?: string | null): Promise<KanbanTasksResponse> {
         const url = project ? `/?project=${encodeURIComponent(project)}` : '/';
-        const response = await client.get(url);
-        // Backend returns: { tasks: {...}, existingProjects: [...], config: {...}, ... }
+        const response = await client.get<KanbanTasksResponse>(url);
         return response.data;
     },
 
-    async addTask(project, title, description, priority = 0) {
-        // PHP expects POST form-data or JSON with specific structure.
+    async addTask(project: string, title: string, description: string, priority: number = 0): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'add_task',
             current_project: project,
@@ -66,7 +82,7 @@ export const api = {
         });
     },
 
-    async updateStatus(taskId, newStatus, currentProject) {
+    async updateStatus(taskId: number, newStatus: string, currentProject: string): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'update_status',
             task_id: taskId,
@@ -75,14 +91,14 @@ export const api = {
         });
     },
 
-    async deleteTask(taskId) {
+    async deleteTask(taskId: number): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'delete_task',
             task_id: taskId
         });
     },
 
-    async toggleImportance(taskId, isImportant) {
+    async toggleImportance(taskId: number, isImportant: number): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'toggle_importance',
             task_id: taskId,
@@ -90,14 +106,14 @@ export const api = {
         });
     },
 
-    async getProjects() {
+    async getProjects(): Promise<{ success: boolean; projects: string[] }> {
         const response = await client.post('/', {
             action: 'list_projects'
         });
         return response.data;
     },
 
-    async generateTasks(projectName, prompt, teamId = null) {
+    async generateTasks(projectName: string, prompt: string, teamId: number | null = null): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'generate_project_tasks',
             project_name: projectName,
@@ -107,7 +123,7 @@ export const api = {
         return response.data;
     },
 
-    async editTask(taskId, title, description, lastUpdatedAt = null) {
+    async editTask(taskId: number, title: string, description: string, lastUpdatedAt: string | null = null): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'edit_task',
             task_id: taskId,
@@ -117,14 +133,14 @@ export const api = {
         });
     },
 
-    async getProjectDefaults() {
+    async getProjectDefaults(): Promise<any> {
         const response = await client.post('/', {
             action: 'get_project_defaults'
         });
         return response.data;
     },
 
-    async generateCode(taskId, description) {
+    async generateCode(taskId: number, description: string): Promise<{ success: boolean; code?: string; error?: string }> {
         const response = await client.post('/', {
             action: 'generate_code',
             task_id: taskId,
@@ -133,11 +149,10 @@ export const api = {
         return response.data;
     },
 
-    async commitToGithub(taskId, code, description) {
-        // Retrieves GitHub credentials from sessionStorage (set by GitHub login)
-        const token = sessionStorage.getItem('githubToken');
-        const username = sessionStorage.getItem('githubUsername');
-        const repo = sessionStorage.getItem('githubRepo');
+    async commitToGithub(taskId: number, code: string, description: string): Promise<{ success: boolean; filePath?: string; error?: string }> {
+        const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('githubToken') : null;
+        const username = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('githubUsername') : null;
+        const repo = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('githubRepo') : null;
 
         const response = await client.post('/', {
             action: 'commit_to_github',
@@ -151,7 +166,7 @@ export const api = {
         return response.data;
     },
 
-    async decomposeTask(taskId, description, currentProject) {
+    async decomposeTask(taskId: number, description: string, currentProject: string): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'decompose_task',
             task_id: taskId,
@@ -161,7 +176,7 @@ export const api = {
         return response.data;
     },
 
-    async reorderTasks(projectName, status, taskIds) {
+    async reorderTasks(projectName: string, status: string, taskIds: number[]): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'reorder_tasks',
             project_name: projectName,
@@ -170,7 +185,7 @@ export const api = {
         });
     },
 
-    async createProject(name, teamId = null) {
+    async createProject(name: string, teamId: number | null = null): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'create_project',
             name: name,
@@ -178,7 +193,7 @@ export const api = {
         });
     },
 
-    async createProjectFromSpec(specContent, teamId = null) {
+    async createProjectFromSpec(specContent: string, teamId: number | null = null): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'create_project_from_spec',
             spec: specContent,
@@ -187,7 +202,7 @@ export const api = {
         return response.data;
     },
 
-    async renameProject(id, name) {
+    async renameProject(id: number | string, name: string): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'update_project',
             id: id,
@@ -195,14 +210,14 @@ export const api = {
         });
     },
 
-    async deleteProject(id) {
+    async deleteProject(id: number | string): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'delete_project',
             id: id
         });
     },
 
-    async toggleProjectActivity(id, isActive) {
+    async toggleProjectActivity(id: number | string, isActive: boolean | number): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'toggle_project_activity',
             id: id,
@@ -210,12 +225,12 @@ export const api = {
         });
     },
 
-    async getSetting(key) {
-        const response = await client.get(`/?action=get_setting&key=${key}`);
+    async getSetting(key: string): Promise<any> {
+        const response = await client.get(`/?action=get_setting&key=${encodeURIComponent(key)}`);
         return response.data;
     },
 
-    async saveSetting(key, value) {
+    async saveSetting(key: string, value: any): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'save_setting',
             key: key,
@@ -223,7 +238,7 @@ export const api = {
         });
     },
 
-    async queryTask(taskId, query) {
+    async queryTask(taskId: number, query: string): Promise<{ success: boolean; answer?: string; error?: string }> {
         const response = await client.post('/', {
             action: 'query_task',
             task_id: taskId,
@@ -231,17 +246,18 @@ export const api = {
         });
         return response.data;
     },
-    async getTaskHistory(taskId) {
+
+    async getTaskHistory(taskId: number): Promise<any> {
         const response = await client.get(`/?action=get_task_history&task_id=${taskId}`);
         return response.data;
     },
 
-    async getProjectHistory(projectName) {
+    async getProjectHistory(projectName: string): Promise<any> {
         const response = await client.get(`/?action=get_project_history&project_name=${encodeURIComponent(projectName)}`);
         return response.data;
     },
 
-    async saveRequirement(projectName, content) {
+    async saveRequirement(projectName: string, content: string): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'save_requirement',
             project_name: projectName,
@@ -249,19 +265,19 @@ export const api = {
         });
     },
 
-    async getRequirements(projectName) {
+    async getRequirements(projectName: string): Promise<any> {
         const response = await client.get(`/?action=get_requirements&project_name=${encodeURIComponent(projectName)}`);
         return response.data;
     },
 
-    async getApiUsage() {
-        const response = await client.get(`/?action=get_api_usage`);
+    async getApiUsage(): Promise<ApiUsageResponse> {
+        const response = await client.get<ApiUsageResponse>(`/?action=get_api_usage`);
         return response.data;
     },
 
     // Authentication
-    async login(username, password) {
-        const response = await client.post('/', {
+    async login(username: string, password: string): Promise<AuthResponse> {
+        const response = await client.post<AuthResponse>('/', {
             action: 'login',
             username: username,
             password: password
@@ -269,8 +285,8 @@ export const api = {
         return response.data;
     },
 
-    async register(username, password) {
-        const response = await client.post('/', {
+    async register(username: string, password: string): Promise<AuthResponse> {
+        const response = await client.post<AuthResponse>('/', {
             action: 'register',
             username: username,
             password: password
@@ -278,21 +294,21 @@ export const api = {
         return response.data;
     },
 
-    async logout() {
+    async logout(): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'logout'
         });
         return response.data;
     },
 
-    async checkAuth() {
-        const response = await client.post('/', {
+    async checkAuth(): Promise<AuthResponse> {
+        const response = await client.post<AuthResponse>('/', {
             action: 'check_auth'
         });
         return response.data;
     },
 
-    async changePassword(currentPassword, newPassword) {
+    async changePassword(currentPassword: string, newPassword: string): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'change_password',
             current_password: currentPassword,
@@ -301,21 +317,21 @@ export const api = {
         return response.data;
     },
 
-    async saveActiveProject(projectName) {
+    async saveActiveProject(projectName: string): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'save_active_project',
             project_name: projectName
         });
     },
 
-    async reviewTask(taskId) {
+    async reviewTask(taskId: number): Promise<GenericApiResponse> {
         return client.post('/', {
             action: 'review_task',
             task_id: taskId
         });
     },
 
-    async refineTask(taskId) {
+    async refineTask(taskId: number): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'refine_task',
             task_id: taskId
@@ -323,7 +339,7 @@ export const api = {
         return response.data;
     },
 
-    async suggestPriority(taskId) {
+    async suggestPriority(taskId: number): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'suggest_priority',
             task_id: taskId
@@ -332,12 +348,12 @@ export const api = {
     },
 
     // Team Management
-    async listTeams() {
+    async listTeams(): Promise<any> {
         const response = await client.get('/?action=list_teams');
         return response.data;
     },
 
-    async createTeam(name) {
+    async createTeam(name: string): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'create_team',
             name: name
@@ -345,26 +361,25 @@ export const api = {
         return response.data;
     },
 
-    async updateTeam(teamId, name, settings = null) {
-        const payload = {
+    async updateTeam(teamId: number, name: string, settings: any = null): Promise<GenericApiResponse> {
+        const payload: Record<string, any> = {
             action: 'update_team',
             team_id: teamId,
             name: name
         };
         if (settings) {
-            payload.settings = JSON.stringify(settings);
+            payload.settings = typeof settings === 'string' ? settings : JSON.stringify(settings);
         }
         const response = await client.post('/', payload);
         return response.data;
     },
 
-    async listRoles() {
+    async listRoles(): Promise<any> {
         const response = await client.get('/?action=list_roles');
         return response.data;
     },
 
-    async assignTeamUser(teamId, userIdentifier, roleId) {
-        // If it's pure digits, send as user_id. If a string, send as username.
+    async assignTeamUser(teamId: number, userIdentifier: string, roleId: number): Promise<GenericApiResponse> {
         const isNumericString = /^\d+$/.test(userIdentifier);
         const response = await client.post('/', {
             action: 'assign_team_user',
@@ -376,12 +391,12 @@ export const api = {
         return response.data;
     },
 
-    async listTeamUsers(teamId) {
+    async listTeamUsers(teamId: number): Promise<any> {
         const response = await client.get(`/?action=list_team_users&team_id=${teamId}`);
         return response.data;
     },
 
-    async removeTeamUser(teamId, userId) {
+    async removeTeamUser(teamId: number, userId: number): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'remove_team_user',
             team_id: teamId,
@@ -390,7 +405,7 @@ export const api = {
         return response.data;
     },
 
-    async updateTeamUserRole(teamId, userId, roleId) {
+    async updateTeamUserRole(teamId: number, userId: number, roleId: number): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'update_team_user_role',
             team_id: teamId,
@@ -400,12 +415,12 @@ export const api = {
         return response.data;
     },
 
-    async listUserTeams() {
+    async listUserTeams(): Promise<any> {
         const response = await client.get('/?action=list_user_teams');
         return response.data;
     },
 
-    async setProjectTeam(projectId, teamId) {
+    async setProjectTeam(projectId: number | string, teamId: number | null): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'set_project_team',
             id: projectId,
@@ -415,12 +430,12 @@ export const api = {
     },
 
     // Instructor Dashboard
-    async getDashboard() {
+    async getDashboard(): Promise<any> {
         const response = await client.get('/?action=get_dashboard');
         return response.data;
     },
 
-    async searchTawos(query, filters = {}, limit = 20) {
+    async searchTawos(query: string, filters: Record<string, any> = {}, limit: number = 20): Promise<any> {
         const params = new URLSearchParams({
             action: 'search_tawos',
             q: query,
@@ -431,11 +446,11 @@ export const api = {
         return response.data;
     },
 
-    getExportBackupUrl() {
+    getExportBackupUrl(): string {
         return `${API_BASE}/?action=export_backup`;
     },
 
-    async importBackup(file) {
+    async importBackup(file: File): Promise<GenericApiResponse> {
         const formData = new FormData();
         formData.append('action', 'import_backup');
         formData.append('backup_file', file);
@@ -447,14 +462,16 @@ export const api = {
         return response.data;
     },
 
-    // API Key Management (?hallgató -> ?csapat -> :egyetemi)
-    async getApiKeyStatus(teamId = null) {
-        const url = teamId ? `/?action=get_api_key_status&team_id=${encodeURIComponent(teamId)}` : '/?action=get_api_key_status';
-        const response = await client.get(url);
+    // API Key Management (?student -> ?team -> :university)
+    async getApiKeyStatus(teamId: number | string | null = null): Promise<ApiKeyStatusResponse> {
+        const url = teamId
+            ? `/?action=get_api_key_status&team_id=${encodeURIComponent(String(teamId))}`
+            : '/?action=get_api_key_status';
+        const response = await client.get<ApiKeyStatusResponse>(url);
         return response.data;
     },
 
-    async setSessionApiKey(apiKey, source = 'manual', target = 'student') {
+    async setSessionApiKey(apiKey: string, source: string = 'manual', target: string = 'student'): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'set_session_api_key',
             api_key: apiKey,
@@ -464,7 +481,7 @@ export const api = {
         return response.data;
     },
 
-    async clearSessionApiKey(target = 'all') {
+    async clearSessionApiKey(target: string = 'all'): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'clear_session_api_key',
             target: target
@@ -472,7 +489,25 @@ export const api = {
         return response.data;
     },
 
-    async saveUserApiKey(apiKey, target = 'student') {
+    // GitHub Session Credentials
+    async setSessionGitHubKeys(token: string, username: string, repo: string = ''): Promise<GenericApiResponse & { github_username?: string; github_repo?: string | null; masked_github_token?: string }> {
+        const response = await client.post('/', {
+            action: 'set_session_github_keys',
+            github_token: token,
+            github_username: username,
+            github_repo: repo
+        });
+        return response.data;
+    },
+
+    async clearSessionGitHubKeys(): Promise<GenericApiResponse> {
+        const response = await client.post('/', {
+            action: 'clear_session_github_keys'
+        });
+        return response.data;
+    },
+
+    async saveUserApiKey(apiKey: string, target: string = 'student'): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'save_user_api_key',
             api_key: apiKey,
@@ -481,7 +516,7 @@ export const api = {
         return response.data;
     },
 
-    async deleteUserApiKey(target = 'student') {
+    async deleteUserApiKey(target: string = 'student'): Promise<GenericApiResponse> {
         const response = await client.post('/', {
             action: 'delete_user_api_key',
             target: target

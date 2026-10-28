@@ -1,5 +1,5 @@
 <template>
-    <div class="drawer z-20">
+    <div class="drawer z-50">
         <input
             v-model="drawerOpen"
             type="checkbox"
@@ -12,13 +12,14 @@
 
         <div class="drawer-side">
             <label for="my-drawer" class="drawer-overlay" aria-label="close sidebar"></label>
-            <ul class="menu p-4 w-80 min-h-full bg-base-200 text-base-content gap-4">
+            <ul class="menu p-5 w-84 min-h-full bg-base-200/95 backdrop-blur-xl text-base-content gap-4 border-r border-base-300">
                 <!-- Generate Project Form -->
-                <li class="flex flex-row justify-between items-center mb-2">
-                    <span class="menu-title p-0">Generate Project</span>
+                <li class="flex flex-row justify-between items-center mb-1">
+                    <span class="menu-title p-0 text-xs font-bold uppercase tracking-wider text-primary">Generate Project</span>
                     <button
                         @click="drawerOpen = false"
                         class="btn btn-ghost btn-sm btn-circle"
+                        type="button"
                     >
                         ✕
                     </button>
@@ -29,30 +30,30 @@
                         class="flex flex-col gap-4"
                     >
                         <div class="form-control w-full">
-                            <label class="label font-bold" for="projectNameInput">
+                            <label class="label font-bold text-xs" for="projectNameInput">
                                 <span class="label-text">Project Name</span>
                             </label>
                             <input
                                 v-model="projectName"
                                 id="projectNameInput"
                                 type="text"
-                                placeholder="e.g. My Awesome Project"
-                                class="input input-bordered w-full"
+                                placeholder="e.g. Project Titan"
+                                class="input input-sm input-bordered w-full"
                                 required
                             >
                         </div>
 
                         <div class="form-control w-full">
-                            <div class="flex justify-between items-center mb-2">
-                                <label class="label font-bold p-0" for="promptInput">AI Prompt</label>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="label font-bold p-0 text-xs" for="promptInput">AI Prompt</label>
                                 <div class="dropdown dropdown-end">
                                     <button type="button" tabindex="0" class="btn btn-xs btn-ghost text-info m-1">Load Default ▾</button>
-                                    <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <ul class="dropdown-content z-30 menu p-2 shadow-xl bg-base-100 rounded-xl w-52 text-xs border border-base-300">
                                         <li
                                             v-for="lang in supportedLanguages"
                                             :key="lang"
                                         >
-                                            <a @mousedown="loadDefaultPrompt(lang)">{{ lang }}</a>
+                                            <a @mousedown.prevent="loadDefaultPrompt(lang)" @click.prevent="loadDefaultPrompt(lang)" class="cursor-pointer">{{ lang }}</a>
                                         </li>
                                     </ul>
                                 </div>
@@ -60,18 +61,18 @@
                             <textarea
                                 v-model="prompt"
                                 id="promptInput"
-                                class="textarea textarea-bordered h-32 leading-relaxed"
-                                placeholder="Describe the project you want to build..."
+                                class="textarea textarea-bordered h-32 leading-relaxed text-xs"
+                                placeholder="Describe the agile project you want Gemini to create stories for..."
                             >
                             </textarea>
                             <div class="pt-1 pb-0">
-                                <span class="label-text-alt text-warning">
-                                    Note:<br>Prompts are sent to Google Gemini API.<br>Do not include Personally Identifiable Information (PII).
+                                <span class="label-text-alt text-[10px] text-warning leading-tight block">
+                                    *Prompts are sent to Google Gemini API. Avoid Personally Identifiable Information (PII).
                                 </span>
                             </div>
                         </div>
 
-                        <div class="divider text-xs">OR UPLOAD SPEC</div>
+                        <div class="divider text-[11px] my-1">OR UPLOAD SPEC</div>
 
                         <div class="form-control w-full">
                             <label class="sr-only" for="spec-file-upload">Upload Spec File</label>
@@ -81,23 +82,24 @@
                                 :disabled="loading"
                                 type="file"
                                 accept=".txt,.md"
-                                class="file-input file-input-bordered file-input-sm w-full"
+                                class="file-input file-input-bordered file-input-sm w-full text-xs"
                             >
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-2 gap-2 pt-1">
                             <button
                                 :disabled="loading || !prompt"
                                 type="submit"
-                                class="btn btn-primary bg-zinc-400"
+                                class="btn btn-primary btn-sm font-bold shadow-md shadow-primary/20"
                             >
+                                <span v-if="loading" class="loading loading-spinner loading-xs"></span>
                                 {{ loading ? "Generating..." : "Generate AI" }}
                             </button>
                             <button
                                 @click="handleCreateEmpty"
                                 :disabled="loading || !projectName"
                                 type="button"
-                                class="btn btn-outline"
+                                class="btn btn-outline btn-sm"
                             >
                                 Create Empty
                             </button>
@@ -105,19 +107,19 @@
                     </form>
                 </li>
 
-                <div class="divider">OR</div>
+                <div class="divider my-1">OR</div>
 
                 <!-- Load Existing -->
-                <li class="menu-title">Load Existing</li>
+                <li class="menu-title text-xs font-bold uppercase tracking-wider text-base-content/60">Load Existing Project</li>
                 <li
                     v-if="loadingProjects"
-                    class="px-4 text-sm opacity-50"
+                    class="px-4 text-xs opacity-50"
                 >
                     Loading projects...
                 </li>
                 <li
                     v-else-if="projectLoadError"
-                    class="px-4 text-sm text-error mb-2"
+                    class="px-4 text-xs text-error mb-1"
                 >
                     {{ projectLoadError }}
                 </li>
@@ -129,9 +131,9 @@
                             v-model="selectedProject"
                             @change="loadProject"
                             :disabled="loadingProjects || projects.length === 0"
-                            class="select select-bordered join-item w-full"
+                            class="select select-sm select-bordered join-item w-full text-xs"
                         >
-                            <option disabled value="">
+                            <option disabled :value="null">
                                 {{
                                     projects.length === 0
                                         ? "No projects found"
@@ -149,8 +151,9 @@
                         <button
                             @click="openRenameModal"
                             :disabled="!selectedProject || !selectedProject.id"
-                            class="btn join-item btn-square"
+                            class="btn btn-sm join-item btn-square"
                             title="Project Settings"
+                            type="button"
                         >
                             ✎
                         </button>
@@ -175,48 +178,48 @@
                     <button
                         v-if="projectLoadError"
                         @click="fetchProjects"
-                        class="btn btn-xs btn-ghost mt-1 w-full"
+                        class="btn btn-xs btn-ghost mt-1 w-full text-xs"
+                        type="button"
                     >
                         Retry
                     </button>
                 </li>
 
-                <div class="divider"></div>
+                <div class="divider my-1"></div>
 
                 <li>
                     <a
                         href="http://localhost:8000/?action=github_login"
-                        class="btn btn-outline gap-2 w-full bg-zinc-400 flex items-center justify-center"
+                        class="btn btn-outline btn-sm gap-2 w-full flex items-center justify-center font-bold"
                     >
                         <img
                             src="../images/github.svg"
                             alt="GitHub"
-                            class="w-6 h-6"
+                            class="w-4 h-4"
                         >
-                        GitHub Login
+                        GitHub Connect
                     </a>
                 </li>
             </ul>
         </div>
 
-        <!-- Rename Modal (Simple impl) -->
+        <!-- Rename Modal -->
         <dialog
             :class="{ 'modal-open': isRenameModalOpen }"
+            :open="isRenameModalOpen"
             id="rename_modal"
             class="modal"
         >
-            <div class="modal-box">
-                <div
-                    v-if="!isDeleteConfirmOpen"
-                >
+            <div class="modal-box rounded-2xl border border-base-300">
+                <div v-if="!isDeleteConfirmOpen">
                     <h3 class="font-bold text-lg">Project Settings</h3>
                     <div class="py-4">
-                        <label class="label" for="rename-project-input">Rename Project</label>
+                        <label class="label text-xs font-semibold" for="rename-project-input">Rename Project</label>
                         <input
                             v-model="renameName"
                             id="rename-project-input"
                             type="text"
-                            class="input input-bordered w-full mb-4"
+                            class="input input-sm input-bordered w-full mb-4 text-xs"
                             placeholder="New Name"
                         >
 
@@ -228,15 +231,16 @@
                                     type="checkbox"
                                     class="custom-status-toggle"
                                 >
-                                <span class="label-text font-bold">Product Owner Simulation (AI Comments/CRs)</span>
+                                <span class="label-text font-bold text-xs">Product Owner Simulation (AI Comments/CRs)</span>
                             </label>
                             <span class="text-xs opacity-60 ml-14">When enabled, the AI Product Owner will periodically comment on tasks and generate Change Requests.</span>
                         </div>
 
-                        <div class="divider">DANGER ZONE</div>
+                        <div class="divider text-xs">DANGER ZONE</div>
                         <button
                             @click="openDeleteConfirm"
-                            class="btn btn-error btn-outline w-full"
+                            type="button"
+                            class="btn btn-error btn-outline btn-sm w-full"
                         >
                             Delete Project
                         </button>
@@ -244,13 +248,15 @@
                     <div class="modal-action">
                         <button
                             @click="isRenameModalOpen = false"
-                            class="btn"
+                            class="btn btn-sm"
+                            type="button"
                         >
                             Cancel
                         </button>
                         <button
                             @click="handleRename"
-                            class="btn btn-primary"
+                            class="btn btn-primary btn-sm"
+                            type="button"
                         >
                             Save Name
                         </button>
@@ -259,7 +265,7 @@
 
                 <div v-else>
                     <h3 class="font-bold text-lg text-error">Delete Project?</h3>
-                    <p class="py-4">
+                    <p class="py-4 text-xs">
                         This action cannot be undone. All tasks in this project will be permanently deleted.<br>
                         Type <strong>{{ selectedProject?.name }}</strong> or <strong>delete</strong> to confirm.
                     </p>
@@ -269,27 +275,32 @@
                             id="delete-confirmation-text"
                             v-model="deleteConfirmationText"
                             type="text"
-                            class="input input-bordered input-error w-full"
+                            class="input input-sm input-bordered input-error w-full text-xs"
                             placeholder="Type confirmation here..."
                         >
                     </div>
                     <div class="modal-action">
                         <button
                             @click="isDeleteConfirmOpen = false"
-                            class="btn"
+                            class="btn btn-sm"
+                            type="button"
                         >
                             Back
                         </button>
                         <button
                             @click="handleDelete"
                             :disabled="deleteConfirmationText !== 'delete' && deleteConfirmationText !== selectedProject?.name"
-                            class="btn btn-error"
+                            class="btn btn-error btn-sm"
+                            type="button"
                         >
                             Confirm Delete
                         </button>
                     </div>
                 </div>
             </div>
+            <form method="dialog" class="modal-backdrop">
+                <button @click="isRenameModalOpen = false" type="button">close</button>
+            </form>
         </dialog>
 
         <ConfirmationModal
@@ -303,33 +314,66 @@
     </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, watch } from "vue";
-import ConfirmationModal from "./modals/ConfirmationModal.vue";
-import { api } from "../services/api";
+<script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue';
+import ConfirmationModal from './modals/ConfirmationModal.vue';
+import { api } from '../services/api';
 
-const props = defineProps({
-    modelValue: Boolean,
-    activeProjectName: {
-        type: String,
-        default: ""
+interface ProjectItem {
+    id: number | null;
+    name: string;
+    is_active?: number | boolean;
+}
+
+const props = withDefaults(
+    defineProps<{
+        modelValue: boolean;
+        activeProjectName?: string;
+    }>(),
+    {
+        activeProjectName: '',
     }
-});
+);
 
-const emit = defineEmits([
-    "project-selected",
-    "open-github-modal",
-    "update:modelValue",
-]);
+const emit = defineEmits<{
+    (e: 'project-selected', name: string | null): void;
+    (e: 'open-github-modal'): void;
+    (e: 'update:modelValue', value: boolean): void;
+}>();
 
 const drawerOpen = computed({
     get: () => props.modelValue,
-    set: (value) => emit("update:modelValue", value),
+    set: (value: boolean) => emit('update:modelValue', value),
 });
 
-const projectName = ref("");
-const prompt = ref("");
-const selectedProject = ref(null); // stores object {id, name}
+const projectName = ref('');
+const prompt = ref('');
+const selectedProject = ref<ProjectItem | null>(null);
+const projects = ref<ProjectItem[]>([]);
+const loading = ref(false);
+const loadingProjects = ref(false);
+const projectLoadError = ref<string | null>(null);
+
+// Rename state
+const isRenameModalOpen = ref(false);
+const renameName = ref('');
+
+// Alert State
+const isAlertOpen = ref(false);
+const alertTitle = ref('Notification');
+const alertMessage = ref('');
+const alertDanger = ref(false);
+const isAlertDanger = computed(() => alertDanger.value);
+
+const showAlert = (title: string, message: string, isDanger: boolean = false) => {
+    alertTitle.value = title;
+    alertMessage.value = message;
+    alertDanger.value = isDanger;
+    isAlertOpen.value = true;
+};
+
+const supportedLanguages = ref<string[]>([]);
+const languagePrompts = ref<Record<string, string>>({});
 
 watch(() => props.activeProjectName, (newVal) => {
     if (newVal && (!selectedProject.value || selectedProject.value.name !== newVal)) {
@@ -339,34 +383,9 @@ watch(() => props.activeProjectName, (newVal) => {
         }
     }
 });
-const projects = ref([]);
-const loading = ref(false); // for generation
-const loadingProjects = ref(false);
-const projectLoadError = ref(null);
 
-// Rename state
-const isRenameModalOpen = ref(false);
-const renameName = ref("");
-
-// Alert State
-const isAlertOpen = ref(false);
-const alertTitle = ref("Notification");
-const alertMessage = ref("");
-const isAlertDanger = ref(false);
-
-const showAlert = (title, message, isDanger = false) => {
-    alertTitle.value = title;
-    alertMessage.value = message;
-    isAlertDanger.value = isDanger;
-    isAlertOpen.value = true;
-};
-
-const supportedLanguages = ref([]);
-const languagePrompts = ref({});
-
-const loadDefaultPrompt = (language) => {
-    // Auto-fill project name if empty or generic
-    if (!projectName.value || /^New .* Project \d{4}-\d{2}-\d{2}/.test(projectName.value) || projectName.value.startsWith("New Project")) {
+const loadDefaultPrompt = (language: string) => {
+    if (!projectName.value || /^New .* Project \d{4}-\d{2}-\d{2}/.test(projectName.value) || projectName.value.startsWith('New Project')) {
         const now = new Date();
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -377,16 +396,13 @@ const loadDefaultPrompt = (language) => {
         projectName.value = `New ${language} Project ${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}`;
     }
 
-    let promptText = languagePrompts.value[language] || "";
+    const promptText = languagePrompts.value[language] || '';
     if (promptText) {
-        prompt.value = promptText.replace(
-            "{{PROJECT_NAME}}",
-            projectName.value,
-        );
+        prompt.value = promptText.replace('{{PROJECT_NAME}}', projectName.value);
     }
 };
 
-const handleFileUpload = async (event) => {
+const handleFileUpload = async (event: any) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -403,12 +419,11 @@ const handleFileUpload = async (event) => {
             }
             drawerOpen.value = false;
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error(err);
-        showAlert("Upload Error", (err.response?.data?.error || err.message), true);
+        showAlert('Upload Error', err.response?.data?.error || err.message, true);
     } finally {
         loading.value = false;
-        // Reset input
         event.target.value = '';
     }
 };
@@ -418,17 +433,14 @@ const handleGenerate = async () => {
     loading.value = true;
     try {
         await api.generateTasks(projectName.value, prompt.value, null);
-        // Assuming generation automatically sets it as current or we trigger a reload
-        // Refetch to get ID
         await fetchProjects();
         selectProjectByName(projectName.value);
         drawerOpen.value = false;
 
-        // Reset the form values after successful generation
-        prompt.value = "";
-        projectName.value = "";
-    } catch (e) {
-        showAlert("Generation Failed", (e.response?.data?.error || e.message), true);
+        prompt.value = '';
+        projectName.value = '';
+    } catch (e: any) {
+        showAlert('Generation Failed', e.response?.data?.error || e.message, true);
     } finally {
         loading.value = false;
     }
@@ -442,8 +454,8 @@ const handleCreateEmpty = async () => {
         await fetchProjects();
         selectProjectByName(projectName.value);
         drawerOpen.value = false;
-    } catch (e) {
-        showAlert("Creation Failed", (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Creation Failed', e.response?.data?.error || e.message, true);
     } finally {
         loading.value = false;
     }
@@ -457,40 +469,34 @@ const openRenameModal = async () => {
 };
 
 const handleRename = async () => {
-    if (!selectedProject.value || !renameName.value) return;
+    if (!selectedProject.value || !renameName.value || !selectedProject.value.id) return;
     try {
         await api.renameProject(selectedProject.value.id, renameName.value);
-        
-        // Optimization: update local state immediately
         selectedProject.value.name = renameName.value;
-        const p = projects.value.find((p) => p.id === selectedProject.value.id);
+        const p = projects.value.find((item) => item.id === selectedProject.value?.id);
         if (p) p.name = renameName.value;
 
         isRenameModalOpen.value = false;
-
-        // Emit change if it was selected
-        emit("project-selected", renameName.value);
-
-        await fetchProjects(); // Refresh to be sure
-    } catch (e) {
-        showAlert("Rename Failed", (e.response?.data?.error || e.message), true);
+        emit('project-selected', renameName.value);
+        await fetchProjects();
+    } catch (e: any) {
+        showAlert('Rename Failed', e.response?.data?.error || e.message, true);
     }
 };
 
 const isDeleteConfirmOpen = ref(false);
-const deleteConfirmationText = ref("");
+const deleteConfirmationText = ref('');
 
 const openDeleteConfirm = () => {
     isDeleteConfirmOpen.value = true;
-    deleteConfirmationText.value = "";
+    deleteConfirmationText.value = '';
 };
 
 const handleDelete = async () => {
-    if (!selectedProject.value) return;
+    if (!selectedProject.value || !selectedProject.value.id) return;
 
-    // Strict confirmation
     if (deleteConfirmationText.value !== 'delete' && deleteConfirmationText.value !== selectedProject.value.name) {
-        showAlert("Validation Required", "Please type 'delete' or the exact project name to confirm.", true);
+        showAlert('Validation Required', "Please type 'delete' or the exact project name to confirm.", true);
         return;
     }
 
@@ -499,40 +505,37 @@ const handleDelete = async () => {
         isDeleteConfirmOpen.value = false;
         isRenameModalOpen.value = false;
         selectedProject.value = null;
-        emit("project-selected", null); // Clear selection
+        emit('project-selected', null);
         await fetchProjects();
-    } catch (e) {
-        showAlert("Deletion Failed", (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Deletion Failed', e.response?.data?.error || e.message, true);
     }
 };
 
-const toggleActivity = async (event) => {
-    if (!selectedProject.value) return;
+const toggleActivity = async (event: any) => {
+    if (!selectedProject.value || !selectedProject.value.id) return;
     const isActive = event.target.checked;
     try {
         await api.toggleProjectActivity(selectedProject.value.id, isActive);
         selectedProject.value.is_active = isActive ? 1 : 0;
-        // Also update in projects list
-        const p = projects.value.find(p => p.id === selectedProject.value.id);
+        const p = projects.value.find(item => item.id === selectedProject.value?.id);
         if (p) p.is_active = isActive ? 1 : 0;
-    } catch (e) {
-        showAlert("Update Failed", (e.response?.data?.error || e.message), true);
-        // Revert UI if failed
+    } catch (e: any) {
+        showAlert('Update Failed', e.response?.data?.error || e.message, true);
         event.target.checked = !isActive;
     }
 };
 
 const loadProject = () => {
     if (selectedProject.value) {
-        emit("project-selected", selectedProject.value.name);
-        // Persist selection
+        emit('project-selected', selectedProject.value.name);
         if (selectedProject.value.id) {
-            api.saveSetting('last_active_project', selectedProject.value.id).catch(e => console.error("Failed to save setting", e));
+            api.saveSetting('last_active_project', selectedProject.value.id).catch(e => console.error('Failed to save setting', e));
         }
     }
 };
 
-const selectProjectByName = (name) => {
+const selectProjectByName = (name: string) => {
     const proj = projects.value.find((p) => p.name === name);
     if (proj) {
         selectedProject.value = proj;
@@ -540,8 +543,8 @@ const selectProjectByName = (name) => {
     }
 };
 
-const parseProjectsResponse = (res) => {
-    let rawList = [];
+const parseProjectsResponse = (res: any): ProjectItem[] => {
+    let rawList: any[] = [];
     if (Array.isArray(res)) {
         rawList = res;
     } else if (res.projects) {
@@ -572,7 +575,7 @@ const tryRestoreSavedProject = async () => {
             }
         }
     } catch (e) {
-        console.warn("Could not load saved project setting", e);
+        console.warn('Could not load saved project setting', e);
     }
 };
 
@@ -583,38 +586,34 @@ const fetchProjects = async () => {
         const res = await api.getProjects();
         projects.value = parseProjectsResponse(res);
 
-        // Auto-select logic
         if (projects.value.length > 0) {
             if (props.activeProjectName) {
                 const found = projects.value.find((p) => p.name === props.activeProjectName);
                 if (found) selectedProject.value = found;
             } else if (selectedProject.value) {
-                // Re-link selected object reference if needed
-                const found = projects.value.find((p) => p.name === selectedProject.value.name);
+                const found = projects.value.find((p) => p.name === selectedProject.value?.name);
                 if (found) selectedProject.value = found;
             } else {
                 await tryRestoreSavedProject();
             }
         }
     } catch (e) {
-        console.error("Failed to load projects", e);
-        projectLoadError.value =
-            "Failed to load projects. Backend may be offline.";
+        console.error('Failed to load projects', e);
+        projectLoadError.value = 'Failed to load projects. Backend may be offline.';
     } finally {
         loadingProjects.value = false;
     }
 };
 
 onMounted(async () => {
-    // Run both calls in parallel — neither depends on the other
     const [defaultsResult] = await Promise.allSettled([
         api.getProjectDefaults(),
         fetchProjects()
     ]);
 
     if (defaultsResult.status === 'fulfilled' && defaultsResult.value.success) {
-        supportedLanguages.value = defaultsResult.value.languages;
-        languagePrompts.value = defaultsResult.value.prompts;
+        supportedLanguages.value = defaultsResult.value.languages || [];
+        languagePrompts.value = defaultsResult.value.prompts || {};
     }
 });
 </script>

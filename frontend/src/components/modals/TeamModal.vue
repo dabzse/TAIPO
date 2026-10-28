@@ -10,38 +10,45 @@
 
     <dialog
         :class="{ 'modal-open': isOpen }"
+        :open="isOpen"
         id="team_modal"
-        class="modal"
+        class="modal z-50"
     >
-        <div class="modal-box w-11/12 max-w-5xl">
-            <h3 class="font-bold text-lg mb-4">Team Management</h3>
+        <div class="modal-box w-11/12 max-w-5xl bg-base-100 rounded-2xl border border-base-300 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary flex items-center gap-2">
+                <span>👥</span>
+                <span>Team & Role Management</span>
+            </h3>
 
             <div class="flex flex-col md:flex-row gap-4 h-[60vh]">
                 <!-- Teams List (Left Panel) -->
-                <div class="w-full md:w-1/3 border-r pr-4 overflow-y-auto">
+                <div class="w-full md:w-1/3 border-r border-base-300 pr-4 overflow-y-auto custom-scrollbar">
                     <div class="flex justify-between items-center mb-4">
-                        <h4 class="font-bold">Teams</h4>
+                        <h4 class="font-bold text-sm">Teams</h4>
                     </div>
 
                     <div class="form-control mb-4">
-                        <div class="input-group flex">
+                        <div class="input-group flex gap-2">
+                            <label for="new-team-name-input" class="sr-only">New team name</label>
                             <input
+                                id="new-team-name-input"
                                 v-model="newTeamName"
                                 type="text"
-                                class="input input-bordered input-sm w-full"
+                                class="input input-bordered input-sm w-full text-xs"
                                 placeholder="New team name..."
                             >
                             <button
                                 @click="createTeam"
                                 :disabled="!newTeamName"
-                                class="btn btn-sm btn-primary ml-2"
+                                class="btn btn-sm btn-primary"
+                                type="button"
                             >
                                 Add
                             </button>
                         </div>
                     </div>
 
-                    <ul class="menu bg-base-200 w-full rounded-box">
+                    <ul class="menu bg-base-200/60 w-full rounded-xl text-xs gap-1 p-2 border border-base-300">
                         <li
                             v-if="loadingTeams"
                             class="disabled"
@@ -50,7 +57,7 @@
                         </li>
                         <li
                             v-else-if="teams.length === 0"
-                            class="disabled"
+                            class="disabled italic opacity-50"
                         >
                             <a>No teams found.</a>
                         </li>
@@ -59,7 +66,7 @@
                             :key="team.id"
                         >
                             <a
-                                :class="{ 'active': selectedTeam && selectedTeam.id === team.id }"
+                                :class="{ 'active font-bold': selectedTeam && selectedTeam.id === team.id }"
                                 @click="selectTeam(team)"
                             >
                                 {{ team.name }}
@@ -69,12 +76,12 @@
                 </div>
 
                 <!-- Team Details (Right Panel) -->
-                <div class="w-full md:w-2/3 pl-4 overflow-y-auto relative">
+                <div class="w-full md:w-2/3 pl-4 overflow-y-auto relative custom-scrollbar">
                     <div
                         v-if="!selectedTeam"
-                        class="flex items-center justify-center h-full opacity-50"
+                        class="flex items-center justify-center h-full opacity-50 text-xs italic"
                     >
-                        Select a team to view details.
+                        Select a team on the left to view members and settings.
                     </div>
                     <div
                         v-else
@@ -84,11 +91,12 @@
                                 v-if="!isEditingTeamName"
                                 class="flex items-center gap-2"
                             >
-                                <h4 class="font-bold text-xl">{{ selectedTeam.name }} Members</h4>
+                                <h4 class="font-bold text-lg">{{ selectedTeam.name }} Members</h4>
                                 <button
                                     @click="startEditingName"
                                     class="btn btn-ghost btn-xs"
                                     title="Rename Team"
+                                    type="button"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -99,125 +107,48 @@
                                 v-else
                                 class="flex items-center gap-2 w-full"
                             >
+                                <label for="editing-team-name-input" class="sr-only">Edit team name</label>
                                 <input
+                                    id="editing-team-name-input"
                                     v-model="editingTeamName"
-                                    @keyup.enter="renameTeam"
                                     type="text"
-                                    class="input input-bordered input-sm flex-grow"
-                                    placeholder="Enter new team name..."
+                                    class="input input-sm input-bordered flex-1 text-xs"
                                 >
                                 <button
                                     @click="renameTeam"
                                     class="btn btn-sm btn-primary"
+                                    type="button"
                                 >
                                     Save
                                 </button>
                                 <button
                                     @click="isEditingTeamName = false"
                                     class="btn btn-sm btn-ghost"
+                                    type="button"
                                 >
                                     Cancel
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Simulation Settings -->
-                        <div class="bg-base-200 p-4 rounded-lg mb-6">
-                            <h5 class="font-bold mb-2">Simulation Overrides</h5>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="form-control">
-                                    <label
-                                        class="label"
-                                        for="sim_min_feedback"
-                                    >
-                                        <span class="label-text">Min Feedback (sec)</span>
-                                    </label>
-                                    <input
-                                        v-model="teamSettings.sim_min_feedback_sec"
-                                        id="sim_min_feedback"
-                                        type="number"
-                                        class="input input-sm input-bordered"
-                                        placeholder="Global default"
-                                    />
-                                </div>
-                                <div class="form-control">
-                                    <label
-                                        class="label"
-                                        for="sim_max_feedback"
-                                    >
-                                        <span class="label-text">Max Feedback (sec)</span>
-                                    </label>
-                                    <input
-                                        v-model="teamSettings.sim_max_feedback_sec"
-                                        id="sim_max_feedback"
-                                        type="number"
-                                        class="input input-sm input-bordered"
-                                        placeholder="Global default"
-                                    />
-                                </div>
-                                <div class="form-control">
-                                    <label
-                                        class="label"
-                                        for="sim_min_cr"
-                                    >
-                                        <span class="label-text">Min Change Request (sec)</span>
-                                    </label>
-                                    <input
-                                        v-model="teamSettings.sim_min_cr_sec"
-                                        id="sim_min_cr"
-                                        type="number"
-                                        class="input input-sm input-bordered"
-                                        placeholder="Global default"
-                                    />
-                                </div>
-                                <div class="form-control">
-                                    <label
-                                        class="label"
-                                        for="sim_max_cr"
-                                    >
-                                        <span class="label-text">Max Change Request (sec)</span>
-                                    </label>
-                                    <input
-                                        id="sim_max_cr"
-                                        v-model="teamSettings.sim_max_cr_sec"
-                                        type="number"
-                                        class="input input-sm input-bordered"
-                                        placeholder="Global default"
-                                    />
-                                </div>
-                            </div>
-                            <div class="mt-4 flex justify-end">
-                                <button
-                                    @click="saveTeamSettings"
-                                    class="btn btn-sm btn-primary"
-                                >
-                                    Save Settings
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Add Member Form -->
-                        <div class="bg-base-200 p-4 rounded-lg mb-6 flex gap-2 items-end">
-                            <div class="form-control w-1/3">
-                                <label class="label" for="assignUserIdInput">
-                                    <span class="label-text font-semibold text-base">User</span>
-                                </label>
+                        <!-- Add Member Section -->
+                        <div class="bg-base-200/50 p-3 rounded-xl mb-4 border border-base-300 flex flex-wrap gap-2 items-end">
+                            <div class="form-control flex-1 min-w-[140px]">
+                                <label for="assign-user-input" class="label p-0 pb-1 text-[11px] font-semibold">User (Username or ID)</label>
                                 <input
+                                    id="assign-user-input"
                                     v-model="assignUserId"
-                                    id="assignUserIdInput"
                                     type="text"
-                                    class="input input-sm input-bordered"
-                                    placeholder="ID or Username"
-                                />
+                                    placeholder="Username or ID"
+                                    class="input input-bordered input-sm w-full text-xs"
+                                >
                             </div>
-                            <div class="form-control w-1/3">
-                                <label class="label p-1" for="assignRoleIdSelect">
-                                    <span class="label-text font-semibold text-base">Role</span>
-                                </label>
+                            <div class="form-control w-32">
+                                <label for="assign-role-select" class="label p-0 pb-1 text-[11px] font-semibold">Role</label>
                                 <select
+                                    id="assign-role-select"
                                     v-model="assignRoleId"
-                                    id="assignRoleIdSelect"
-                                    class="select select-sm select-bordered w-full"
+                                    class="select select-bordered select-sm w-full text-xs"
                                 >
                                     <option
                                         v-for="role in roles"
@@ -231,96 +162,82 @@
                             <button
                                 @click="assignUser"
                                 :disabled="!assignUserId || !assignRoleId"
-                                class="btn btn-sm btn-primary w-1/3"
+                                class="btn btn-sm btn-primary"
+                                type="button"
                             >
-                                Assign Member
+                                Assign
                             </button>
                         </div>
 
-                        <!-- Members List -->
-                        <div
-                            v-if="loadingMembers"
-                            class="flex justify-center p-4"
-                        >
-                            <span class="loading loading-spinner"></span>
-                        </div>
-                        <div
-                            v-else-if="error"
-                            class="alert alert-error"
-                        >
-                            {{ error }}
-                        </div>
-                        <table
-                            v-else
-                            class="table table-zebra w-full"
-                        >
-                            <thead>
-                                <tr class="text-base">
-                                    <th>User ID</th>
-                                    <th>Username</th>
-                                    <th>Role</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-if="teamUsers.length === 0"
-                                >
-                                    <td colspan="4" class="text-center opacity-50">No members assigned to this team.</td>
-                                </tr>
-                                <tr
-                                    v-for="user in teamUsers"
-                                    :key="user.user_id"
-                                >
-                                    <td>{{ user.user_id }}</td>
-                                    <td>
-                                        <div class="font-bold text-base">{{ user.username }}</div>
-                                    </td>
-                                    <td>
-                                        <select
-                                            v-model="user.role_id"
-                                            @change="changeRole(user.user_id, user.role_id)"
-                                            class="select select-bordered select-xs w-full max-w-xs text-base"
-                                        >
-                                            <option
-                                                v-for="role in roles"
-                                                :key="role.id"
-                                                :value="role.id"
+                        <!-- Members Table -->
+                        <div class="overflow-x-auto border border-base-300 rounded-xl mb-6">
+                            <table class="table table-xs w-full">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-if="loadingMembers">
+                                        <td colspan="3" class="text-center py-4">
+                                            <span class="loading loading-spinner loading-xs"></span>
+                                        </td>
+                                    </tr>
+                                    <tr v-else-if="teamUsers.length === 0">
+                                        <td colspan="3" class="text-center py-4 opacity-50 italic">
+                                            No members assigned to this team.
+                                        </td>
+                                    </tr>
+                                    <tr
+                                        v-for="member in teamUsers"
+                                        :key="member.id || member.user_id"
+                                    >
+                                        <td class="font-medium">{{ member.username }}</td>
+                                        <td>
+                                            <label :for="`member-role-select-${member.id || member.user_id}`" class="sr-only">Role</label>
+                                            <select
+                                                :id="`member-role-select-${member.id || member.user_id}`"
+                                                :value="member.role_id"
+                                                @change="changeRole(member.user_id, Number(($event.target as HTMLSelectElement).value))"
+                                                class="select select-xs select-bordered"
                                             >
-                                                {{ role.name }}
-                                            </option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <button
-                                            @click="removeUser(user.user_id)"
-                                            class="btn btn-xs btn-error btn-outline"
-                                        >
-                                            Remove
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                                <option
+                                                    v-for="r in roles"
+                                                    :key="r.id"
+                                                    :value="r.id"
+                                                >
+                                                    {{ r.name }}
+                                                </option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <button
+                                                @click="removeUser(member.user_id)"
+                                                class="btn btn-xs btn-error btn-ghost"
+                                                type="button"
+                                            >
+                                                Remove
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
 
                         <!-- Assigned Projects Section -->
-                        <div class="divider mt-8">Assigned Projects</div>
+                        <div class="divider text-xs font-bold uppercase tracking-wider text-base-content/60 mt-6">Assigned Projects</div>
 
-                        <div class="bg-base-200 p-4 rounded-lg mb-6 flex gap-2 items-end">
-                            <div class="form-control w-2/3">
-                                <label class="label" for="assignProjectSelect">
-                                    <span class="label-text">Select Project to Assign</span>
-                                </label>
+                        <div class="bg-base-200/50 p-3 rounded-xl mb-4 border border-base-300 flex gap-2 items-end">
+                            <div class="form-control flex-1">
+                                <label class="label p-0 pb-1 text-[11px] font-semibold" for="assignProjectSelect">Select Project to Assign</label>
                                 <select
                                     v-model="selectedProjectToAssign"
                                     id="assignProjectSelect"
-                                    class="select select-sm select-bordered w-full"
+                                    class="select select-sm select-bordered w-full text-xs"
                                 >
-                                    <option
-                                        :value="null"
-                                    >
-                                        -- Select Project --
-                                    </option>
+                                    <option :value="null">-- Select Project --</option>
                                     <option
                                         v-for="proj in allProjects"
                                         :key="proj.id"
@@ -333,25 +250,17 @@
                             <button
                                 @click="assignProject"
                                 :disabled="!selectedProjectToAssign"
-                                class="btn btn-sm btn-primary w-1/3"
+                                class="btn btn-sm btn-primary"
+                                type="button"
                             >
-                                Assign Project
+                                Assign
                             </button>
                         </div>
 
-                        <div
-                            v-if="loadingProjects"
-                            class="flex justify-center p-2"
-                        >
-                            <span class="loading loading-spinner loading-sm"></span>
-                        </div>
-                        <ul
-                            v-else
-                            class="menu bg-base-100 rounded-box w-full border"
-                        >
+                        <ul class="menu bg-base-100 rounded-xl w-full border border-base-300 text-xs p-1">
                             <li
                                 v-if="teamProjects.length === 0"
-                                class="disabled text-center"
+                                class="disabled text-center py-2 opacity-50 italic"
                             >
                                 <a>No projects assigned to this team.</a>
                             </li>
@@ -364,6 +273,7 @@
                                     <button
                                         @click="unassignProject(proj.id)"
                                         class="btn btn-xs btn-outline"
+                                        type="button"
                                     >
                                         Unassign
                                     </button>
@@ -377,60 +287,87 @@
             <div class="modal-action">
                 <button
                     @click="closeModal"
-                    class="btn"
+                    class="btn btn-sm px-6"
+                    type="button"
                 >
                     Close
                 </button>
             </div>
         </div>
+        <form method="dialog" class="modal-backdrop">
+            <button @click="closeModal" type="button">close</button>
+        </form>
     </dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { api } from '../../services/api';
 import ConfirmationModal from './ConfirmationModal.vue';
 
-const props = defineProps({
-    isOpen: {
-        type: Boolean,
-        default: false
+interface TeamItem {
+    id: number;
+    name: string;
+    sim_min_feedback_sec?: number | null;
+    sim_max_feedback_sec?: number | null;
+    sim_min_cr_sec?: number | null;
+    sim_max_cr_sec?: number | null;
+}
+
+interface RoleItem {
+    id: number;
+    name: string;
+}
+
+interface TeamMember {
+    id?: number;
+    user_id: number;
+    username: string;
+    role_id: number;
+}
+
+interface ProjectItem {
+    id: number;
+    name: string;
+    team_id?: number | null;
+}
+
+const props = withDefaults(
+    defineProps<{
+        isOpen?: boolean;
+    }>(),
+    {
+        isOpen: false,
     }
-});
+);
 
-const emit = defineEmits(['close']);
+const emit = defineEmits<{
+    (e: 'close'): void;
+}>();
 
-const teams = ref([]);
-const roles = ref([]);
-const teamUsers = ref([]);
-const allProjects = ref([]);
-const teamProjects = ref([]);
-const selectedProjectToAssign = ref(null);
+const teams = ref<TeamItem[]>([]);
+const roles = ref<RoleItem[]>([]);
+const teamUsers = ref<TeamMember[]>([]);
+const allProjects = ref<ProjectItem[]>([]);
+const teamProjects = ref<ProjectItem[]>([]);
+const selectedProjectToAssign = ref<number | null>(null);
 
-const selectedTeam = ref(null);
+const selectedTeam = ref<TeamItem | null>(null);
 const newTeamName = ref('');
 const isEditingTeamName = ref(false);
 const editingTeamName = ref('');
 const assignUserId = ref('');
-const assignRoleId = ref('');
-
-const teamSettings = ref({
-    sim_min_feedback_sec: null,
-    sim_max_feedback_sec: null,
-    sim_min_cr_sec: null,
-    sim_max_cr_sec: null,
-});
+const assignRoleId = ref<number | string>('');
 
 const loadingTeams = ref(false);
 const loadingMembers = ref(false);
-const loadingProjects = ref(false);
-const error = ref(null);
+const error = ref<string | null>(null);
 
 const isAlertOpen = ref(false);
-const alertMessage = ref("");
+const alertMessage = ref('');
 const isAlertDanger = ref(false);
 
-const showAlert = (message, isDanger = false) => {
+const showAlert = (message: string, isDanger: boolean = false) => {
     alertMessage.value = message;
     isAlertDanger.value = isDanger;
     isAlertOpen.value = true;
@@ -448,7 +385,7 @@ watch(() => props.isOpen, async (newVal) => {
 const fetchTeamsAndRoles = async () => {
     loadingTeams.value = true;
     try {
-        const [teamsRes, rolesRes] = await Promise.all([
+        const [teamsRes, rolesRes]: [any, any] = await Promise.all([
             api.listTeams(),
             api.listRoles()
         ]);
@@ -460,7 +397,7 @@ const fetchTeamsAndRoles = async () => {
             assignRoleId.value = roles.value[0].id;
         }
     } catch (e) {
-        console.error("Failed to load teams/roles", e);
+        console.error('Failed to load teams/roles', e);
     } finally {
         loadingTeams.value = false;
     }
@@ -472,27 +409,23 @@ const createTeam = async () => {
         await api.createTeam(newTeamName.value);
         newTeamName.value = '';
         await fetchTeamsAndRoles();
-    } catch (e) {
-        showAlert("Failed to create team: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to create team: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
-const selectTeam = async (team) => {
+const selectTeam = async (team: TeamItem) => {
     selectedTeam.value = team;
     isEditingTeamName.value = false;
-    teamSettings.value = {
-        sim_min_feedback_sec: team.sim_min_feedback_sec,
-        sim_max_feedback_sec: team.sim_max_feedback_sec,
-        sim_min_cr_sec: team.sim_min_cr_sec,
-        sim_max_cr_sec: team.sim_max_cr_sec,
-    };
     await fetchTeamUsers(team.id);
     updateTeamProjects();
 };
 
 const startEditingName = () => {
-    editingTeamName.value = selectedTeam.value.name;
-    isEditingTeamName.value = true;
+    if (selectedTeam.value) {
+        editingTeamName.value = selectedTeam.value.name;
+        isEditingTeamName.value = true;
+    }
 };
 
 const renameTeam = async () => {
@@ -502,30 +435,17 @@ const renameTeam = async () => {
         selectedTeam.value.name = editingTeamName.value;
         isEditingTeamName.value = false;
         await fetchTeamsAndRoles();
-    } catch (e) {
-        showAlert("Failed to rename team: " + (e.response?.data?.error || e.message), true);
-    }
-};
-
-const saveTeamSettings = async () => {
-    if (!selectedTeam.value) return;
-    try {
-        await api.updateTeam(selectedTeam.value.id, selectedTeam.value.name, teamSettings.value);
-        Object.assign(selectedTeam.value, teamSettings.value);
-        showAlert("Team simulation settings saved successfully!");
-        await fetchTeamsAndRoles();
-    } catch (e) {
-        showAlert("Failed to save settings: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to rename team: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
 const fetchAllProjects = async () => {
     try {
-        const res = await api.getProjects();
-        // Backend returns an array of objects for instructors
+        const res: any = await api.getProjects();
         allProjects.value = Array.isArray(res) ? res : (res.projects || []);
     } catch (e) {
-        console.error("Failed to fetch all projects", e);
+        console.error('Failed to fetch all projects', e);
     }
 };
 
@@ -534,7 +454,7 @@ const updateTeamProjects = () => {
         teamProjects.value = [];
         return;
     }
-    teamProjects.value = allProjects.value.filter(p => p.team_id === selectedTeam.value.id);
+    teamProjects.value = allProjects.value.filter(p => p.team_id === selectedTeam.value?.id);
 };
 
 const assignProject = async () => {
@@ -544,26 +464,26 @@ const assignProject = async () => {
         selectedProjectToAssign.value = null;
         await fetchAllProjects();
         updateTeamProjects();
-    } catch (e) {
-        showAlert("Failed to assign project: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to assign project: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
-const unassignProject = async (projectId) => {
+const unassignProject = async (projectId: number) => {
     try {
         await api.setProjectTeam(projectId, null);
         await fetchAllProjects();
         updateTeamProjects();
-    } catch (e) {
-        showAlert("Failed to unassign project: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to unassign project: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
-const fetchTeamUsers = async (teamId) => {
+const fetchTeamUsers = async (teamId: number) => {
     loadingMembers.value = true;
     error.value = null;
     try {
-        const res = await api.listTeamUsers(teamId);
+        const res: any = await api.listTeamUsers(teamId);
         if (res.success) {
             teamUsers.value = res.data;
         } else {
@@ -571,7 +491,7 @@ const fetchTeamUsers = async (teamId) => {
         }
     } catch (e) {
         console.error(e);
-        error.value = "Failed to load members";
+        error.value = 'Failed to load members';
     } finally {
         loadingMembers.value = false;
     }
@@ -581,31 +501,31 @@ const assignUser = async () => {
     if (!selectedTeam.value || !assignUserId.value || !assignRoleId.value) return;
 
     try {
-        await api.assignTeamUser(selectedTeam.value.id, assignUserId.value, assignRoleId.value);
+        await api.assignTeamUser(selectedTeam.value.id, assignUserId.value, Number(assignRoleId.value));
         assignUserId.value = '';
         await fetchTeamUsers(selectedTeam.value.id);
-    } catch (e) {
-        showAlert("Failed to assign user: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to assign user: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
-const changeRole = async (userId, roleId) => {
+const changeRole = async (userId: number, roleId: number) => {
     if (!selectedTeam.value) return;
     try {
         await api.updateTeamUserRole(selectedTeam.value.id, userId, roleId);
         await fetchTeamUsers(selectedTeam.value.id);
-    } catch (e) {
-        showAlert("Failed to modify role: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to modify role: ' + (e.response?.data?.error || e.message), true);
     }
 };
 
-const removeUser = async (userId) => {
+const removeUser = async (userId: number) => {
     if (!selectedTeam.value) return;
     try {
         await api.removeTeamUser(selectedTeam.value.id, userId);
         await fetchTeamUsers(selectedTeam.value.id);
-    } catch (e) {
-        showAlert("Failed to remove user: " + (e.response?.data?.error || e.message), true);
+    } catch (e: any) {
+        showAlert('Failed to remove user: ' + (e.response?.data?.error || e.message), true);
     }
 };
 

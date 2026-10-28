@@ -5,7 +5,7 @@ import CodeGenerationModal from '../components/modals/CodeGenerationModal.vue';
 // Mock marked
 vi.mock('marked', () => ({
     marked: {
-        parse: (text) => `<div class="parsed">${text}</div>`
+        parse: (text: string) => `<div class="parsed">${text}</div>`
     }
 }));
 
@@ -27,7 +27,7 @@ class X {}
 \`\`\`
 `,
         error: '',
-        task: { id: 1, title: 'Test Task', status: 'REVIEW WIP:2' }
+        task: { id: 1, title: 'Test Task', description: 'Test Task', status: 'REVIEW WIP:2', is_important: 1 }
     };
 
     it('renders multiple approaches as tabs', () => {
@@ -36,7 +36,7 @@ class X {}
         });
 
         const tabs = wrapper.findAll('.tabs button');
-        expect(tabs.length).toBe(2);
+        expect(tabs).toHaveLength(2);
         expect(tabs[0].text()).toContain('Functional/Concise');
         expect(tabs[1].text()).toContain('Object-Oriented');
     });
@@ -77,6 +77,7 @@ class X {}
         await commitBtn.trigger('click');
 
         expect(wrapper.emitted('commit')).toBeTruthy();
-        expect(wrapper.emitted('commit')[0][0]).toContain('Approach 1: Functional/Concise');
+        const emitted = wrapper.emitted('commit') as any[][];
+        expect(emitted[0][0]).toContain('Approach 1: Functional/Concise');
     });
 });

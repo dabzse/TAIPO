@@ -1,19 +1,20 @@
 <template>
     <div
         :class="{ 'modal-open': isOpen }"
-        class="modal modal-bottom sm:modal-middle"
+        class="modal modal-bottom sm:modal-middle z-50"
     >
-        <div class="modal-box relative max-w-3xl bg-base-100 p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="modal-box relative max-w-3xl bg-base-100 p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl border border-base-300 shadow-2xl">
             <!-- Sticky Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-base-200 bg-base-100 shrink-0">
-                <h3 class="font-bold text-xl flex items-center gap-2">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                    Implementation
+            <div class="flex items-center justify-between px-6 py-4 border-b border-base-200 bg-base-100/90 backdrop-blur-md shrink-0">
+                <h3 class="font-bold text-xl flex items-center gap-2 text-base-content">
+                    <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Implementation Preview
                 </h3>
                 <div class="flex items-center gap-2">
                     <button
                         v-if="code && !loading"
                         @click="copyToClipboard"
+                        type="button"
                         class="btn btn-sm btn-ghost gap-2 text-primary hover:bg-primary/10"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -23,7 +24,9 @@
                     </button>
                     <button
                         @click="$emit('close')"
+                        type="button"
                         class="btn btn-sm btn-circle btn-ghost"
+                        aria-label="Close"
                     >
                         ✕
                     </button>
@@ -37,7 +40,7 @@
                     class="flex flex-col items-center justify-center py-20"
                 >
                     <span class="loading loading-spinner loading-lg text-primary"></span>
-                    <p class="mt-4 text-sm opacity-60 font-medium">TAIPO is architecting your code...</p>
+                    <p class="mt-4 text-sm opacity-70 font-medium">TAIPO & Gemini are architecting your code...</p>
                 </div>
 
                 <div
@@ -65,6 +68,7 @@
                             :class="['tab tab-sm md:tab-md font-semibold transition-all duration-200 rounded-lg', activeApproachId === approach.id ? 'tab-active bg-primary text-primary-content shadow-sm' : 'hover:bg-base-200/50']"
                             role="tab"
                             :aria-selected="activeApproachId === approach.id"
+                            type="button"
                         >
                             {{ approach.name }}
                         </button>
@@ -77,7 +81,7 @@
                     >
                         <div
                             v-html="formattedCode"
-                            class="bg-base-100 border border-base-300 rounded-2xl p-6 shadow-inner text-base-content selection:bg-primary/20"
+                            class="bg-base-100 border border-base-300 rounded-2xl p-6 shadow-inner text-base-content selection:bg-primary/20 overflow-x-auto custom-scrollbar"
                         >
                         </div>
                     </div>
@@ -88,7 +92,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <div>
-                            <span class="font-bold">Disclaimer:</span> Code generation is a secondary educational utility provided to accelerate prototyping. It is not auto-committed to your repository unless manually triggered. Always review and understand the generated code before integration.
+                            <span class="font-bold">Disclaimer:</span> Code generation is an educational utility provided to accelerate prototyping. It is not auto-committed to your repository unless manually triggered. Always review and test generated code before production use.
                         </div>
                     </div>
                 </div>
@@ -99,6 +103,7 @@
                 <button
                     @click="$emit('regenerate')"
                     :disabled="loading"
+                    type="button"
                     class="btn btn-outline btn-sm gap-2 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white transition-all duration-300"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,6 +115,7 @@
                     <button
                         v-if="code && !loading && canCommit"
                         @click="emitCommit"
+                        type="button"
                         class="btn btn-primary btn-sm gap-2 shadow-md hover:scale-105 transition-transform"
                         title="Commit to GitHub (Moves task to DONE)"
                     >
@@ -118,7 +124,8 @@
                     </button>
                     <button
                         @click="$emit('close')"
-                        class="btn btn-ghost px-6 shadow-sm"
+                        type="button"
+                        class="btn btn-ghost btn-sm px-6 shadow-sm"
                     >
                         Dismiss
                     </button>
@@ -128,64 +135,45 @@
         <form method="dialog" class="modal-backdrop">
             <button
                 @click="$emit('close')"
+                type="button"
             >close</button>
         </form>
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { marked } from 'marked';
-import axios from 'axios';
+import type { Task } from '../../types';
 
-const props = defineProps({
-    isOpen: Boolean,
-    loading: Boolean,
-    code: String,
-    error: String,
-    task: Object,
-});
+interface Approach {
+    id: number;
+    name: string;
+    content: string;
+}
 
-const emit = defineEmits(['close', 'regenerate', 'commit']);
+const props = defineProps<{
+    isOpen: boolean;
+    loading: boolean;
+    code?: string | null;
+    error?: string | null;
+    task?: Task | null;
+}>();
 
-const isCommitting = ref(false);
+const emit = defineEmits<{
+    (e: 'close'): void;
+    (e: 'regenerate'): void;
+    (e: 'commit', code: string): void;
+}>();
+
 const activeApproachId = ref(1);
+const copyTooltip = ref('Copy Code');
 
-const commitToGithub = async () => {
-    const approach = currentApproach.value;
-    const codeToCommit = approach ? approach.content : props.code;
-    if (!codeToCommit) return;
-    isCommitting.value = true;
-    try {
-        const formData = new FormData();
-        formData.append('action', 'commit_to_github');
-        formData.append('task_id', props.task?.id || '');
-        formData.append('code', codeToCommit);
-
-        const response = await axios.post('http://localhost:8000/', formData, {
-            withCredentials: true
-        });
-
-        if (response.data.success) {
-            alert('🚀 Success! The code has been uploaded and the task has been moved to DONE.');
-            emit('close');
-        } else {
-            alert('❌ Error: ' + response.data.error);
-        }
-    } catch (err) {
-        alert('❌ Error: ' + err.message);
-    } finally {
-        isCommitting.value = false;
-    }
-};
-
-const parsedApproaches = computed(() => {
+const parsedApproaches = computed<Approach[]>(() => {
     if (!props.code) return [];
 
-    // Split the markdown content by "## Approach " heading
     const parts = props.code.split(/## Approach (\d+):/i);
     if (parts.length < 3) {
-        // Fallback if not matching the expected multiple approaches format
         return [{
             id: 1,
             name: 'Default Approach',
@@ -193,14 +181,11 @@ const parsedApproaches = computed(() => {
         }];
     }
 
-    const approaches = [];
-    // parts[0] is any text before the first approach (could be empty or introduction)
-    // Then parts[1] = "1", parts[2] = rest of approach 1 content, parts[3] = "2", parts[4] = rest of approach 2 content...
+    const approaches: Approach[] = [];
     for (let i = 1; i < parts.length; i += 2) {
         const id = Number.parseInt(parts[i], 10);
         const rawContent = parts[i + 1] || '';
 
-        // Find the first non-empty line as the heading/name of the approach
         const lines = rawContent.split('\n');
         let name = `Approach ${id}`;
         let contentIndex = 0;
@@ -214,7 +199,6 @@ const parsedApproaches = computed(() => {
         }
 
         const content = lines.slice(contentIndex).join('\n').trim();
-
         approaches.push({
             id: id,
             name: name,
@@ -239,43 +223,46 @@ const formattedCode = computed(() => {
 
 const canCommit = computed(() => {
     if (!props.task) return false;
-    // Commits are only allowed from REVIEW column per JIRA-style process
-    return props.task.status?.toUpperCase().includes('REVIEW');
+    return (props.task.status || '').toUpperCase().includes('REVIEW');
 });
 
 const emitCommit = () => {
     const approach = currentApproach.value;
-    const codeToCommit = approach ? approach.content : props.code;
+    const codeToCommit = approach ? approach.content : (props.code || '');
     emit('commit', codeToCommit);
 };
-
-const copyTooltip = ref('Copy Code');
 
 const copyToClipboard = async () => {
     try {
         const approach = currentApproach.value;
-        const codeToCopy = approach ? approach.content : props.code;
-        await navigator.clipboard.writeText(codeToCopy);
-        copyTooltip.value = 'Copied!';
-        setTimeout(() => {
-            copyTooltip.value = 'Copy Code';
-        }, 2000);
+        const codeToCopy = approach ? approach.content : (props.code || '');
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            await navigator.clipboard.writeText(codeToCopy);
+            copyTooltip.value = 'Copied!';
+            setTimeout(() => {
+                copyTooltip.value = 'Copy Code';
+            }, 2000);
+        }
     } catch (err) {
         console.error('Failed to copy: ', err);
     }
 };
 
-const handleEsc = (e) => {
+const handleEsc = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && props.isOpen) {
         emit('close');
     }
 };
 
 onMounted(() => {
-    globalThis.addEventListener('keydown', handleEsc);
+    if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
+        globalThis.addEventListener('keydown', handleEsc);
+    }
 });
 
 onUnmounted(() => {
-    globalThis.removeEventListener('keydown', handleEsc);
+    if (typeof globalThis !== 'undefined' && globalThis.removeEventListener) {
+        globalThis.removeEventListener('keydown', handleEsc);
+    }
 });
 </script>
